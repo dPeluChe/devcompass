@@ -309,6 +309,183 @@ export async function searchPRs(token: string, query: string, first = 50): Promi
     }))
 }
 
+// ---------- PR detail (single PR, rich) ----------
+
+export type FileChange = {
+  path: string
+  additions: number
+  deletions: number
+  changeType: 'ADDED' | 'MODIFIED' | 'DELETED' | 'RENAMED' | 'COPIED' | 'CHANGED'
+}
+
+export type Review = {
+  state: 'APPROVED' | 'CHANGES_REQUESTED' | 'COMMENTED' | 'DISMISSED' | 'PENDING'
+  bodyHTML: string
+  submittedAt: string | null
+  author: { login: string; avatarUrl: string } | null
+}
+
+export type Comment = {
+  bodyHTML: string
+  createdAt: string
+  author: { login: string; avatarUrl: string } | null
+}
+
+export type CheckContext =
+  | {
+      __typename: 'CheckRun'
+      name: string
+      conclusion: string | null
+      status: string
+      detailsUrl: string | null
+      checkSuite: { workflowRun: { workflow: { name: string } } | null } | null
+    }
+  | { __typename: 'StatusContext'; context: string; state: string; targetUrl: string | null }
+
+export type PRDetail = {
+  number: number
+  title: string
+  url: string
+  state: 'OPEN' | 'CLOSED' | 'MERGED'
+  isDraft: boolean
+  bodyHTML: string
+  mergeable: 'MERGEABLE' | 'CONFLICTING' | 'UNKNOWN'
+  mergeStateStatus: string
+  createdAt: string
+  updatedAt: string
+  author: { login: string; avatarUrl: string; url: string } | null
+  baseRefName: string
+  headRefName: string
+  additions: number
+  deletions: number
+  changedFiles: number
+  repository: { nameWithOwner: string; url: string }
+  labels: { nodes: { name: string; color: string }[] }
+  assignees: { nodes: { login: string; avatarUrl: string }[] }
+  reviewRequests: {
+    nodes: {
+      requestedReviewer:
+        | { __typename: 'User'; login: string; avatarUrl: string }
+        | { __typename: 'Team'; name: string; avatarUrl: string }
+        | null
+    }[]
+  }
+  reviews: { nodes: Review[] }
+  comments: { nodes: Comment[] }
+  files: { nodes: FileChange[] }
+  ciState: string | null
+  checks: CheckContext[]
+}
+
+export async function fetchPullRequestDetail(
+  token: string,
+  owner: string,
+  name: string,
+  number: number
+): Promise<PRDetail> {
+  const data = await gql<{
+    repository: {
+      pullRequest: Omit<PRDetail, 'ciState' | 'checks'> & {
+        commits: {
+          nodes: {
+            commit: {
+              statusCheckRollup: {
+                state: string
+                contexts: { nodes: CheckContext[] }
+              } | null
+            }
+          }[]
+        }
+      }
+    }
+  }>(
+    token,
+    `
+    query($owner: String!, $name: String!, $number: Int!) {
+      repository(owner: $owner, name: $name) {
+        pullRequest(number: $number) {
+          number
+          title
+          url
+          state
+          isDraft
+          bodyHTML
+          mergeable
+          mergeStateStatus
+          createdAt
+          updatedAt
+          author { login avatarUrl url }
+          baseRefName
+          headRefName
+          additions
+          deletions
+          changedFiles
+          repository { nameWithOwner url }
+          labels(first: 20) { nodes { name color } }
+          assignees(first: 10) { nodes { login avatarUrl } }
+          reviewRequests(first: 10) {
+            nodes {
+              requestedReviewer {
+                __typename
+                ... on User { login avatarUrl }
+                ... on Team { name avatarUrl }
+              }
+            }
+          }
+          reviews(first: 30) {
+            nodes {
+              state
+              bodyHTML
+              submittedAt
+              author { login avatarUrl }
+            }
+          }
+          comments(first: 30) {
+            nodes {
+              bodyHTML
+              createdAt
+              author { login avatarUrl }
+            }
+          }
+          files(first: 100) {
+            nodes { path additions deletions changeType }
+          }
+          commits(last: 1) {
+            nodes {
+              commit {
+                statusCheckRollup {
+                  state
+                  contexts(first: 30) {
+                    nodes {
+                      __typename
+                      ... on CheckRun {
+                        name conclusion status detailsUrl
+                        checkSuite { workflowRun { workflow { name } } }
+                      }
+                      ... on StatusContext {
+                        context state targetUrl
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  `,
+    { owner, name, number }
+  )
+  const pr = data.repository.pullRequest
+  const rollup = pr.commits.nodes[0]?.commit.statusCheckRollup ?? null
+  return {
+    ...pr,
+    ciState: rollup?.state ?? null,
+    checks: rollup?.contexts.nodes ?? []
+  }
+}
+
 /**
  * Lists orgs the authenticated user belongs to via REST. Sometimes returns more
  * than `viewer.organizations` (the GraphQL field is stricter about visibility).

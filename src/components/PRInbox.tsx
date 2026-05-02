@@ -1,17 +1,24 @@
 import { useEffect, useMemo, useState } from 'react'
 import { searchPRs, type PullRequest, type Viewer } from '../api/github'
+import { PRDetail } from './PRDetail'
+
+type Role = 'mine' | 'assigned' | 'review'
+
+type EnrichedPR = PullRequest & { roles: Role[] }
 
 type Props = { token: string; viewer: Viewer }
 
 export function PRInbox({ token, viewer }: Props) {
-  const [authored, setAuthored] = useState<PullRequest[]>([])
-  const [toReview, setToReview] = useState<PullRequest[]>([])
+  const [prs, setPrs] = useState<EnrichedPR[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
 
   const [search, setSearch] = useState('')
   const [hideDrafts, setHideDrafts] = useState(false)
   const [showStale, setShowStale] = useState(true)
+  const [roleFilter, setRoleFilter] = useState<Role | 'all'>('all')
+
+  const [selected, setSelected] = useState<{ owner: string; name: string; number: number } | null>(null)
 
   useEffect(() => {
     let cancelled = false
@@ -20,21 +27,20 @@ export function PRInbox({ token, viewer }: Props) {
         setLoading(true)
         setError(null)
         const me = viewer.login
-        const [a, r] = await Promise.all([
-          searchPRs(
-            token,
-            `is:pr is:open author:${me} archived:false sort:updated-desc`,
-            100
-          ),
-          searchPRs(
-            token,
-            `is:pr is:open archived:false -author:${me} (review-requested:${me} OR assignee:${me}) sort:updated-desc`,
-            100
-          )
+        const [authored, assigned, review] = await Promise.all([
+          searchPRs(token, `is:pr is:open author:${me} archived:false sort:updated-desc`, 100),
+          searchPRs(token, `is:pr is:open assignee:${me} archived:false sort:updated-desc`, 100),
+          searchPRs(token, `is:pr is:open review-requested:${me} archived:false sort:updated-desc`, 100)
         ])
         if (cancelled) return
-        setAuthored(a)
-        setToReview(r)
+        const merged = mergePRs(authored, assigned, review)
+        setPrs(merged)
+        // Auto-select first PR when arriving so the right pane has content.
+        if (merged.length > 0) {
+          const first = merged[0]
+          const [owner, name] = first.repository.nameWithOwner.split('/')
+          setSelected({ owner, name, number: first.number })
+        }
       } catch (e) {
         if (!cancelled) setError(e instanceof Error ? e.message : String(e))
       } finally {
@@ -46,159 +52,162 @@ export function PRInbox({ token, viewer }: Props) {
     }
   }, [token, viewer.login])
 
-  const filterFn = useMemo(() => {
+  const filtered = useMemo(() => {
     const q = search.toLowerCase().trim()
-    return (p: PullRequest) => {
+    return prs.filter((p) => {
       if (hideDrafts && p.isDraft) return false
+      if (roleFilter !== 'all' && !p.roles.includes(roleFilter)) return false
       if (!q) return true
       return (
         p.title.toLowerCase().includes(q) ||
         p.repository.nameWithOwner.toLowerCase().includes(q) ||
         (p.author?.login ?? '').toLowerCase().includes(q)
       )
-    }
-  }, [search, hideDrafts])
+    })
+  }, [prs, search, hideDrafts, roleFilter])
 
-  const filteredAuthored = useMemo(() => authored.filter(filterFn), [authored, filterFn])
-  const filteredToReview = useMemo(() => toReview.filter(filterFn), [toReview, filterFn])
+  const counts = useMemo(() => {
+    const c = { all: prs.length, mine: 0, assigned: 0, review: 0 }
+    for (const p of prs) {
+      if (p.roles.includes('mine')) c.mine++
+      if (p.roles.includes('assigned')) c.assigned++
+      if (p.roles.includes('review')) c.review++
+    }
+    return c
+  }, [prs])
 
   return (
-    <div className="inbox">
-      <div className="inbox-controls">
-        <input
-          type="search"
-          placeholder="Buscar título, repo, autor..."
-          value={search}
-          onChange={(e) => setSearch(e.target.value)}
-        />
-        <label>
-          <input type="checkbox" checked={hideDrafts} onChange={(e) => setHideDrafts(e.target.checked)} />
-          Ocultar drafts
-        </label>
-        <label>
-          <input type="checkbox" checked={showStale} onChange={(e) => setShowStale(e.target.checked)} />
-          Marcar stale (&gt;14d)
-        </label>
-      </div>
+    <div className="inbox-split">
+      <aside className="inbox-list">
+        <div className="inbox-controls">
+          <input
+            type="search"
+            placeholder="Buscar título, repo, autor..."
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+          />
+        </div>
+        <div className="role-filters">
+          <RolePill active={roleFilter === 'all'} onClick={() => setRoleFilter('all')} count={counts.all} label="Todos" />
+          <RolePill active={roleFilter === 'mine'} onClick={() => setRoleFilter('mine')} count={counts.mine} label="🚀 Yo abrí" variant="mine" />
+          <RolePill active={roleFilter === 'assigned'} onClick={() => setRoleFilter('assigned')} count={counts.assigned} label="👤 Asignado" variant="assigned" />
+          <RolePill active={roleFilter === 'review'} onClick={() => setRoleFilter('review')} count={counts.review} label="👀 Review" variant="review" />
+        </div>
+        <div className="inbox-toggles">
+          <label>
+            <input type="checkbox" checked={hideDrafts} onChange={(e) => setHideDrafts(e.target.checked)} />
+            Ocultar drafts
+          </label>
+          <label>
+            <input type="checkbox" checked={showStale} onChange={(e) => setShowStale(e.target.checked)} />
+            Marcar stale (&gt;14d)
+          </label>
+        </div>
 
-      {error && <pre className="error-inline">{error}</pre>}
+        {error && <pre className="error-inline">{error}</pre>}
+        {loading && <p className="muted">Cargando...</p>}
+        {!loading && filtered.length === 0 && <p className="muted empty">Sin PRs en esta vista.</p>}
 
-      <div className="inbox-cols">
-        <Column
-          icon="🚀"
-          title="Yo abrí"
-          subtitle="PRs creados por mí"
-          prs={filteredAuthored}
-          totalCount={authored.length}
-          loading={loading}
-          emptyMsg="No tenés PRs abiertos."
-          showStale={showStale}
-          variant="authored"
-        />
-        <Column
-          icon="👀"
-          title="Para revisar"
-          subtitle="Asignados o esperando mi review"
-          prs={filteredToReview}
-          totalCount={toReview.length}
-          loading={loading}
-          emptyMsg="Sin pendientes. Tomá un café."
-          showStale={showStale}
-          variant="review"
-        />
-      </div>
+        <ul className="pr-cards">
+          {filtered.map((pr) => (
+            <PRCard
+              key={pr.id}
+              pr={pr}
+              showStale={showStale}
+              selected={isSelected(selected, pr)}
+              onSelect={() => {
+                const [owner, name] = pr.repository.nameWithOwner.split('/')
+                setSelected({ owner, name, number: pr.number })
+              }}
+            />
+          ))}
+        </ul>
+      </aside>
+
+      <section className="inbox-detail">
+        {selected ? (
+          <PRDetail token={token} owner={selected.owner} name={selected.name} number={selected.number} />
+        ) : (
+          <div className="detail-empty muted">
+            <p>Seleccioná un PR de la izquierda para ver detalles.</p>
+          </div>
+        )}
+      </section>
     </div>
   )
 }
 
-function Column({
-  icon,
-  title,
-  subtitle,
-  prs,
-  totalCount,
-  loading,
-  emptyMsg,
-  showStale,
+function isSelected(sel: { owner: string; name: string; number: number } | null, pr: PullRequest): boolean {
+  if (!sel) return false
+  return `${sel.owner}/${sel.name}` === pr.repository.nameWithOwner && sel.number === pr.number
+}
+
+function RolePill({
+  active,
+  onClick,
+  count,
+  label,
   variant
 }: {
-  icon: string
-  title: string
-  subtitle: string
-  prs: PullRequest[]
-  totalCount: number
-  loading: boolean
-  emptyMsg: string
-  showStale: boolean
-  variant: 'authored' | 'review'
+  active: boolean
+  onClick: () => void
+  count: number
+  label: string
+  variant?: Role
 }) {
   return (
-    <section className="col">
-      <header className="col-header">
-        <div>
-          <h2>
-            <span className="col-icon">{icon}</span> {title}
-          </h2>
-          <p className="muted">{subtitle}</p>
-        </div>
-        <span className="col-count">{prs.length}{prs.length !== totalCount && <span className="muted"> / {totalCount}</span>}</span>
-      </header>
-
-      {loading && <p className="muted">Cargando...</p>}
-      {!loading && prs.length === 0 && <p className="empty muted">{emptyMsg}</p>}
-
-      <ul className="pr-cards">
-        {prs.map((pr) => (
-          <PRCard key={pr.id} pr={pr} showStale={showStale} variant={variant} />
-        ))}
-      </ul>
-    </section>
+    <button className={`role-pill ${active ? 'active' : ''} ${variant ? `pill-${variant}` : ''}`} onClick={onClick}>
+      {label} <span className="pill-count">{count}</span>
+    </button>
   )
 }
 
-function PRCard({ pr, showStale, variant }: { pr: PullRequest; showStale: boolean; variant: 'authored' | 'review' }) {
+function PRCard({
+  pr,
+  showStale,
+  selected,
+  onSelect
+}: {
+  pr: EnrichedPR
+  showStale: boolean
+  selected: boolean
+  onSelect: () => void
+}) {
   const ageDays = (Date.now() - new Date(pr.updatedAt).getTime()) / 86_400_000
   const stale = showStale && ageDays > 14
   const ci = pr.ciState ?? 'NONE'
 
   return (
-    <li className={`pr-card ${pr.isDraft ? 'draft' : ''} ${stale ? 'stale' : ''}`}>
+    <li
+      className={`pr-card ${pr.isDraft ? 'draft' : ''} ${stale ? 'stale' : ''} ${selected ? 'selected' : ''}`}
+      onClick={onSelect}
+    >
       <div className="pr-card-top">
-        <a href={pr.repository.url} target="_blank" rel="noreferrer" className="pr-repo">
-          {pr.repository.nameWithOwner}
-        </a>
-        {stale && <span className="badge stale-badge" title={`${Math.round(ageDays)} días sin actualizar`}>stale</span>}
+        <span className="pr-repo" onClick={(e) => e.stopPropagation()}>
+          <a href={pr.repository.url} target="_blank" rel="noreferrer">{pr.repository.nameWithOwner}</a>
+        </span>
+        <div className="role-badges">
+          {pr.roles.includes('mine') && <span className="role-badge bg-mine" title="Creado por mí">🚀</span>}
+          {pr.roles.includes('assigned') && <span className="role-badge bg-assigned" title="Asignado a mí">👤</span>}
+          {pr.roles.includes('review') && <span className="role-badge bg-review" title="Esperando mi review">👀</span>}
+        </div>
       </div>
 
-      <a href={pr.url} target="_blank" rel="noreferrer" className="pr-card-title">
-        <span className={`pr-state state-${ci.toLowerCase()}`} title={`CI: ${ci}`}>
-          {ciIcon(ci)}
-        </span>
-        {pr.title}
-      </a>
+      <div className="pr-card-title-row">
+        <span className={`pr-state state-${ci.toLowerCase()}`} title={`CI: ${ci}`}>{ciIcon(ci)}</span>
+        <span className="pr-card-title-text">{pr.title}</span>
+      </div>
 
       <div className="pr-card-badges">
         {pr.isDraft && <span className="badge">draft</span>}
-        {pr.reviewDecision === 'APPROVED' && <span className="badge ok">✓ approved</span>}
-        {pr.reviewDecision === 'CHANGES_REQUESTED' && <span className="badge danger">⚠ changes</span>}
-        {pr.reviewDecision === 'REVIEW_REQUIRED' && variant === 'review' && (
-          <span className="badge warn">tu turno</span>
-        )}
-        {pr.labels.nodes.slice(0, 4).map((l) => (
-          <span
-            key={l.name}
-            className="label"
-            style={{ background: `#${l.color}33`, borderColor: `#${l.color}` }}
-          >
-            {l.name}
-          </span>
-        ))}
-        {pr.labels.nodes.length > 4 && <span className="muted">+{pr.labels.nodes.length - 4}</span>}
+        {stale && <span className="badge stale-badge">stale</span>}
+        {pr.reviewDecision === 'APPROVED' && <span className="badge ok">approved</span>}
+        {pr.reviewDecision === 'CHANGES_REQUESTED' && <span className="badge danger">changes</span>}
       </div>
 
       <div className="pr-card-meta muted">
         <span>#{pr.number}</span>
-        {variant === 'review' && pr.author && (
+        {pr.author && (
           <>
             <span>·</span>
             <span title={pr.author.login}>
@@ -213,8 +222,6 @@ function PRCard({ pr, showStale, variant }: { pr: PullRequest; showStale: boolea
           <span className="add">+{pr.additions}</span>{' '}
           <span className="del">−{pr.deletions}</span>
         </span>
-        <span>·</span>
-        <span>{pr.changedFiles}f</span>
         {pr.comments.totalCount > 0 && (
           <>
             <span>·</span>
@@ -223,6 +230,26 @@ function PRCard({ pr, showStale, variant }: { pr: PullRequest; showStale: boolea
         )}
       </div>
     </li>
+  )
+}
+
+function mergePRs(authored: PullRequest[], assigned: PullRequest[], review: PullRequest[]): EnrichedPR[] {
+  const byId = new Map<string, EnrichedPR>()
+  const tag = (list: PullRequest[], role: Role) => {
+    for (const p of list) {
+      const existing = byId.get(p.id)
+      if (existing) {
+        if (!existing.roles.includes(role)) existing.roles.push(role)
+      } else {
+        byId.set(p.id, { ...p, roles: [role] })
+      }
+    }
+  }
+  tag(authored, 'mine')
+  tag(assigned, 'assigned')
+  tag(review, 'review')
+  return [...byId.values()].sort(
+    (a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime()
   )
 }
 
