@@ -133,38 +133,32 @@ export function Dashboard({ token, onLogout }: Props) {
   return (
     <div className={`dashboard ${selected ? 'with-detail' : ''}`}>
       <div className="main-col">
-        <header>
+        <header className="topbar">
           <div className="user">
-            {viewer && <img src={viewer.avatarUrl} alt="" width={32} height={32} />}
-            <div>
-              <strong>{viewer?.name ?? viewer?.login ?? '...'}</strong>
-              <div className="muted">@{viewer?.login}</div>
-            </div>
+            {viewer && <img src={viewer.avatarUrl} alt="" width={24} height={24} />}
+            <strong>@{viewer?.login ?? '...'}</strong>
           </div>
-          <div className="meta">
+
+          <nav className="view-tabs">
+            <button className={`view-tab ${view === 'repos' ? 'active' : ''}`} onClick={() => setView('repos')}>
+              Repos
+            </button>
+            <button className={`view-tab ${view === 'prs' ? 'active' : ''}`} onClick={() => setView('prs')}>
+              PRs
+            </button>
+          </nav>
+
+          <div className="meta muted">
             {loading && <span>{progressMsg || 'Cargando...'}</span>}
             {!loading && (
               <span>
-                {view === 'repos' ? `${filtered.length} / ${repos.length} repos` : `${repos.length} repos`} · {allOrgs.length} orgs
+                {view === 'repos' ? `${filtered.length}/${repos.length} repos` : `${repos.length} repos`} · {allOrgs.length} orgs
               </span>
             )}
-            {rateLimit && (
-              <span className="muted">
-                · API: {rateLimit.remaining}/{rateLimit.limit}
-              </span>
-            )}
-            <button onClick={onLogout}>Salir</button>
+            {rateLimit && <span>· {rateLimit.remaining}/{rateLimit.limit}</span>}
+            <button className="link-btn" onClick={onLogout}>Salir</button>
           </div>
         </header>
-
-        <nav className="view-tabs">
-          <button className={`view-tab ${view === 'repos' ? 'active' : ''}`} onClick={() => setView('repos')}>
-            Repos
-          </button>
-          <button className={`view-tab ${view === 'prs' ? 'active' : ''}`} onClick={() => setView('prs')}>
-            PR Inbox
-          </button>
-        </nav>
 
         <DiagnosticsBar tokenInfo={tokenInfo} orgs={allOrgs} />
 
@@ -257,77 +251,67 @@ export function Dashboard({ token, onLogout }: Props) {
 }
 
 function DiagnosticsBar({ tokenInfo, orgs }: { tokenInfo: TokenInfo | null; orgs: Org[] }) {
+  const [open, setOpen] = useState(false)
   if (!tokenInfo) return null
-  const missingReadOrg = tokenInfo.type === 'classic' && !tokenInfo.scopes.includes('read:org')
+
+  // admin:org is a superset that grants read:org. Same logic for repo scopes.
+  const hasReadOrg = tokenInfo.scopes.includes('read:org') || tokenInfo.scopes.includes('admin:org')
+  const missingReadOrg = tokenInfo.type === 'classic' && !hasReadOrg
   const noOrgs = orgs.length === 0
   const ssoIssue = !!tokenInfo.ssoRequired
+  const hasIssue = missingReadOrg || ssoIssue || (noOrgs && tokenInfo.type === 'fine-grained')
+  const ok = !hasIssue
 
   return (
-    <div className="diagnostics">
-      <div className="diag-row">
-        <span className="muted">Token:</span>
-        <span className="diag-pill">{tokenInfo.type}</span>
-        {tokenInfo.scopes.length > 0 && (
-          <>
-            <span className="muted">scopes:</span>
-            {tokenInfo.scopes.map((s) => (
-              <span key={s} className="diag-pill">{s}</span>
-            ))}
-          </>
-        )}
-        <span className="muted">orgs visibles:</span>
-        <span className="diag-pill">{orgs.length}</span>
-      </div>
+    <div className={`diag-strip ${ok ? 'ok' : 'warn'}`}>
+      <button className="diag-toggle" onClick={() => setOpen((o) => !o)}>
+        <span className={`diag-dot ${ok ? 'ok' : 'warn'}`}>{ok ? '●' : '⚠'}</span>
+        <span>{tokenInfo.type} · {orgs.length} orgs</span>
+        {hasIssue && <span className="muted">· revisar</span>}
+        <span className="muted">{open ? '▴' : '▾'}</span>
+      </button>
 
-      {orgs.length > 0 && (
-        <div className="diag-orgs">
-          {orgs.map((o) => (
-            <a key={o.login} href={o.url} target="_blank" rel="noreferrer" title={o.login}>
-              <img src={o.avatarUrl} alt={o.login} width={24} height={24} />
-              <span>{o.login}</span>
-            </a>
-          ))}
-        </div>
-      )}
-
-      {(noOrgs || missingReadOrg || ssoIssue) && (
-        <div className="diag-warn">
-          <strong>¿Faltan orgs?</strong> Posibles causas:
-          <ul>
-            {missingReadOrg && (
-              <li>
-                Tu PAT classic no tiene scope <code>read:org</code>. Edítalo en{' '}
-                <a href="https://github.com/settings/tokens" target="_blank" rel="noreferrer">
-                  settings/tokens
-                </a>{' '}
-                y agrégalo.
-              </li>
-            )}
-            {tokenInfo.type === 'fine-grained' && (
-              <li>
-                Los <strong>fine-grained PATs</strong> sólo ven las orgs que aprobaste explícitamente al crearlos.
-                Crea uno classic con <code>repo</code> + <code>read:org</code> para ver todas, o crea un fine-grained por org.
-              </li>
-            )}
-            {ssoIssue && (
-              <li>
-                Tu token requiere <strong>autorizar SAML SSO</strong> para algunas orgs.{' '}
-                <a href={tokenInfo.ssoRequired!.url} target="_blank" rel="noreferrer">
-                  Autorizar aquí
+      {open && (
+        <div className="diag-body">
+          {tokenInfo.scopes.length > 0 && (
+            <div className="diag-row">
+              <span className="muted">scopes:</span>
+              {tokenInfo.scopes.map((s) => (
+                <span key={s} className="diag-pill">{s}</span>
+              ))}
+            </div>
+          )}
+          {orgs.length > 0 && (
+            <div className="diag-orgs">
+              {orgs.map((o) => (
+                <a key={o.login} href={o.url} target="_blank" rel="noreferrer" title={o.login}>
+                  <img src={o.avatarUrl} alt={o.login} width={20} height={20} />
+                  <span>{o.login}</span>
                 </a>
-                .
-              </li>
-            )}
-            {noOrgs && !missingReadOrg && tokenInfo.type !== 'fine-grained' && !ssoIssue && (
-              <li>
-                Verifica que tu cuenta sea miembro de alguna org (no solo outside collaborator) en{' '}
-                <a href="https://github.com/settings/organizations" target="_blank" rel="noreferrer">
-                  settings/organizations
-                </a>
-                .
-              </li>
-            )}
-          </ul>
+              ))}
+            </div>
+          )}
+          {hasIssue && (
+            <ul className="diag-issues">
+              {missingReadOrg && (
+                <li>
+                  PAT classic sin <code>read:org</code> ni <code>admin:org</code>. Editá en{' '}
+                  <a href="https://github.com/settings/tokens" target="_blank" rel="noreferrer">settings/tokens</a>.
+                </li>
+              )}
+              {tokenInfo.type === 'fine-grained' && noOrgs && (
+                <li>
+                  Fine-grained PATs sólo ven orgs aprobadas. Considerá un classic con <code>repo</code> + <code>read:org</code>.
+                </li>
+              )}
+              {ssoIssue && (
+                <li>
+                  Falta autorizar SAML SSO para algunas orgs.{' '}
+                  <a href={tokenInfo.ssoRequired!.url} target="_blank" rel="noreferrer">Autorizar</a>.
+                </li>
+              )}
+            </ul>
+          )}
         </div>
       )}
     </div>

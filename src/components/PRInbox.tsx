@@ -181,11 +181,11 @@ function PRCard({
     <li
       className={`pr-card ${pr.isDraft ? 'draft' : ''} ${stale ? 'stale' : ''} ${selected ? 'selected' : ''}`}
       onClick={onSelect}
+      title={pr.title}
     >
-      <div className="pr-card-top">
-        <span className="pr-repo" onClick={(e) => e.stopPropagation()}>
-          <a href={pr.repository.url} target="_blank" rel="noreferrer">{pr.repository.nameWithOwner}</a>
-        </span>
+      <div className="pr-line-1">
+        <span className={`pr-state state-${ci.toLowerCase()}`} title={`CI: ${ci}`}>{ciIcon(ci)}</span>
+        <span className="pr-card-title-text">{pr.title}</span>
         <div className="role-badges">
           {pr.roles.includes('mine') && <span className="role-badge bg-mine" title="Creado por mí">🚀</span>}
           {pr.roles.includes('assigned') && <span className="role-badge bg-assigned" title="Asignado a mí">👤</span>}
@@ -193,41 +193,19 @@ function PRCard({
         </div>
       </div>
 
-      <div className="pr-card-title-row">
-        <span className={`pr-state state-${ci.toLowerCase()}`} title={`CI: ${ci}`}>{ciIcon(ci)}</span>
-        <span className="pr-card-title-text">{pr.title}</span>
-      </div>
-
-      <div className="pr-card-badges">
-        {pr.isDraft && <span className="badge">draft</span>}
-        {stale && <span className="badge stale-badge">stale</span>}
-        {pr.reviewDecision === 'APPROVED' && <span className="badge ok">approved</span>}
-        {pr.reviewDecision === 'CHANGES_REQUESTED' && <span className="badge danger">changes</span>}
-      </div>
-
-      <div className="pr-card-meta muted">
+      <div className="pr-line-2 muted">
+        <span className="pr-repo-inline">{pr.repository.nameWithOwner}</span>
         <span>#{pr.number}</span>
-        {pr.author && (
-          <>
-            <span>·</span>
-            <span title={pr.author.login}>
-              <img src={pr.author.avatarUrl} alt="" width={14} height={14} className="avatar-xs" /> {pr.author.login}
-            </span>
-          </>
-        )}
-        <span>·</span>
         <span title={pr.updatedAt}>{timeAgo(pr.updatedAt)}</span>
-        <span>·</span>
         <span className="diff">
           <span className="add">+{pr.additions}</span>{' '}
           <span className="del">−{pr.deletions}</span>
         </span>
-        {pr.comments.totalCount > 0 && (
-          <>
-            <span>·</span>
-            <span>💬 {pr.comments.totalCount}</span>
-          </>
-        )}
+        {pr.comments.totalCount > 0 && <span>💬 {pr.comments.totalCount}</span>}
+        {pr.isDraft && <span className="mini-flag">draft</span>}
+        {stale && <span className="mini-flag warn">stale</span>}
+        {pr.reviewDecision === 'APPROVED' && <span className="mini-flag ok">✓</span>}
+        {pr.reviewDecision === 'CHANGES_REQUESTED' && <span className="mini-flag danger">⚠</span>}
       </div>
     </li>
   )
