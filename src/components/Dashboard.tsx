@@ -16,7 +16,7 @@ import { PRInbox } from './PRInbox'
 
 type Props = { token: string; onLogout: () => void }
 
-type GroupBy = 'owner' | 'language' | 'activity'
+type GroupBy = 'none' | 'owner' | 'language' | 'activity'
 
 export function Dashboard({ token, onLogout }: Props) {
   const [viewer, setViewer] = useState<Viewer | null>(null)
@@ -31,7 +31,7 @@ export function Dashboard({ token, onLogout }: Props) {
 
   const [view, setView] = useState<'repos' | 'prs'>('repos')
   const [search, setSearch] = useState('')
-  const [groupBy, setGroupBy] = useState<GroupBy>('activity')
+  const [groupBy, setGroupBy] = useState<GroupBy>('none')
   const [hideArchived, setHideArchived] = useState(true)
   const [hideForks, setHideForks] = useState(false)
   const [ownerFilter, setOwnerFilter] = useState<string>('')
@@ -131,7 +131,7 @@ export function Dashboard({ token, onLogout }: Props) {
   }
 
   return (
-    <div className={`dashboard ${selected ? 'with-detail' : ''}`}>
+    <div className="dashboard">
       <div className="main-col">
         <header className="topbar">
           <div className="user">
@@ -175,78 +175,115 @@ export function Dashboard({ token, onLogout }: Props) {
           </details>
         )}
 
-        {view === 'repos' && (
-          <div className="controls">
-            <input
-              type="search"
-              placeholder="Buscar repos, descripción, lenguaje..."
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-            />
-            <select value={activityWindow} onChange={(e) => setActivityWindow(Number(e.target.value))}>
-              <option value={7}>Activos en 7d</option>
-              <option value={30}>Activos en 30d</option>
-              <option value={90}>Activos en 3 meses</option>
-              <option value={180}>Activos en 6 meses</option>
-              <option value={365}>Activos en 1 año</option>
-              <option value={0}>Todos (sin filtro)</option>
-            </select>
-            <select value={groupBy} onChange={(e) => setGroupBy(e.target.value as GroupBy)}>
-              <option value="activity">Agrupar por actividad</option>
-              <option value="owner">Agrupar por owner</option>
-              <option value="language">Agrupar por lenguaje</option>
-            </select>
-            <select value={ownerFilter} onChange={(e) => setOwnerFilter(e.target.value)}>
-              <option value="">Todos los owners</option>
-              {owners.map(([login, count]) => (
-                <option key={login} value={login}>
-                  {login} ({count})
-                </option>
-              ))}
-            </select>
-            <label>
-              <input type="checkbox" checked={hideArchived} onChange={(e) => setHideArchived(e.target.checked)} />
-              Ocultar archivados
-            </label>
-            <label>
-              <input type="checkbox" checked={hideForks} onChange={(e) => setHideForks(e.target.checked)} />
-              Ocultar forks
-            </label>
-          </div>
-        )}
-
         {view === 'prs' && viewer && <PRInbox token={token} viewer={viewer} />}
 
-        {view === 'repos' && <main>
-          {groups.map(([group, items]) => (
-            <section key={group} className="group">
-              <h2>
-                {group} <span className="muted">({items.length})</span>
-              </h2>
-              <div className="grid">
-                {items.map((r) => (
-                  <RepoCard
-                    key={r.id}
-                    repo={r}
-                    selected={selected?.owner === r.owner.login && selected?.name === r.name}
-                    onSelect={() => setSelected({ owner: r.owner.login, name: r.name })}
+        {view === 'repos' && (
+          <div className="repos-split">
+            <aside className="repos-list">
+              <div className="inbox-controls">
+                <input
+                  type="search"
+                  placeholder="Buscar repos, descripción, lenguaje..."
+                  value={search}
+                  onChange={(e) => setSearch(e.target.value)}
+                />
+              </div>
+              <div className="repos-filters">
+                <select value={activityWindow} onChange={(e) => setActivityWindow(Number(e.target.value))}>
+                  <option value={7}>Activos 7d</option>
+                  <option value={30}>Activos 30d</option>
+                  <option value={90}>Activos 3m</option>
+                  <option value={180}>Activos 6m</option>
+                  <option value={365}>Activos 1 año</option>
+                  <option value={0}>Todos</option>
+                </select>
+                <select value={groupBy} onChange={(e) => setGroupBy(e.target.value as GroupBy)}>
+                  <option value="none">Recientes primero</option>
+                  <option value="activity">Por actividad</option>
+                  <option value="owner">Por owner</option>
+                  <option value="language">Por lenguaje</option>
+                </select>
+                <select value={ownerFilter} onChange={(e) => setOwnerFilter(e.target.value)}>
+                  <option value="">Todos los owners</option>
+                  {owners.map(([login, count]) => (
+                    <option key={login} value={login}>
+                      {login} ({count})
+                    </option>
+                  ))}
+                </select>
+              </div>
+              <div className="inbox-toggles">
+                <label>
+                  <input type="checkbox" checked={hideArchived} onChange={(e) => setHideArchived(e.target.checked)} />
+                  Sin archivados
+                </label>
+                <label>
+                  <input type="checkbox" checked={hideForks} onChange={(e) => setHideForks(e.target.checked)} />
+                  Sin forks
+                </label>
+              </div>
+
+              <ul className="repo-list-items">
+                {groups.map(([group, items]) => (
+                  <RepoGroup
+                    key={group || '_'}
+                    label={group}
+                    items={items}
+                    selected={selected}
+                    onSelect={(r) => setSelected({ owner: r.owner.login, name: r.name })}
                   />
                 ))}
-              </div>
-            </section>
-          ))}
-        </main>}
-      </div>
+              </ul>
+            </aside>
 
-      {selected && (
-        <RepoDetail
-          token={token}
-          owner={selected.owner}
-          name={selected.name}
-          onClose={() => setSelected(null)}
-        />
-      )}
+            <section className="repos-detail-pane">
+              {selected ? (
+                <RepoDetail
+                  token={token}
+                  owner={selected.owner}
+                  name={selected.name}
+                  onClose={() => setSelected(null)}
+                />
+              ) : (
+                <div className="detail-empty muted">
+                  <p>Seleccioná un repo de la izquierda para ver detalles.</p>
+                </div>
+              )}
+            </section>
+          </div>
+        )}
+      </div>
     </div>
+  )
+}
+
+function RepoGroup({
+  label,
+  items,
+  selected,
+  onSelect
+}: {
+  label: string
+  items: Repo[]
+  selected: { owner: string; name: string } | null
+  onSelect: (r: Repo) => void
+}) {
+  return (
+    <>
+      {label && (
+        <li className="repo-group-header">
+          {label} <span className="muted">({items.length})</span>
+        </li>
+      )}
+      {items.map((r) => (
+        <RepoListItem
+          key={r.id}
+          repo={r}
+          selected={selected?.owner === r.owner.login && selected?.name === r.name}
+          onSelect={() => onSelect(r)}
+        />
+      ))}
+    </>
   )
 }
 
@@ -318,53 +355,40 @@ function DiagnosticsBar({ tokenInfo, orgs }: { tokenInfo: TokenInfo | null; orgs
   )
 }
 
-function RepoCard({ repo, selected, onSelect }: { repo: Repo; selected: boolean; onSelect: () => void }) {
+function RepoListItem({ repo, selected, onSelect }: { repo: Repo; selected: boolean; onSelect: () => void }) {
   return (
-    <article
-      className={`card ${repo.isArchived ? 'archived' : ''} ${selected ? 'selected' : ''}`}
+    <li
+      className={`repo-row ${repo.isArchived ? 'archived' : ''} ${selected ? 'selected' : ''}`}
       onClick={onSelect}
+      title={repo.description ?? repo.nameWithOwner}
     >
-      <header>
-        <a
-          href={repo.url}
-          target="_blank"
-          rel="noreferrer"
-          className="title"
-          onClick={(e) => e.stopPropagation()}
-        >
-          {repo.name}
-        </a>
-        <span className="badges">
-          {repo.isPrivate && <span className="badge">private</span>}
-          {repo.isFork && <span className="badge">fork</span>}
-          {repo.isArchived && <span className="badge">archived</span>}
+      <div className="repo-row-1">
+        <span className="repo-name">{repo.name}</span>
+        <span className="repo-row-flags">
+          {repo.isPrivate && <span className="mini-flag">priv</span>}
+          {repo.isFork && <span className="mini-flag">fork</span>}
+          {repo.isArchived && <span className="mini-flag warn">arch</span>}
         </span>
-      </header>
-      <p className="owner muted">{repo.owner.login}</p>
-      {repo.description && <p className="desc">{repo.description}</p>}
-      <footer onClick={(e) => e.stopPropagation()}>
+      </div>
+      <div className="repo-row-2 muted">
+        <span>{repo.owner.login}</span>
         {repo.primaryLanguage && (
           <span className="lang">
             <span className="dot" style={{ background: repo.primaryLanguage.color ?? '#888' }} />
             {repo.primaryLanguage.name}
           </span>
         )}
-        <span title="Stars">★ {repo.stargazerCount}</span>
-        <a href={`${repo.url}/pulls`} target="_blank" rel="noreferrer" title="Open PRs">
-          PR {repo.openPRs.totalCount}
-        </a>
-        <a href={`${repo.url}/issues`} target="_blank" rel="noreferrer" title="Open issues">
-          IS {repo.openIssues.totalCount}
-        </a>
-        <span className="muted" title={repo.pushedAt}>
-          {timeAgo(repo.pushedAt)}
-        </span>
-      </footer>
-    </article>
+        {repo.openPRs.totalCount > 0 && <span>PR {repo.openPRs.totalCount}</span>}
+        {repo.openIssues.totalCount > 0 && <span>IS {repo.openIssues.totalCount}</span>}
+        {repo.stargazerCount > 0 && <span>★ {repo.stargazerCount}</span>}
+        <span title={repo.pushedAt}>{timeAgo(repo.pushedAt)}</span>
+      </div>
+    </li>
   )
 }
 
 function groupRepos(repos: Repo[], by: GroupBy): [string, Repo[]][] {
+  if (by === 'none') return [['', repos]]
   const map = new Map<string, Repo[]>()
   for (const r of repos) {
     const key = keyFor(r, by)
@@ -378,6 +402,7 @@ function groupRepos(repos: Repo[], by: GroupBy): [string, Repo[]][] {
 function keyFor(r: Repo, by: GroupBy): string {
   if (by === 'owner') return r.owner.login
   if (by === 'language') return r.primaryLanguage?.name ?? '— sin lenguaje —'
+  // 'activity'
   const days = (Date.now() - new Date(r.pushedAt).getTime()) / 86_400_000
   if (days < 7) return 'Última semana'
   if (days < 30) return 'Último mes'
