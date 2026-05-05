@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState, useCallback } from 'react'
-import { useQuery, useQueryClient } from '@tanstack/react-query'
+import { useQuery } from '@tanstack/react-query'
 import {
   fetchRateLimit,
   fetchTokenInfo,
@@ -12,7 +12,9 @@ import {
 } from '../api/github'
 import { RepoDetail } from './RepoDetail'
 import { PRInbox } from './PRInbox'
+import { OrgManager } from './OrgManager'
 import { Skeleton, CardSkeleton, FadeIn, Pulse } from './ui'
+import { orgConfigStore } from '../store/orgConfig'
 
 export { Skeleton, CardSkeleton, FadeIn, Pulse } from './ui'
 
@@ -21,7 +23,6 @@ type Props = { token: string; onLogout: () => void }
 type GroupBy = 'none' | 'owner' | 'language' | 'activity'
 
 function useViewerData(token: string) {
-  const queryClient = useQueryClient()
   const [progressMsg, setProgressMsg] = useState('')
   const [repos, setRepos] = useState<Repo[]>([])
   const [errors, setErrors] = useState<{ source: string; message: string }[]>([])
@@ -65,31 +66,35 @@ function useViewerData(token: string) {
         merged.set(o.login, { login: o.login, avatarUrl: o.avatar_url, url: o.url })
       }
     }
-    const orgs = [...merged.values()]
+    const allOrgsList = [...merged.values()]
     
-    setProgressMsg(`Loading repos from ${orgs.length} orgs...`)
+    const { setAllOrgs, getEnabledOrgs, getSyncingOrgs } = orgConfigStore.getState()
+    setAllOrgs(allOrgsList.map(o => ({
+      login: o.login,
+      avatarUrl: o.avatarUrl,
+      enabled: true,
+      syncEnabled: true,
+      lastSyncedAt: null
+    })))
+    
+    const enabledOrgs = getEnabledOrgs()
+    const syncingOrgs = getSyncingOrgs()
+    
+    setProgressMsg(`Loading repos from ${enabledOrgs.length} orgs...`)
     
     const byId = new Map<string, Repo>()
     const errs: { source: string; message: string }[] = []
     
-    const existingRepos = queryClient.getQueryData<Repo[]>(['cachedRepos', token])
-    if (existingRepos) {
-      for (const r of existingRepos) byId.set(r.id, r)
-      setRepos(existingRepos)
-      setProgressMsg('')
-      return
-    }
-    
-    for (let i = 0; i < orgs.length; i++) {
-      const org = orgs[i]
-      setProgressMsg(`[${i + 1}/${orgs.length}] @${org.login}...`)
+    for (let i = 0; i < syncingOrgs.length; i++) {
+      const login = syncingOrgs[i]
+      setProgressMsg(`[${i + 1}/${syncingOrgs.length}] @${login}...`)
       
       try {
-        const orgRepos = await fetchOrgReposSimple(token, org.login)
+        const orgRepos = await fetchOrgReposSimple(token, login)
         for (const r of orgRepos) byId.set(r.id, r)
       } catch (e) {
-        console.warn(`Failed to load repos from ${org.login}:`, e)
-        errs.push({ source: org.login, message: e instanceof Error ? e.message : String(e) })
+        console.warn(`Failed to load repos from ${login}:`, e)
+        errs.push({ source: login, message: e instanceof Error ? e.message : String(e) })
       }
     }
 
@@ -186,6 +191,10 @@ export function Dashboard({ token, onLogout }: Props) {
               PRs
             </button>
           </nav>
+
+          {data.viewer && (
+            <OrgManager orgs={data.viewer.organizations.nodes} />
+          )}
 
           <div className="meta muted">
             {(data.isLoading || data.progressMsg) && (
