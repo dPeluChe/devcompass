@@ -1,15 +1,6 @@
 import { useEffect, useMemo, useState, useCallback } from 'react'
 import { useQuery } from '@tanstack/react-query'
-import {
-  fetchRateLimit,
-  fetchTokenInfo,
-  fetchUserOrgsRest,
-  fetchViewer,
-  fetchOrgReposSimple,
-  type Repo,
-  type TokenInfo,
-  type Org
-} from '../api/github'
+import { fetchRateLimit, fetchTokenInfo, fetchUserOrgsRest, fetchViewer, fetchOrgReposSimple, type Repo, type TokenInfo, type Org } from '../api/github'
 import { RepoDetail } from './RepoDetail'
 import { PRInbox } from './PRInbox'
 import { OrgManager } from './OrgManager'
@@ -87,7 +78,9 @@ function useViewerData(token: string) {
     
     for (let i = 0; i < syncingOrgs.length; i++) {
       const login = syncingOrgs[i]
-      setProgressMsg(`[${i + 1}/${syncingOrgs.length}] @${login}...`)
+      const current = i + 1
+      const total = syncingOrgs.length
+      setProgressMsg(`Fetching repos from @${login} (${current}/${total})`)
       
       try {
         const orgRepos = await fetchOrgReposSimple(token, login)
@@ -241,8 +234,8 @@ export function Dashboard({ token, onLogout }: Props) {
 
         {view === 'repos' && !selected && (
           <>
-            {data.isLoading ? (
-              <LoadingSkeleton />
+            {(data.isLoading || data.progressMsg) ? (
+              <LoadingSkeleton progressMsg={data.progressMsg} />
             ) : (
               <>
                 <div className="controls">
@@ -313,9 +306,14 @@ export function Dashboard({ token, onLogout }: Props) {
   )
 }
 
-function LoadingSkeleton() {
+function LoadingSkeleton({ progressMsg }: { progressMsg?: string }) {
   return (
     <FadeIn>
+      {progressMsg && (
+        <div className="loading-progress">
+          <Pulse>{progressMsg}</Pulse>
+        </div>
+      )}
       <div className="controls">
         <Skeleton height={38} width="100%" />
       </div>
