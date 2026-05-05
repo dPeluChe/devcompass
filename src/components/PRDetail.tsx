@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import { fetchPullRequestDetail, type CheckContext, type FileChange, type PRDetail as PRDetailT } from '../api/github'
+import { SanitizedMarkdown } from './SanitizedMarkdown'
 
 type Props = { token: string; owner: string; name: string; number: number }
 
@@ -96,7 +97,7 @@ export function PRDetail({ token, owner, name, number }: Props) {
                 <span>·</span>
                 <span title={data.createdAt}>description · {fmt(data.createdAt)}</span>
               </header>
-              <div className="markdown" dangerouslySetInnerHTML={{ __html: data.bodyHTML }} />
+              <SanitizedMarkdown html={data.bodyHTML} />
             </article>
           )}
           {timeline.map((item, i) => (
@@ -201,7 +202,7 @@ function TimelineItem({ item }: { item: TLItem }) {
           <span>·</span>
           <span>{fmt(r.submittedAt ?? '')}</span>
         </header>
-        {r.bodyHTML && <div className="markdown" dangerouslySetInnerHTML={{ __html: r.bodyHTML }} />}
+        {r.bodyHTML && <SanitizedMarkdown html={r.bodyHTML} />}
       </article>
     )
   }
@@ -217,7 +218,7 @@ function TimelineItem({ item }: { item: TLItem }) {
         <span>·</span>
         <span>{fmt(c.createdAt)}</span>
       </header>
-      <div className="markdown" dangerouslySetInnerHTML={{ __html: c.bodyHTML }} />
+      <SanitizedMarkdown html={c.bodyHTML} />
     </article>
   )
 }
