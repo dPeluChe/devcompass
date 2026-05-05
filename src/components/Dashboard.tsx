@@ -6,8 +6,8 @@ import { PRInbox } from './PRInbox'
 import { OrgManager } from './OrgManager'
 import { Skeleton, CardSkeleton, FadeIn, Pulse } from './ui'
 import { orgConfigStore } from '../store/orgConfig'
-import { cacheRepos, getCachedRepos } from '../store/db'
-import { FaPython, FaJs, FaJava, FaVuejs, FaReact, FaAngular, FaNode, FaDatabase, FaLock, FaCodeBranch, FaExclamationCircle } from 'react-icons/fa'
+import { cacheRepos, getCachedRepos, getPinnedRepos, pinRepo, unpinRepo, type PinnedRepo } from '../store/db'
+import { FaPython, FaJs, FaJava, FaVuejs, FaReact, FaAngular, FaNode, FaDatabase, FaLock, FaCodeBranch, FaExclamationCircle, FaStar } from 'react-icons/fa'
 import { SiTypescript, SiGo, SiRust, SiMysql, SiMongodb } from 'react-icons/si'
 import { VscJson, VscSymbolMisc } from 'react-icons/vsc'
 
@@ -160,17 +160,21 @@ export function Dashboard({ token, onLogout }: Props) {
   const [groupBy, setGroupBy] = useState<GroupBy>('none')
   const [hideArchived, setHideArchived] = useState(true)
   const [hideForks, setHideForks] = useState(false)
-  const [ownerFilter, setOwnerFilter] = useState<string>('')
+  const [selectedOwners, setSelectedOwners] = useState<string[]>([])
   const [activityWindow, setActivityWindow] = useState<number>(90)
   const [selected, setSelected] = useState<{ owner: string; name: string } | null>(null)
+  const [pinned, setPinned] = useState<PinnedRepo[]>([])
 
-  const filtered = useMemo(() => {
+  useEffect(() => {
+    getPinnedRepos().then(setPinned).catch((e) => console.warn('Failed to load pinned repos:', e))
+  }, [])
+
+  const baseFiltered = useMemo(() => {
     const q = search.toLowerCase().trim()
     const cutoff = activityWindow > 0 ? Date.now() - activityWindow * 86_400_000 : 0
     return data.repos.filter((r) => {
       if (hideArchived && r.isArchived) return false
       if (hideForks && r.isFork) return false
-      if (ownerFilter && r.owner.login !== ownerFilter) return false
       if (cutoff && new Date(r.pushedAt).getTime() < cutoff) return false
       if (!q) return true
       return (
@@ -180,15 +184,46 @@ export function Dashboard({ token, onLogout }: Props) {
         (r.primaryLanguage?.name ?? '').toLowerCase().includes(q)
       )
     })
-  }, [data.repos, search, hideArchived, hideForks, ownerFilter, activityWindow])
+  }, [data.repos, search, hideArchived, hideForks, activityWindow])
 
-  const groups = useMemo(() => groupRepos(filtered, groupBy), [filtered, groupBy])
+  const filtered = useMemo(() => {
+    if (selectedOwners.length === 0) return baseFiltered
+    const selected = new Set(selectedOwners)
+    return baseFiltered.filter((r) => selected.has(r.owner.login))
+  }, [baseFiltered, selectedOwners])
+
+  const pinnedIds = useMemo(() => new Set(pinned.map((p) => p.repoId)), [pinned])
+  const pinnedOrder = useMemo(() => new Map(pinned.map((p, i) => [p.repoId, i])), [pinned])
+  const pinnedRepos = useMemo(() => {
+    return filtered
+      .filter((r) => pinnedIds.has(r.id))
+      .sort((a, b) => (pinnedOrder.get(a.id) ?? 0) - (pinnedOrder.get(b.id) ?? 0))
+  }, [filtered, pinnedIds, pinnedOrder])
+  const unpinnedFiltered = useMemo(() => filtered.filter((r) => !pinnedIds.has(r.id)), [filtered, pinnedIds])
+
+  const groups = useMemo(() => groupRepos(unpinnedFiltered, groupBy), [unpinnedFiltered, groupBy])
 
   const owners = useMemo(() => {
     const set = new Map<string, number>()
-    for (const r of filtered) set.set(r.owner.login, (set.get(r.owner.login) ?? 0) + 1)
+    for (const r of baseFiltered) set.set(r.owner.login, (set.get(r.owner.login) ?? 0) + 1)
     return [...set.entries()].sort((a, b) => b[1] - a[1])
-  }, [filtered])
+  }, [baseFiltered])
+
+  async function handleTogglePinned(repo: Repo) {
+    if (pinnedIds.has(repo.id)) {
+      await unpinRepo(repo.id)
+    } else {
+      await pinRepo(repo.id, repo.nameWithOwner)
+    }
+    setPinned(await getPinnedRepos())
+  }
+
+  function toggleOwner(login: string) {
+    setSelectedOwners((current) => {
+      if (current.includes(login)) return current.filter((item) => item !== login)
+      return [...current, login]
+    })
+  }
 
   if (data.error) {
     return (
@@ -274,59 +309,81 @@ export function Dashboard({ token, onLogout }: Props) {
               <>
                 <div className="controls">
                   <div className="org-chips">
-                    {owners.slice(0, 6).map(([login, count]) => {
+                    <button
+                      className={`org-chip ${selectedOwners.length === 0 ? 'active' : ''}`}
+                      onClick={() => setSelectedOwners([])}
+                      title="Show every org"
+                    >
+                      All <span className="chip-count">{baseFiltered.length}</span>
+                    </button>
+                    {owners.map(([login, count]) => {
                       const org = data.viewer?.organizations.nodes.find(o => o.login === login)
+                      const selected = selectedOwners.includes(login)
                       return (
                         <button
                           key={login}
-                          className={`org-chip ${ownerFilter === login ? 'active' : ''}`}
-                          onClick={() => setOwnerFilter(ownerFilter === login ? '' : login)}
+                          className={`org-chip ${selected ? 'active' : ''}`}
+                          onClick={() => toggleOwner(login)}
+                          aria-pressed={selected}
                         >
                           {org?.avatarUrl && <img src={org.avatarUrl} alt="" className="chip-avatar" />}
                           {login} <span className="chip-count">{count}</span>
                         </button>
                       )
                     })}
-                    {owners.length > 6 && (
-                      <button
-                        className={`org-chip ${ownerFilter === '' ? 'active' : ''}`}
-                        onClick={() => setOwnerFilter('')}
-                      >
-                        +{owners.length - 6}
-                      </button>
-                    )}
                   </div>
-                  <input
-                    type="search"
-                    placeholder="Search repos, description, language..."
-                    value={search}
-                    onChange={(e) => setSearch(e.target.value)}
-                  />
-                  <select value={activityWindow} onChange={(e) => setActivityWindow(Number(e.target.value))}>
-                    <option value={7}>Active 7d</option>
-                    <option value={30}>Active 30d</option>
-                    <option value={90}>Active 3m</option>
-                    <option value={180}>Active 6m</option>
-                    <option value={365}>Active 1y</option>
-                    <option value={0}>All</option>
-                  </select>
-                  <select value={groupBy} onChange={(e) => setGroupBy(e.target.value as GroupBy)}>
-                    <option value="none">Recent first</option>
-                    <option value="activity">By activity</option>
-                    <option value="owner">By owner</option>
-                    <option value="language">By language</option>
-                  </select>
-                  <label>
-                    <input type="checkbox" checked={hideArchived} onChange={(e) => setHideArchived(e.target.checked)} />
-                    No archived
-                  </label>
-                  <label>
-                    <input type="checkbox" checked={hideForks} onChange={(e) => setHideForks(e.target.checked)} />
-                    No forks
-                  </label>
+                  <div className="filter-row">
+                    <input
+                      className="compact-search"
+                      type="search"
+                      placeholder="Search repos..."
+                      value={search}
+                      onChange={(e) => setSearch(e.target.value)}
+                    />
+                    <select value={activityWindow} onChange={(e) => setActivityWindow(Number(e.target.value))}>
+                      <option value={7}>Active 7d</option>
+                      <option value={30}>Active 30d</option>
+                      <option value={90}>Active 3m</option>
+                      <option value={180}>Active 6m</option>
+                      <option value={365}>Active 1y</option>
+                      <option value={0}>All</option>
+                    </select>
+                    <select value={groupBy} onChange={(e) => setGroupBy(e.target.value as GroupBy)}>
+                      <option value="none">Recent first</option>
+                      <option value="activity">By activity</option>
+                      <option value="owner">By owner</option>
+                      <option value="language">By language</option>
+                    </select>
+                    <label>
+                      <input type="checkbox" checked={hideArchived} onChange={(e) => setHideArchived(e.target.checked)} />
+                      No archived
+                    </label>
+                    <label>
+                      <input type="checkbox" checked={hideForks} onChange={(e) => setHideForks(e.target.checked)} />
+                      No forks
+                    </label>
+                  </div>
                 </div>
 
                 <main>
+                  {pinnedRepos.length > 0 && (
+                    <section className="group pinned-group">
+                      <h2>
+                        Pinned <span className="muted">({pinnedRepos.length})</span>
+                      </h2>
+                      <div className="grid">
+                        {pinnedRepos.map((r) => (
+                          <RepoCard
+                            key={r.id}
+                            repo={r}
+                            pinned
+                            onTogglePinned={() => handleTogglePinned(r)}
+                            onSelect={() => setSelected({ owner: r.owner.login, name: r.name })}
+                          />
+                        ))}
+                      </div>
+                    </section>
+                  )}
                   {groups.map(([group, items]) => (
                     <section key={group || '_'} className="group">
                       {group && (
@@ -339,6 +396,8 @@ export function Dashboard({ token, onLogout }: Props) {
                           <RepoCard
                             key={r.id}
                             repo={r}
+                            pinned={pinnedIds.has(r.id)}
+                            onTogglePinned={() => handleTogglePinned(r)}
                             onSelect={() => setSelected({ owner: r.owner.login, name: r.name })}
                           />
                         ))}
@@ -528,7 +587,17 @@ function getLangIcon(name: string): IconType | null {
   return icons[key] ?? null
 }
 
-function RepoCard({ repo, onSelect }: { repo: Repo; onSelect: () => void }) {
+function RepoCard({
+  repo,
+  pinned = false,
+  onTogglePinned,
+  onSelect
+}: {
+  repo: Repo
+  pinned?: boolean
+  onTogglePinned?: () => void
+  onSelect: () => void
+}) {
   const langKey = repo.primaryLanguage?.name?.toLowerCase() ?? ''
   const LangIcon = langKey ? getLangIcon(langKey) : null
   const isJS = langKey === 'javascript'
@@ -536,12 +605,24 @@ function RepoCard({ repo, onSelect }: { repo: Repo; onSelect: () => void }) {
 
   return (
     <article
-      className={`card ${repo.isArchived ? 'archived' : ''}`}
+      className={`card ${repo.isArchived ? 'archived' : ''} ${pinned ? 'pinned' : ''}`}
       onClick={onSelect}
     >
       <header>
         <span className="title">{repo.name}</span>
         <span className="badges">
+          {onTogglePinned && (
+            <button
+              className={`pin-btn ${pinned ? 'active' : ''}`}
+              title={pinned ? 'Unpin repo' : 'Pin repo'}
+              onClick={(e) => {
+                e.stopPropagation()
+                onTogglePinned()
+              }}
+            >
+              <FaStar size={11} />
+            </button>
+          )}
           {repo.isPrivate && <span className="badge" title="Private"><FaLock size={10} /></span>}
           {repo.isFork && <span className="badge" title="Forked"><FaCodeBranch size={10} /></span>}
           {repo.isArchived && <span className="badge" title="Archived"><FaExclamationCircle size={10} /></span>}
