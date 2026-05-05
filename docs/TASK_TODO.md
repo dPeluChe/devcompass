@@ -1,103 +1,50 @@
 # TASK TODO - labs-ghviewer
 
-## UI/UX Improvements
+## Completed Features
 
-### High Priority
+### UI/UX
+- [x] React Router + TanStack Query integration
+- [x] Skeleton loaders and loading states
+- [x] Framer Motion animations
+- [x] Login page redesign with pattern background
+- [x] All text in English
+- [x] Port changed to 8099
 
-- [ ] Agregar skeleton loaders y estados de carga mejores
-  - Crear componentes skeleton para listas, cards, detalles
-  - Agregar spinner para cargas pequeñas
-  - Implementar transición de skeleton → contenido
+### Data Management
+- [x] TanStack Query hooks for repos, PRs, rate limit
+- [x] Zustand store for app state
+- [x] Cache store for avoiding re-fetches
+- [x] Sequential org repos loading with progress
+- [x] Retry logic for GitHub API 504 errors
 
-- [ ] Implementar navegación con react-router
-  - Rutas: /, /repos, /repos/:owner/:name, /prs, /prs/:owner/:name/:number
-  - Deep links para compartir estados
-  - Browser history integration
+### Components
+- [x] Branch Explorer
+- [x] UI components (Skeleton, Spinner, FadeIn, Pulse)
 
-- [ ] Crear vista de Branch Explorer
-  - Listar branches por repo
-  - Filtrar por fecha/actividad
-  - Mostrar diff stats vs base branch
-  - Quick actions (create PR, compare)
+### Query Keys
+```typescript
+const queryKeys = {
+  viewer: ['viewer'],
+  viewerRepos: ['viewer', 'repos'],
+  orgRepos: (login) => ['org', login, 'repos'],
+  repo: (owner, name) => ['repo', owner, name],
+  repoDetail: (owner, name) => ['repo', owner, name, 'detail'],
+  branches: (owner, name) => ['repo', owner, name, 'branches'],
+  prSearch: (query) => ['prs', 'search', query],
+  pr: (owner, name, number) => ['pr', owner, name, number],
+  rateLimit: ['rateLimit'],
+  tokenInfo: ['tokenInfo'],
+  userOrgs: ['user', 'orgs'],
+}
+```
 
-### Medium Priority
+## Pending Tasks
 
-- [ ] Agregar estado global con Zustand
-  - Store para repos, PRs, filters, UI state
-  - Persistir preferencias locales
+- [ ] Divide large files (>400 LOC)
+  - github.ts ~722 lines
+  - Dashboard.tsx ~503 lines
 
-- [ ] Implementar caché con TanStack Query
-  - Caching de repos y PRs
-  - Refetch on focus
-  - Optimistic updates
+- [ ] Add error boundaries
+- [ ] Mobile responsive design
 
-- [ ] Agregar filtros guardados
-  - Guardar filtros frecuentes
-  - Quick access toolbar
-
-- [ ] Agregar búsqueda avanzada
-  - Búsqueda por múltiples criterios
-  - Keyboard shortcuts (/, ?, etc)
-
-- [ ] Agregar responsive design
-  - Mobile layout (< 768px)
-  - Tablet layout (768-1024px)
-
-### Animations & Polish
-
-- [ ] Agregar Framer Motion transitions
-  - Page transitions
-  - List item stagger
-  - Tab transitions
-  - Modal animations
-
-- [ ] Mejorar micro-interactions
-  - Hover states
-  - Focus states
-  - Loading states
-
-## Features
-
-### Core
-
-- [ ] PR Actions desde la app
-  - Approve PR
-  - Request changes
-  - Comment
-
-- [ ] Branch comparison view
-  - Compare cualquier par de branches
-  - Diff stats resumidos
-
-- [ ] Notificaciones
-  - Polling para nuevos PRs
-  - Desktop notifications
-
-### Data
-
-- [ ] Exportar datos
-  - CSV de PRs/repos
-  - Copy to clipboard
-
-- [ ] Dashboard summary
-  - PRs needing review
-  - My pending PRs
-  - Activity chart
-
-## Implementaciones Completadas
-
-- [x] React Router + TanStack Query integrados
-- [x] Query hooks: useViewer, usePRSearch, useRepoDetail, useBranches
-- [x] Puerto cambiado a 8099
-
-### Pending Tasks
-
-- [ ] Dividir archivos grandes (>400 LOC)
-
-- [ ] Agregar tests
-- [ ] Error boundaries
-- [ ] Logging/monitoring
-- [ ] TypeScript strict
-- [ ] ESLint config
-
-<!-- Generated: 2025-05-04 -->
+<!-- Generated: 2025-05-05 -->
