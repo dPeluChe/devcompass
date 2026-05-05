@@ -6,12 +6,15 @@ import { PRInbox } from './PRInbox'
 import { OrgManager } from './OrgManager'
 import { Skeleton, CardSkeleton, FadeIn, Pulse } from './ui'
 import { orgConfigStore } from '../store/orgConfig'
+import { FaPython, FaJs, FaJava, FaVuejs, FaReact, FaAngular, FaNode, FaDatabase, FaLock, FaCodeBranch, FaExclamationCircle } from 'react-icons/fa'
+import { SiTypescript, SiGo, SiRust, SiMysql, SiMongodb } from 'react-icons/si'
+import { VscJson, VscSymbolMisc } from 'react-icons/vsc'
 
 export { Skeleton, CardSkeleton, FadeIn, Pulse } from './ui'
 
 type Props = { token: string; onLogout: () => void }
-
 type GroupBy = 'none' | 'owner' | 'language' | 'activity'
+type IconType = typeof FaPython
 
 function useViewerData(token: string) {
   const [progressMsg, setProgressMsg] = useState('')
@@ -468,7 +471,38 @@ function DiagnosticsBar({ tokenInfo, orgs }: { tokenInfo: TokenInfo; orgs: Org[]
   )
 }
 
+function getLangIcon(name: string): IconType | null {
+  const key = name?.toLowerCase() ?? ''
+  const icons: Record<string, IconType> = {
+    python: FaPython,
+    javascript: FaJs,
+    typescript: SiTypescript,
+    java: FaJava,
+    go: SiGo,
+    rust: SiRust,
+    docker: FaDatabase,
+    vue: FaVuejs,
+    react: FaReact,
+    angular: FaAngular,
+    nodejs: FaNode,
+    sql: FaDatabase,
+    postgresql: SiMysql,
+    mysql: SiMysql,
+    mongodb: SiMongodb,
+    swift: FaNode,
+    shell: FaNode,
+    yaml: VscSymbolMisc,
+    json: VscJson,
+  }
+  return icons[key] ?? null
+}
+
 function RepoCard({ repo, onSelect }: { repo: Repo; onSelect: () => void }) {
+  const langKey = repo.primaryLanguage?.name?.toLowerCase() ?? ''
+  const LangIcon = langKey ? getLangIcon(langKey) : null
+  const isJS = langKey === 'javascript'
+  const isTS = langKey === 'typescript'
+
   return (
     <article
       className={`card ${repo.isArchived ? 'archived' : ''}`}
@@ -477,24 +511,28 @@ function RepoCard({ repo, onSelect }: { repo: Repo; onSelect: () => void }) {
       <header>
         <span className="title">{repo.name}</span>
         <span className="badges">
-          {repo.isPrivate && <span className="badge">priv</span>}
-          {repo.isFork && <span className="badge">fork</span>}
-          {repo.isArchived && <span className="badge">arch</span>}
+          {repo.isPrivate && <span className="badge" title="Private"><FaLock size={10} /></span>}
+          {repo.isFork && <span className="badge" title="Forked"><FaCodeBranch size={10} /></span>}
+          {repo.isArchived && <span className="badge" title="Archived"><FaExclamationCircle size={10} /></span>}
+          {isJS && <span className="badge" title="JavaScript">JS</span>}
+          {isTS && <span className="badge" title="TypeScript">TS</span>}
+          {LangIcon && !isJS && !isTS && <span className="badge" title={repo.primaryLanguage?.name}><LangIcon size={10} color={repo.primaryLanguage?.color ?? '#888'} /></span>}
         </span>
       </header>
       <p className="owner muted">{repo.owner.login}</p>
       {repo.description && <p className="desc">{repo.description}</p>}
       <footer>
-        {repo.primaryLanguage && (
-          <span className="lang">
-            <span className="dot" style={{ background: repo.primaryLanguage.color ?? '#888' }} />
-            {repo.primaryLanguage.name}
+        {repo.defaultBranchRef && (
+          <span className="meta" title={`Branch: ${repo.defaultBranchRef.name}`}>
+            <FaCodeBranch size={10} /> {repo.defaultBranchRef.name}
           </span>
         )}
-        {repo.stargazerCount > 0 && <span title="Stars">★ {repo.stargazerCount}</span>}
-        {repo.openPRs.totalCount > 0 && <span title="Open PRs">PR {repo.openPRs.totalCount}</span>}
-        {repo.openIssues.totalCount > 0 && <span title="Open issues">IS {repo.openIssues.totalCount}</span>}
+        {repo.openPRs.totalCount > 0 && (
+          <span className="meta" title="Open PRs">⚡{repo.openPRs.totalCount} PR{repo.openPRs.totalCount > 1 ? 's' : ''}</span>
+        )}
         <span className="muted" title={repo.pushedAt}>{timeAgo(repo.pushedAt)}</span>
+        {repo.stargazerCount > 0 && <span title="Stars">★{repo.stargazerCount}</span>}
+        {repo.openIssues.totalCount > 0 && <span title="Open issues" className="issues">◎{repo.openIssues.totalCount}</span>}
       </footer>
     </article>
   )
