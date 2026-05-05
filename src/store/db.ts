@@ -26,6 +26,22 @@ export interface CachedOrg {
   enabled: boolean
   syncEnabled: boolean
   lastSyncedAt: number | null
+  order: number
+}
+
+export interface TokenMeta {
+  id: string
+  token: string
+  expiresAt: number | null
+  scopes: string[]
+  note: string
+  lastCheckedAt: number
+}
+
+export interface PinnedRepo {
+  repoId: string
+  nameWithOwner: string
+  pinnedAt: number
 }
 
 export interface UserPrefs {
@@ -39,6 +55,8 @@ class GHDatabase extends Dexie {
   repos!: Table<CachedRepo, string>
   orgs!: Table<CachedOrg, string>
   prefs!: Table<UserPrefs, string>
+  tokens!: Table<TokenMeta, string>
+  pinnedRepos!: Table<PinnedRepo, string>
 
   constructor() {
     super('ghviewer')
@@ -47,6 +65,18 @@ class GHDatabase extends Dexie {
       repos: 'id, nameWithOwner, owner.login, pushedAt, cachedAt',
       orgs: 'login',
       prefs: 'key'
+    })
+    
+    this.version(2).stores({
+      repos: 'id, nameWithOwner, owner.login, pushedAt, cachedAt',
+      orgs: 'login, order',
+      prefs: 'key',
+      tokens: 'id',
+      pinnedRepos: 'repoId, pinnedAt'
+    }).upgrade(tx => {
+      tx.table('orgs').toCollection().modify(org => {
+        org.order = 0
+      })
     })
   }
 }
@@ -80,6 +110,10 @@ export async function getRepoCount(): Promise<number> {
   return db.repos.count()
 }
 
+export async function clearAllRepos() {
+  await db.repos.clear()
+}
+
 export async function savePref(key: string, value: unknown) {
   await db.prefs.put({
     id: key,
@@ -92,4 +126,64 @@ export async function savePref(key: string, value: unknown) {
 export async function getPref<T>(key: string, defaultValue: T): Promise<T> {
   const row = await db.prefs.get(key)
   return row ? (row.value as T) : defaultValue
+}
+
+export async function saveTokenMeta(token: string, expiresAt: number | null, scopes: string[], note = 'github_pat') {
+  await db.tokens.put({
+    id: 'current',
+    token,
+    expiresAt,
+    scopes,
+    note,
+    lastCheckedAt: Date.now()
+  })
+}
+
+export async function getTokenMeta(): Promise<TokenMeta | undefined> {
+  return db.tokens.get('current')
+}
+
+export async function isTokenExpiringSoon(daysThreshold = 7): Promise<boolean> {
+  const meta = await getTokenMeta()
+  if (!meta?.expiresAt) return false
+  const msFromNow = meta.expiresAt - Date.now()
+  return msFromNow < daysThreshold * 24 * 60 * 60 * 1000
+}
+
+export async function pinRepo(repoId: string, nameWithOwner: string) {
+  await db.pinnedRepos.put({
+    repoId,
+    nameWithOwner,
+    pinnedAt: Date.now()
+  })
+}
+
+export async function unpinRepo(repoId: string) {
+  await db.pinnedRepos.delete(repoId)
+}
+
+export async function getPinnedRepos(): Promise<PinnedRepo[]> {
+  return db.pinnedRepos.orderBy('pinnedAt').reverse().toArray()
+}
+
+export async function isPinned(repoId: string): Promise<boolean> {
+  return (await db.pinnedRepos.get(repoId)) !== undefined
+}
+
+export async function setOrgOrder(login: string, order: number) {
+  await db.orgs.update(login, { order })
+}
+
+export async function getOrgsByOrder(): Promise<CachedOrg[]> {
+  return db.orgs.orderBy('order').toArray()
+}
+
+export async function getDbStats() {
+  const [repoCount, orgCount, pinnedCount, tokenCount] = await Promise.all([
+    db.repos.count(),
+    db.orgs.count(),
+    db.pinnedRepos.count(),
+    db.tokens.count()
+  ])
+  return { repoCount, orgCount, pinnedCount, tokenCount }
 }

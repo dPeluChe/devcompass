@@ -153,9 +153,9 @@ export function Dashboard({ token, onLogout }: Props) {
 
   const owners = useMemo(() => {
     const set = new Map<string, number>()
-    for (const r of data.repos) set.set(r.owner.login, (set.get(r.owner.login) ?? 0) + 1)
+    for (const r of filtered) set.set(r.owner.login, (set.get(r.owner.login) ?? 0) + 1)
     return [...set.entries()].sort((a, b) => b[1] - a[1])
-  }, [data.repos])
+  }, [filtered])
 
   if (data.error) {
     return (
@@ -239,6 +239,29 @@ export function Dashboard({ token, onLogout }: Props) {
             ) : (
               <>
                 <div className="controls">
+                  <div className="org-chips">
+                    {owners.slice(0, 6).map(([login, count]) => {
+                      const org = data.viewer?.organizations.nodes.find(o => o.login === login)
+                      return (
+                        <button
+                          key={login}
+                          className={`org-chip ${ownerFilter === login ? 'active' : ''}`}
+                          onClick={() => setOwnerFilter(ownerFilter === login ? '' : login)}
+                        >
+                          {org?.avatarUrl && <img src={org.avatarUrl} alt="" className="chip-avatar" />}
+                          {login} <span className="chip-count">{count}</span>
+                        </button>
+                      )
+                    })}
+                    {owners.length > 6 && (
+                      <button
+                        className={`org-chip ${ownerFilter === '' ? 'active' : ''}`}
+                        onClick={() => setOwnerFilter('')}
+                      >
+                        +{owners.length - 6}
+                      </button>
+                    )}
+                  </div>
                   <input
                     type="search"
                     placeholder="Search repos, description, language..."
@@ -258,14 +281,6 @@ export function Dashboard({ token, onLogout }: Props) {
                     <option value="activity">By activity</option>
                     <option value="owner">By owner</option>
                     <option value="language">By language</option>
-                  </select>
-                  <select value={ownerFilter} onChange={(e) => setOwnerFilter(e.target.value)}>
-                    <option value="">All owners</option>
-                    {owners.map(([login, count]) => (
-                      <option key={login} value={login}>
-                        {login} ({count})
-                      </option>
-                    ))}
                   </select>
                   <label>
                     <input type="checkbox" checked={hideArchived} onChange={(e) => setHideArchived(e.target.checked)} />
