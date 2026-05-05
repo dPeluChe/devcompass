@@ -82,31 +82,31 @@ export function PRInbox({ token, viewer }: Props) {
         <div className="inbox-controls">
           <input
             type="search"
-            placeholder="Buscar título, repo, autor..."
+            placeholder="Search title, repo, author..."
             value={search}
             onChange={(e) => setSearch(e.target.value)}
           />
         </div>
         <div className="role-filters">
-          <RolePill active={roleFilter === 'all'} onClick={() => setRoleFilter('all')} count={counts.all} label="Todos" />
-          <RolePill active={roleFilter === 'mine'} onClick={() => setRoleFilter('mine')} count={counts.mine} label="🚀 Yo abrí" variant="mine" />
-          <RolePill active={roleFilter === 'assigned'} onClick={() => setRoleFilter('assigned')} count={counts.assigned} label="👤 Asignado" variant="assigned" />
+          <RolePill active={roleFilter === 'all'} onClick={() => setRoleFilter('all')} count={counts.all} label="All" />
+          <RolePill active={roleFilter === 'mine'} onClick={() => setRoleFilter('mine')} count={counts.mine} label="🚀 I opened" variant="mine" />
+          <RolePill active={roleFilter === 'assigned'} onClick={() => setRoleFilter('assigned')} count={counts.assigned} label="👤 Assigned" variant="assigned" />
           <RolePill active={roleFilter === 'review'} onClick={() => setRoleFilter('review')} count={counts.review} label="👀 Review" variant="review" />
         </div>
         <div className="inbox-toggles">
           <label>
             <input type="checkbox" checked={hideDrafts} onChange={(e) => setHideDrafts(e.target.checked)} />
-            Ocultar drafts
+            Hide drafts
           </label>
           <label>
             <input type="checkbox" checked={showStale} onChange={(e) => setShowStale(e.target.checked)} />
-            Marcar stale (&gt;14d)
+            Mark stale (&gt;14d)
           </label>
         </div>
 
         {error && <pre className="error-inline">{error}</pre>}
-        {loading && <p className="muted">Cargando...</p>}
-        {!loading && filtered.length === 0 && <p className="muted empty">Sin PRs en esta vista.</p>}
+        {loading && <p className="muted">Loading...</p>}
+        {!loading && filtered.length === 0 && <p className="muted empty">No PRs in this view.</p>}
 
         <ul className="pr-cards">
           {filtered.map((pr) => (
@@ -129,7 +129,7 @@ export function PRInbox({ token, viewer }: Props) {
           <PRDetail token={token} owner={selected.owner} name={selected.name} number={selected.number} />
         ) : (
           <div className="detail-empty muted">
-            <p>Seleccioná un PR de la izquierda para ver detalles.</p>
+            <p>Select a PR from the left to see details.</p>
           </div>
         )}
       </section>
@@ -187,9 +187,9 @@ function PRCard({
         <span className={`pr-state state-${ci.toLowerCase()}`} title={`CI: ${ci}`}>{ciIcon(ci)}</span>
         <span className="pr-card-title-text">{pr.title}</span>
         <div className="role-badges">
-          {pr.roles.includes('mine') && <span className="role-badge bg-mine" title="Creado por mí">🚀</span>}
-          {pr.roles.includes('assigned') && <span className="role-badge bg-assigned" title="Asignado a mí">👤</span>}
-          {pr.roles.includes('review') && <span className="role-badge bg-review" title="Esperando mi review">👀</span>}
+          {pr.roles.includes('mine') && <span className="role-badge bg-mine" title="I created">🚀</span>}
+          {pr.roles.includes('assigned') && <span className="role-badge bg-assigned" title="Assigned to me">👤</span>}
+          {pr.roles.includes('review') && <span className="role-badge bg-review" title="Waiting for my review">👀</span>}
         </div>
       </div>
 

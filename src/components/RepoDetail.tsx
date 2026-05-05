@@ -45,17 +45,14 @@ export function RepoDetail({ token, owner, name, onClose }: Props) {
       </header>
 
       {error && <pre className="error-inline">{error}</pre>}
-      {!data && !error && <p className="muted">Cargando...</p>}
+      {!data && !error && <p className="muted">Loading...</p>}
 
       {data && (
         <div className="detail-body">
           <Section title="Resumen">
-            <KV k="Descripción" v={data.description ?? '—'} />
-            <KV k="Homepage" v={data.homepageUrl ? <a href={data.homepageUrl} target="_blank" rel="noreferrer">{data.homepageUrl}</a> : '—'} />
-            <KV k="Visibilidad" v={data.isPrivate ? 'Privado' : 'Público'} />
-            <KV k="Estado" v={[data.isArchived && 'archived', data.isFork && 'fork', data.isTemplate && 'template'].filter(Boolean).join(', ') || 'activo'} />
-            <KV k="Licencia" v={data.licenseInfo?.name ?? '—'} />
-            <KV k="Tamaño" v={data.diskUsage != null ? `${(data.diskUsage / 1024).toFixed(1)} MB` : '—'} />
+<KV k="Description" v={data.description ?? '—'} />
+            <KV k="Visibility" v={data.isPrivate ? 'Private' : 'Public'} />
+            <KV k="Size" v={data.diskUsage != null ? `${(data.diskUsage / 1024).toFixed(1)} MB` : '—'} />
             <KV k="Stars / Forks / Watchers" v={`★ ${data.stargazerCount} · ⑂ ${data.forkCount} · 👁 ${data.watchers.totalCount}`} />
             <KV k="Default branch" v={data.defaultBranchRef?.name ?? '—'} />
             <KV k="Creado" v={fmtDate(data.createdAt)} />
@@ -100,7 +97,7 @@ export function RepoDetail({ token, owner, name, onClose }: Props) {
 
           <Section title={`Últimos commits (${branchCommitsTotal(data) ?? 0})`}>
             {branchCommits(data).length === 0 ? (
-              <p className="muted">Sin commits visibles.</p>
+              <p className="muted">No visible commits.</p>
             ) : (
               <ul className="commits">
                 {branchCommits(data).map((c) => (
@@ -125,7 +122,7 @@ export function RepoDetail({ token, owner, name, onClose }: Props) {
 
           <Section title={`PRs abiertos (${data.pullRequests.totalCount})`}>
             {data.pullRequests.nodes.length === 0 ? (
-              <p className="muted">Sin PRs abiertos.</p>
+              <p className="muted">No open PRs.</p>
             ) : (
               <ul className="items">
                 {data.pullRequests.nodes.map((pr) => (
@@ -145,7 +142,7 @@ export function RepoDetail({ token, owner, name, onClose }: Props) {
 
           <Section title={`Issues abiertos (${data.issues.totalCount})`}>
             {data.issues.nodes.length === 0 ? (
-              <p className="muted">Sin issues abiertos.</p>
+              <p className="muted">No open issues.</p>
             ) : (
               <ul className="items">
                 {data.issues.nodes.map((it) => (
@@ -175,7 +172,7 @@ export function RepoDetail({ token, owner, name, onClose }: Props) {
 
           <Section title={`Releases (${data.releases.totalCount})`}>
             {data.releases.nodes.length === 0 ? (
-              <p className="muted">Sin releases.</p>
+              <p className="muted">No releases.</p>
             ) : (
               <ul className="items">
                 {data.releases.nodes.map((r) => (

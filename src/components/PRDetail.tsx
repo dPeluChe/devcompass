@@ -27,7 +27,7 @@ export function PRDetail({ token, owner, name, number }: Props) {
   }, [token, owner, name, number])
 
   if (error) return <div className="pr-detail"><pre className="error-inline">{error}</pre></div>
-  if (!data) return <div className="pr-detail"><p className="muted">Cargando PR...</p></div>
+  if (!data) return <div className="pr-detail"><p className="muted">Loading PR...</p></div>
 
   const timeline = buildTimeline(data)
 
@@ -51,12 +51,12 @@ export function PRDetail({ token, owner, name, number }: Props) {
               <img src={data.author.avatarUrl} alt="" width={16} height={16} className="avatar-xs" /> {data.author.login}
             </span>
           )}
-          <span>quiere mergear</span>
+          <span>wants to merge</span>
           <code>{data.headRefName}</code>
           <span>→</span>
           <code>{data.baseRefName}</code>
           <span>·</span>
-          <span><span className="add">+{data.additions}</span> <span className="del">−{data.deletions}</span> en {data.changedFiles} archivos</span>
+          <span><span className="add">+{data.additions}</span> <span className="del">−{data.deletions}</span> in {data.changedFiles} files</span>
         </div>
         <MergeBanner detail={data} />
       </header>
@@ -73,10 +73,10 @@ export function PRDetail({ token, owner, name, number }: Props) {
 
       <div className="pr-detail-tabs">
         <button className={`tab ${tab === 'conversation' ? 'active' : ''}`} onClick={() => setTab('conversation')}>
-          Conversación ({data.reviews.nodes.length + data.comments.nodes.length})
+          Conversation ({data.reviews.nodes.length + data.comments.nodes.length})
         </button>
         <button className={`tab ${tab === 'files' ? 'active' : ''}`} onClick={() => setTab('files')}>
-          Archivos ({data.files.nodes.length})
+          Files ({data.files.nodes.length})
         </button>
         <button className={`tab ${tab === 'checks' ? 'active' : ''}`} onClick={() => setTab('checks')}>
           Checks ({data.checks.length})
@@ -94,7 +94,7 @@ export function PRDetail({ token, owner, name, number }: Props) {
                   </span>
                 )}
                 <span>·</span>
-                <span title={data.createdAt}>descripción · {fmt(data.createdAt)}</span>
+                <span title={data.createdAt}>description · {fmt(data.createdAt)}</span>
               </header>
               <div className="markdown" dangerouslySetInnerHTML={{ __html: data.bodyHTML }} />
             </article>
@@ -102,11 +102,11 @@ export function PRDetail({ token, owner, name, number }: Props) {
           {timeline.map((item, i) => (
             <TimelineItem key={i} item={item} />
           ))}
-          {timeline.length === 0 && !data.bodyHTML && <p className="muted">Sin actividad aún.</p>}
+          {timeline.length === 0 && !data.bodyHTML && <p className="muted">No activity yet.</p>}
 
           {data.reviewRequests.nodes.length > 0 && (
             <div className="reviewers-pending">
-              <strong className="muted">Esperando review de:</strong>
+              <strong className="muted">Waiting for review from:</strong>
               {data.reviewRequests.nodes.map((r, i) => {
                 const rev = r.requestedReviewer
                 if (!rev) return null
@@ -135,7 +135,7 @@ export function PRDetail({ token, owner, name, number }: Props) {
               </span>
             </li>
           ))}
-          {data.files.nodes.length === 0 && <li className="muted">Sin archivos cambiados.</li>}
+          {data.files.nodes.length === 0 && <li className="muted">No files changed.</li>}
         </ul>
       )}
 
@@ -153,22 +153,22 @@ export function PRDetail({ token, owner, name, number }: Props) {
 
 function MergeBanner({ detail }: { detail: PRDetailT }) {
   if (detail.state === 'MERGED') {
-    return <div className="merge-banner ok">✓ Este PR ya fue mergeado.</div>
+    return <div className="merge-banner ok">✓ This PR has been merged.</div>
   }
   if (detail.state === 'CLOSED') {
-    return <div className="merge-banner danger">✕ Cerrado sin mergear.</div>
+    return <div className="merge-banner danger">✕ Closed without merging.</div>
   }
   if (detail.mergeable === 'CONFLICTING') {
-    return <div className="merge-banner danger">⚠ Tiene conflictos. Hay que resolverlos antes de mergear.</div>
+    return <div className="merge-banner danger">⚠ Has conflicts. Must resolve before merge.</div>
   }
   if (detail.mergeStateStatus === 'BLOCKED') {
-    return <div className="merge-banner warn">🔒 Mergeo bloqueado (faltan reviews o checks requeridos).</div>
+    return <div className="merge-banner warn">🔒 Merge blocked (missing reviews or required checks).</div>
   }
   if (detail.mergeStateStatus === 'BEHIND') {
-    return <div className="merge-banner warn">↓ Branch atrás de base. Hay que actualizar.</div>
+    return <div className="merge-banner warn">↓ Branch behind base. Must update.</div>
   }
   if (detail.mergeStateStatus === 'CLEAN') {
-    return <div className="merge-banner ok">✓ Listo para mergear.</div>
+    return <div className="merge-banner ok">✓ Ready to merge.</div>
   }
   return null
 }

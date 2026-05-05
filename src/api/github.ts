@@ -60,22 +60,40 @@ const REPO_FIELDS = `
 `
 
 async function gql<T>(token: string, query: string, variables: Record<string, unknown> = {}): Promise<T> {
-  const res = await fetch(GH_GRAPHQL, {
-    method: 'POST',
-    headers: {
-      Authorization: `Bearer ${token}`,
-      'Content-Type': 'application/json'
-    },
-    body: JSON.stringify({ query, variables })
-  })
-  if (!res.ok) {
-    throw new Error(`GitHub API ${res.status}: ${await res.text()}`)
+  const MAX_RETRIES = 3
+  const RETRY_DELAY = 2000
+  let lastError: Error | null = null
+  
+  for (let attempt = 0; attempt < MAX_RETRIES; attempt++) {
+    try {
+      const res = await fetch(GH_GRAPHQL, {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ query, variables })
+      })
+      
+      if (!res.ok) {
+        const text = await res.text()
+        throw new Error(`GitHub API ${res.status}: ${text}`)
+      }
+      
+      const json = await res.json()
+      if (json.errors) {
+        throw new Error(json.errors.map((e: { message: string }) => e.message).join('; '))
+      }
+      return json.data as T
+    } catch (e) {
+      lastError = e instanceof Error ? e : new Error(String(e))
+      if (attempt < MAX_RETRIES - 1) {
+        console.warn(`GraphQL attempt ${attempt + 1} failed, retrying in ${RETRY_DELAY}ms...`, lastError.message)
+        await new Promise(r => setTimeout(r, RETRY_DELAY))
+      }
+    }
   }
-  const json = await res.json()
-  if (json.errors) {
-    throw new Error(json.errors.map((e: { message: string }) => e.message).join('; '))
-  }
-  return json.data as T
+  throw lastError || new Error('Unknown error')
 }
 
 export async function fetchViewer(token: string): Promise<Viewer> {
@@ -140,6 +158,18 @@ async function fetchOrgReposPage(token: string, login: string, after: string | n
     { login, after }
   )
   return data.organization?.repositories ?? { nodes: [], pageInfo: { hasNextPage: false, endCursor: null } }
+}
+
+export async function fetchOrgReposSimple(token: string, login: string): Promise<Repo[]> {
+  const repos: Repo[] = []
+  let after: string | null = null
+  for (;;) {
+    const page = await fetchOrgReposPage(token, login, after)
+    repos.push(...page.nodes)
+    if (!page.pageInfo.hasNextPage) break
+    after = page.pageInfo.endCursor
+  }
+  return repos
 }
 
 async function paginate(fetchPage: (after: string | null) => Promise<Page>, onPage?: (n: number) => void): Promise<Repo[]> {
@@ -653,4 +683,52 @@ export async function fetchRepoDetail(token: string, owner: string, name: string
     { owner, name }
   )
   return data.repository
+}
+
+export type Branch = {
+  name: string
+  target: {
+    committedDate: string
+    messageHeadline: string
+    author: { user: { login: string; avatarUrl: string } | null } | null
+  }
+}
+
+export async function fetchBranches(token: string, owner: string, name: string): Promise<Branch[]> {
+  const data = await gql<{
+    repository: {
+      branches: {
+        nodes: {
+          name: string
+          target: {
+            committedDate: string
+            messageHeadline: string
+            author: { user: { login: string; avatarUrl: string } | null } | null
+          }
+        }[]
+      }
+    }
+  }>(
+    token,
+    `
+    query($owner: String!, $name: String!) {
+      repository(owner: $owner, name: $name) {
+        branches(first: 100, orderBy: { field: COMMIT_DATE, direction: DESC }) {
+          nodes {
+            name
+            target {
+              ... on Commit {
+                committedDate
+                messageHeadline
+                author { user { login avatarUrl } }
+              }
+            }
+          }
+        }
+      }
+    }
+  `,
+    { owner, name }
+  )
+  return data.repository.branches.nodes
 }
