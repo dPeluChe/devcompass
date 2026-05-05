@@ -1231,11 +1231,6 @@ button:disabled { opacity: 0.5; cursor: not-allowed; }
   color: var(--muted);
   font-size: 1rem;
   cursor: pointer;
-  padding: 0 2px;
-  line-height: 1;
-}
-.card .pin-btn:hover { color: var(--accent); }
-.card .pin-btn.active { color: #f0c239; }
   padding: 4px;
   line-height: 1;
   opacity: 0;
@@ -1263,4 +1258,3 @@ button:disabled { opacity: 0.5; cursor: not-allowed; }
   width: 16px;
   height: 16px;
 }
-
