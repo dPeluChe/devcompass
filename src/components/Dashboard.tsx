@@ -1,103 +1,143 @@
-import { useEffect, useMemo, useState } from 'react'
-import {
-  fetchAllRepos,
-  fetchRateLimit,
-  fetchTokenInfo,
-  fetchUserOrgsRest,
-  fetchViewer,
-  type Org,
-  type RateLimit,
-  type Repo,
-  type TokenInfo,
-  type Viewer
-} from '../api/github'
+import { useEffect, useMemo, useState, useCallback } from 'react'
+import { useQuery } from '@tanstack/react-query'
+import { fetchRateLimit, fetchTokenInfo, fetchUserOrgsRest, fetchViewer, fetchOrgReposSimple, type Repo, type TokenInfo, type Org } from '../api/github'
 import { RepoDetail } from './RepoDetail'
 import { PRInbox } from './PRInbox'
+import { OrgManager } from './OrgManager'
+import { Skeleton, CardSkeleton, FadeIn, Pulse } from './ui'
+import { orgConfigStore } from '../store/orgConfig'
+import { FaPython, FaJs, FaJava, FaVuejs, FaReact, FaAngular, FaNode, FaDatabase, FaLock, FaCodeBranch, FaExclamationCircle } from 'react-icons/fa'
+import { SiTypescript, SiGo, SiRust, SiMysql, SiMongodb } from 'react-icons/si'
+import { VscJson, VscSymbolMisc } from 'react-icons/vsc'
+
+export { Skeleton, CardSkeleton, FadeIn, Pulse } from './ui'
 
 type Props = { token: string; onLogout: () => void }
+type GroupBy = 'none' | 'owner' | 'language' | 'activity'
+type IconType = typeof FaPython
 
-type GroupBy = 'owner' | 'language' | 'activity'
+function useViewerData(token: string) {
+  const [progressMsg, setProgressMsg] = useState('')
+  const [repos, setRepos] = useState<Repo[]>([])
+  const [errors, setErrors] = useState<{ source: string; message: string }[]>([])
+  
+  const viewerQuery = useQuery({
+    queryKey: ['viewer', token],
+    queryFn: () => fetchViewer(token),
+    staleTime: 30 * 60 * 1000,
+  })
+
+  const tokenInfoQuery = useQuery({
+    queryKey: ['tokenInfo', token],
+    queryFn: () => fetchTokenInfo(token),
+    staleTime: 30 * 60 * 1000,
+    enabled: !!token,
+  })
+
+  const userOrgsQuery = useQuery({
+    queryKey: ['userOrgs', token],
+    queryFn: () => fetchUserOrgsRest(token),
+    staleTime: 30 * 60 * 1000,
+    enabled: !!token,
+  })
+
+  const rateLimitQuery = useQuery({
+    queryKey: ['rateLimit', token],
+    queryFn: () => fetchRateLimit(token),
+    staleTime: 60 * 1000,
+    enabled: !!token,
+  })
+
+  const isInitialLoading = viewerQuery.isLoading || tokenInfoQuery.isLoading || rateLimitQuery.isLoading
+
+  const loadReposSequentially = useCallback(async () => {
+    const v = viewerQuery.data!
+    const restOrgs = userOrgsQuery.data ?? []
+    const merged = new Map<string, Org>()
+    for (const o of v.organizations.nodes) merged.set(o.login, o)
+    for (const o of restOrgs) {
+      if (!merged.has(o.login)) {
+        merged.set(o.login, { login: o.login, avatarUrl: o.avatar_url, url: o.url })
+      }
+    }
+    const allOrgsList = [...merged.values()]
+    
+    const { setAllOrgs, getEnabledOrgs, getSyncingOrgs } = orgConfigStore.getState()
+    setAllOrgs(allOrgsList.map(o => ({
+      login: o.login,
+      avatarUrl: o.avatarUrl,
+      enabled: true,
+      syncEnabled: true,
+      lastSyncedAt: null
+    })))
+    
+    const enabledOrgs = getEnabledOrgs()
+    const syncingOrgs = getSyncingOrgs()
+    
+    setProgressMsg(`Loading repos from ${enabledOrgs.length} orgs...`)
+    
+    const byId = new Map<string, Repo>()
+    const errs: { source: string; message: string }[] = []
+    
+    for (let i = 0; i < syncingOrgs.length; i++) {
+      const login = syncingOrgs[i]
+      const current = i + 1
+      const total = syncingOrgs.length
+      setProgressMsg(`Fetching repos from @${login} (${current}/${total})`)
+      
+      try {
+        const orgRepos = await fetchOrgReposSimple(token, login)
+        for (const r of orgRepos) byId.set(r.id, r)
+      } catch (e) {
+        console.warn(`Failed to load repos from ${login}:`, e)
+        errs.push({ source: login, message: e instanceof Error ? e.message : String(e) })
+      }
+    }
+
+    const allRepos = [...byId.values()].sort(
+      (a, b) => new Date(b.pushedAt).getTime() - new Date(a.pushedAt).getTime()
+    )
+    
+    setRepos(allRepos)
+    setErrors(errs)
+    setProgressMsg('')
+  }, [token, viewerQuery.data, userOrgsQuery.data])
+
+  useEffect(() => {
+    if (viewerQuery.data && userOrgsQuery.data && repos.length === 0) {
+      loadReposSequentially()
+    }
+  }, [viewerQuery.data, userOrgsQuery.data, loadReposSequentially])
+
+  return {
+    viewer: viewerQuery.data,
+    tokenInfo: tokenInfoQuery.data,
+    repos,
+    errors,
+    rateLimit: rateLimitQuery.data,
+    progressMsg,
+    isLoading: isInitialLoading || !!progressMsg,
+    isFetching: viewerQuery.isFetching || tokenInfoQuery.isFetching || rateLimitQuery.isFetching || !!progressMsg,
+    error: viewerQuery.error || null
+  }
+}
 
 export function Dashboard({ token, onLogout }: Props) {
-  const [viewer, setViewer] = useState<Viewer | null>(null)
-  const [allOrgs, setAllOrgs] = useState<Org[]>([])
-  const [tokenInfo, setTokenInfo] = useState<TokenInfo | null>(null)
-  const [repos, setRepos] = useState<Repo[]>([])
-  const [loading, setLoading] = useState(true)
-  const [progressMsg, setProgressMsg] = useState('')
-  const [error, setError] = useState<string | null>(null)
-  const [partialErrors, setPartialErrors] = useState<{ source: string; message: string }[]>([])
-  const [rateLimit, setRateLimit] = useState<RateLimit | null>(null)
-
+  const data = useViewerData(token)
+  
   const [view, setView] = useState<'repos' | 'prs'>('repos')
   const [search, setSearch] = useState('')
-  const [groupBy, setGroupBy] = useState<GroupBy>('activity')
+  const [groupBy, setGroupBy] = useState<GroupBy>('none')
   const [hideArchived, setHideArchived] = useState(true)
   const [hideForks, setHideForks] = useState(false)
   const [ownerFilter, setOwnerFilter] = useState<string>('')
-  /** Days. 0 = "all time". */
   const [activityWindow, setActivityWindow] = useState<number>(90)
-
   const [selected, setSelected] = useState<{ owner: string; name: string } | null>(null)
-
-  useEffect(() => {
-    let cancelled = false
-    ;(async () => {
-      try {
-        setLoading(true)
-        const [v, info, restOrgs] = await Promise.all([
-          fetchViewer(token),
-          fetchTokenInfo(token).catch((e) => {
-            console.warn('tokenInfo failed', e)
-            return null
-          }),
-          fetchUserOrgsRest(token).catch((e) => {
-            console.warn('REST orgs failed', e)
-            return [] as Awaited<ReturnType<typeof fetchUserOrgsRest>>
-          })
-        ])
-        if (cancelled) return
-        setViewer(v)
-        setTokenInfo(info)
-        // Merge GraphQL orgs + REST orgs (REST sometimes has more), dedupe by login.
-        const merged = new Map<string, Org>()
-        for (const o of v.organizations.nodes) merged.set(o.login, o)
-        for (const o of restOrgs) {
-          if (!merged.has(o.login)) {
-            merged.set(o.login, { login: o.login, avatarUrl: o.avatar_url, url: `https://github.com/${o.login}` })
-          }
-        }
-        const orgs = [...merged.values()]
-        setAllOrgs(orgs)
-        const viewerWithOrgs: Viewer = { ...v, organizations: { nodes: orgs } }
-        setProgressMsg(`${orgs.length} orgs detectadas. Cargando repos...`)
-        const { repos: all, errors } = await fetchAllRepos(token, viewerWithOrgs, (e) => {
-          if (cancelled) return
-          if (e.kind === 'viewer') setProgressMsg(`viewer: ${e.count} repos`)
-          else if (e.kind === 'org') setProgressMsg(`@${e.login}: ${e.count} repos`)
-          else setProgressMsg(`Total: ${e.total} repos únicos`)
-        })
-        if (cancelled) return
-        setRepos(all)
-        setPartialErrors(errors)
-        const rl = await fetchRateLimit(token)
-        if (cancelled) return
-        setRateLimit(rl)
-      } catch (e) {
-        if (!cancelled) setError(e instanceof Error ? e.message : String(e))
-      } finally {
-        if (!cancelled) setLoading(false)
-      }
-    })()
-    return () => {
-      cancelled = true
-    }
-  }, [token])
 
   const filtered = useMemo(() => {
     const q = search.toLowerCase().trim()
     const cutoff = activityWindow > 0 ? Date.now() - activityWindow * 86_400_000 : 0
-    return repos.filter((r) => {
+    return data.repos.filter((r) => {
       if (hideArchived && r.isArchived) return false
       if (hideForks && r.isFork) return false
       if (ownerFilter && r.owner.login !== ownerFilter) return false
@@ -110,69 +150,71 @@ export function Dashboard({ token, onLogout }: Props) {
         (r.primaryLanguage?.name ?? '').toLowerCase().includes(q)
       )
     })
-  }, [repos, search, hideArchived, hideForks, ownerFilter, activityWindow])
+  }, [data.repos, search, hideArchived, hideForks, ownerFilter, activityWindow])
 
   const groups = useMemo(() => groupRepos(filtered, groupBy), [filtered, groupBy])
 
   const owners = useMemo(() => {
     const set = new Map<string, number>()
-    for (const r of repos) set.set(r.owner.login, (set.get(r.owner.login) ?? 0) + 1)
+    for (const r of filtered) set.set(r.owner.login, (set.get(r.owner.login) ?? 0) + 1)
     return [...set.entries()].sort((a, b) => b[1] - a[1])
-  }, [repos])
+  }, [filtered])
 
-  if (error) {
+  if (data.error) {
     return (
       <div className="error">
         <h2>Error</h2>
-        <pre>{error}</pre>
-        <button onClick={onLogout}>Cambiar token</button>
+        <pre>{data.error instanceof Error ? data.error.message : String(data.error)}</pre>
+        <button onClick={onLogout}>Change token</button>
       </div>
     )
   }
 
   return (
-    <div className={`dashboard ${selected ? 'with-detail' : ''}`}>
+    <div className="dashboard">
       <div className="main-col">
-        <header>
+        <header className="topbar">
           <div className="user">
-            {viewer && <img src={viewer.avatarUrl} alt="" width={32} height={32} />}
-            <div>
-              <strong>{viewer?.name ?? viewer?.login ?? '...'}</strong>
-              <div className="muted">@{viewer?.login}</div>
-            </div>
+            {data.viewer && <img src={data.viewer.avatarUrl} alt="" width={24} height={24} />}
+            <strong>@{data.viewer?.login ?? '...'}</strong>
           </div>
-          <div className="meta">
-            {loading && <span>{progressMsg || 'Cargando...'}</span>}
-            {!loading && (
+
+          <nav className="view-tabs">
+            <button className={`view-tab ${view === 'repos' ? 'active' : ''}`} onClick={() => setView('repos')}>
+              Repos
+            </button>
+            <button className={`view-tab ${view === 'prs' ? 'active' : ''}`} onClick={() => setView('prs')}>
+              PRs
+            </button>
+          </nav>
+
+          {data.viewer && (
+            <OrgManager orgs={data.viewer.organizations.nodes} />
+          )}
+
+          <div className="meta muted">
+            {(data.isLoading || data.progressMsg) && (
               <span>
-                {view === 'repos' ? `${filtered.length} / ${repos.length} repos` : `${repos.length} repos`} · {allOrgs.length} orgs
+                <Pulse>{data.progressMsg || 'Loading...'}</Pulse>
               </span>
             )}
-            {rateLimit && (
-              <span className="muted">
-                · API: {rateLimit.remaining}/{rateLimit.limit}
+            {!data.isLoading && !data.progressMsg && (
+              <span>
+                {view === 'repos' ? `${filtered.length}/${data.repos.length} repos` : `${data.repos.length} repos`} · {data.viewer?.organizations.nodes.length ?? 0} orgs
               </span>
             )}
-            <button onClick={onLogout}>Salir</button>
+            {data.rateLimit && <span>· {data.rateLimit.remaining}/{data.rateLimit.limit}</span>}
+            <button className="link-btn" onClick={onLogout}>Logout</button>
           </div>
         </header>
 
-        <nav className="view-tabs">
-          <button className={`view-tab ${view === 'repos' ? 'active' : ''}`} onClick={() => setView('repos')}>
-            Repos
-          </button>
-          <button className={`view-tab ${view === 'prs' ? 'active' : ''}`} onClick={() => setView('prs')}>
-            PR Inbox
-          </button>
-        </nav>
+        {data.tokenInfo && <DiagnosticsBar tokenInfo={data.tokenInfo} orgs={data.viewer?.organizations.nodes ?? []} />}
 
-        <DiagnosticsBar tokenInfo={tokenInfo} orgs={allOrgs} />
-
-        {partialErrors.length > 0 && (
+        {data.errors.length > 0 && (
           <details className="partial-errors">
-            <summary>{partialErrors.length} errores parciales (ver)</summary>
+            <summary>{data.errors.length} partial errors (view)</summary>
             <ul>
-              {partialErrors.map((e, i) => (
+              {data.errors.map((e, i) => (
                 <li key={i}>
                   <strong>{e.source}:</strong> {e.message}
                 </li>
@@ -181,206 +223,323 @@ export function Dashboard({ token, onLogout }: Props) {
           </details>
         )}
 
-        {view === 'repos' && (
-          <div className="controls">
-            <input
-              type="search"
-              placeholder="Buscar repos, descripción, lenguaje..."
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-            />
-            <select value={activityWindow} onChange={(e) => setActivityWindow(Number(e.target.value))}>
-              <option value={7}>Activos en 7d</option>
-              <option value={30}>Activos en 30d</option>
-              <option value={90}>Activos en 3 meses</option>
-              <option value={180}>Activos en 6 meses</option>
-              <option value={365}>Activos en 1 año</option>
-              <option value={0}>Todos (sin filtro)</option>
-            </select>
-            <select value={groupBy} onChange={(e) => setGroupBy(e.target.value as GroupBy)}>
-              <option value="activity">Agrupar por actividad</option>
-              <option value="owner">Agrupar por owner</option>
-              <option value="language">Agrupar por lenguaje</option>
-            </select>
-            <select value={ownerFilter} onChange={(e) => setOwnerFilter(e.target.value)}>
-              <option value="">Todos los owners</option>
-              {owners.map(([login, count]) => (
-                <option key={login} value={login}>
-                  {login} ({count})
-                </option>
-              ))}
-            </select>
-            <label>
-              <input type="checkbox" checked={hideArchived} onChange={(e) => setHideArchived(e.target.checked)} />
-              Ocultar archivados
-            </label>
-            <label>
-              <input type="checkbox" checked={hideForks} onChange={(e) => setHideForks(e.target.checked)} />
-              Ocultar forks
-            </label>
-          </div>
+        {view === 'prs' && data.viewer && <PRInbox token={token} viewer={data.viewer} />}
+
+        {view === 'repos' && selected && (
+          <RepoBrowser
+            token={token}
+            repos={filtered}
+            current={selected}
+            onSelect={(r) => setSelected({ owner: r.owner.login, name: r.name })}
+            onClose={() => setSelected(null)}
+          />
         )}
 
-        {view === 'prs' && viewer && <PRInbox token={token} viewer={viewer} />}
-
-        {view === 'repos' && <main>
-          {groups.map(([group, items]) => (
-            <section key={group} className="group">
-              <h2>
-                {group} <span className="muted">({items.length})</span>
-              </h2>
-              <div className="grid">
-                {items.map((r) => (
-                  <RepoCard
-                    key={r.id}
-                    repo={r}
-                    selected={selected?.owner === r.owner.login && selected?.name === r.name}
-                    onSelect={() => setSelected({ owner: r.owner.login, name: r.name })}
-                  />
-                ))}
-              </div>
-            </section>
-          ))}
-        </main>}
-      </div>
-
-      {selected && (
-        <RepoDetail
-          token={token}
-          owner={selected.owner}
-          name={selected.name}
-          onClose={() => setSelected(null)}
-        />
-      )}
-    </div>
-  )
-}
-
-function DiagnosticsBar({ tokenInfo, orgs }: { tokenInfo: TokenInfo | null; orgs: Org[] }) {
-  if (!tokenInfo) return null
-  const missingReadOrg = tokenInfo.type === 'classic' && !tokenInfo.scopes.includes('read:org')
-  const noOrgs = orgs.length === 0
-  const ssoIssue = !!tokenInfo.ssoRequired
-
-  return (
-    <div className="diagnostics">
-      <div className="diag-row">
-        <span className="muted">Token:</span>
-        <span className="diag-pill">{tokenInfo.type}</span>
-        {tokenInfo.scopes.length > 0 && (
+        {view === 'repos' && !selected && (
           <>
-            <span className="muted">scopes:</span>
-            {tokenInfo.scopes.map((s) => (
-              <span key={s} className="diag-pill">{s}</span>
-            ))}
+            {(data.isLoading || data.progressMsg) ? (
+              <LoadingSkeleton progressMsg={data.progressMsg} />
+            ) : (
+              <>
+                <div className="controls">
+                  <div className="org-chips">
+                    {owners.slice(0, 6).map(([login, count]) => {
+                      const org = data.viewer?.organizations.nodes.find(o => o.login === login)
+                      return (
+                        <button
+                          key={login}
+                          className={`org-chip ${ownerFilter === login ? 'active' : ''}`}
+                          onClick={() => setOwnerFilter(ownerFilter === login ? '' : login)}
+                        >
+                          {org?.avatarUrl && <img src={org.avatarUrl} alt="" className="chip-avatar" />}
+                          {login} <span className="chip-count">{count}</span>
+                        </button>
+                      )
+                    })}
+                    {owners.length > 6 && (
+                      <button
+                        className={`org-chip ${ownerFilter === '' ? 'active' : ''}`}
+                        onClick={() => setOwnerFilter('')}
+                      >
+                        +{owners.length - 6}
+                      </button>
+                    )}
+                  </div>
+                  <input
+                    type="search"
+                    placeholder="Search repos, description, language..."
+                    value={search}
+                    onChange={(e) => setSearch(e.target.value)}
+                  />
+                  <select value={activityWindow} onChange={(e) => setActivityWindow(Number(e.target.value))}>
+                    <option value={7}>Active 7d</option>
+                    <option value={30}>Active 30d</option>
+                    <option value={90}>Active 3m</option>
+                    <option value={180}>Active 6m</option>
+                    <option value={365}>Active 1y</option>
+                    <option value={0}>All</option>
+                  </select>
+                  <select value={groupBy} onChange={(e) => setGroupBy(e.target.value as GroupBy)}>
+                    <option value="none">Recent first</option>
+                    <option value="activity">By activity</option>
+                    <option value="owner">By owner</option>
+                    <option value="language">By language</option>
+                  </select>
+                  <label>
+                    <input type="checkbox" checked={hideArchived} onChange={(e) => setHideArchived(e.target.checked)} />
+                    No archived
+                  </label>
+                  <label>
+                    <input type="checkbox" checked={hideForks} onChange={(e) => setHideForks(e.target.checked)} />
+                    No forks
+                  </label>
+                </div>
+
+                <main>
+                  {groups.map(([group, items]) => (
+                    <section key={group || '_'} className="group">
+                      {group && (
+                        <h2>
+                          {group} <span className="muted">({items.length})</span>
+                        </h2>
+                      )}
+                      <div className="grid">
+                        {items.map((r) => (
+                          <RepoCard
+                            key={r.id}
+                            repo={r}
+                            onSelect={() => setSelected({ owner: r.owner.login, name: r.name })}
+                          />
+                        ))}
+                      </div>
+                    </section>
+                  ))}
+                </main>
+              </>
+            )}
           </>
         )}
-        <span className="muted">orgs visibles:</span>
-        <span className="diag-pill">{orgs.length}</span>
       </div>
+    </div>
+  )
+}
 
-      {orgs.length > 0 && (
-        <div className="diag-orgs">
-          {orgs.map((o) => (
-            <a key={o.login} href={o.url} target="_blank" rel="noreferrer" title={o.login}>
-              <img src={o.avatarUrl} alt={o.login} width={24} height={24} />
-              <span>{o.login}</span>
-            </a>
-          ))}
+function LoadingSkeleton({ progressMsg }: { progressMsg?: string }) {
+  return (
+    <FadeIn>
+      {progressMsg && (
+        <div className="loading-progress">
+          <Pulse>{progressMsg}</Pulse>
         </div>
       )}
+      <div className="controls">
+        <Skeleton height={38} width="100%" />
+      </div>
+      <main>
+        <div className="group">
+          <h2><Skeleton height={20} width={120} /></h2>
+          <div className="grid">
+            {Array.from({ length: 12 }).map((_, i) => (
+              <CardSkeleton key={i} />
+            ))}
+          </div>
+        </div>
+      </main>
+    </FadeIn>
+  )
+}
 
-      {(noOrgs || missingReadOrg || ssoIssue) && (
-        <div className="diag-warn">
-          <strong>¿Faltan orgs?</strong> Posibles causas:
-          <ul>
-            {missingReadOrg && (
-              <li>
-                Tu PAT classic no tiene scope <code>read:org</code>. Edítalo en{' '}
-                <a href="https://github.com/settings/tokens" target="_blank" rel="noreferrer">
-                  settings/tokens
-                </a>{' '}
-                y agrégalo.
-              </li>
-            )}
-            {tokenInfo.type === 'fine-grained' && (
-              <li>
-                Los <strong>fine-grained PATs</strong> sólo ven las orgs que aprobaste explícitamente al crearlos.
-                Crea uno classic con <code>repo</code> + <code>read:org</code> para ver todas, o crea un fine-grained por org.
-              </li>
-            )}
-            {ssoIssue && (
-              <li>
-                Tu token requiere <strong>autorizar SAML SSO</strong> para algunas orgs.{' '}
-                <a href={tokenInfo.ssoRequired!.url} target="_blank" rel="noreferrer">
-                  Autorizar aquí
+function RepoBrowser({
+  token,
+  repos,
+  current,
+  onSelect,
+  onClose
+}: {
+  token: string
+  repos: Repo[]
+  current: { owner: string; name: string }
+  onSelect: (r: Repo) => void
+  onClose: () => void
+}) {
+  const idx = repos.findIndex((r) => r.owner.login === current.owner && r.name === current.name)
+  const prev = idx > 0 ? repos[idx - 1] : null
+  const next = idx >= 0 && idx < repos.length - 1 ? repos[idx + 1] : null
+
+  useEffect(() => {
+    const handler = (e: KeyboardEvent) => {
+      if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) return
+      if (e.key === 'Escape') onClose()
+      else if (e.key === 'ArrowLeft' && prev) onSelect(prev)
+      else if (e.key === 'ArrowRight' && next) onSelect(next)
+    }
+    window.addEventListener('keydown', handler)
+    return () => window.removeEventListener('keydown', handler)
+  }, [prev, next, onClose, onSelect])
+
+  return (
+    <div className="repo-browser">
+      <div className="browser-nav">
+        <button onClick={onClose} className="link-btn">← Back to list</button>
+        <span className="muted nav-pos">
+          {idx >= 0 ? `${idx + 1} / ${repos.length}` : ''}
+        </span>
+        <div className="browser-nav-arrows">
+          <button onClick={() => prev && onSelect(prev)} disabled={!prev} title="← prev (left arrow)">
+            ← {prev ? prev.name : ''}
+          </button>
+          <button onClick={() => next && onSelect(next)} disabled={!next} title="next (right arrow) →">
+            {next ? next.name : ''} →
+          </button>
+        </div>
+      </div>
+      <RepoDetail
+        key={`${current.owner}/${current.name}`}
+        token={token}
+        owner={current.owner}
+        name={current.name}
+        onClose={onClose}
+      />
+    </div>
+  )
+}
+
+function DiagnosticsBar({ tokenInfo, orgs }: { tokenInfo: TokenInfo; orgs: Org[] }) {
+  const [open, setOpen] = useState(false)
+  if (!tokenInfo) return null
+
+  const hasReadOrg = tokenInfo.scopes.includes('read:org') || tokenInfo.scopes.includes('admin:org')
+  const missingReadOrg = tokenInfo.type === 'classic' && !hasReadOrg
+  const noOrgs = orgs.length === 0
+  const ssoIssue = !!tokenInfo.ssoRequired
+  const hasIssue = missingReadOrg || ssoIssue || (noOrgs && tokenInfo.type === 'fine-grained')
+  const ok = !hasIssue
+
+  return (
+    <div className={`diag-strip ${ok ? 'ok' : 'warn'}`}>
+      <button className="diag-toggle" onClick={() => setOpen((o) => !o)}>
+        <span className={`diag-dot ${ok ? 'ok' : 'warn'}`}>{ok ? '●' : '⚠'}</span>
+        <span>{tokenInfo.type} · {orgs.length} orgs</span>
+        {hasIssue && <span className="muted">· review</span>}
+        <span className="muted">{open ? '▴' : '▾'}</span>
+      </button>
+
+      {open && (
+        <div className="diag-body">
+          {tokenInfo.scopes.length > 0 && (
+            <div className="diag-row">
+              <span className="muted">scopes:</span>
+              {tokenInfo.scopes.map((s) => (
+                <span key={s} className="diag-pill">{s}</span>
+              ))}
+            </div>
+          )}
+          {orgs.length > 0 && (
+            <div className="diag-orgs">
+              {orgs.map((o) => (
+                <a key={o.login} href={o.url} target="_blank" rel="noreferrer" title={o.login}>
+                  <img src={o.avatarUrl} alt={o.login} width={20} height={20} />
+                  <span>{o.login}</span>
                 </a>
-                .
-              </li>
-            )}
-            {noOrgs && !missingReadOrg && tokenInfo.type !== 'fine-grained' && !ssoIssue && (
-              <li>
-                Verifica que tu cuenta sea miembro de alguna org (no solo outside collaborator) en{' '}
-                <a href="https://github.com/settings/organizations" target="_blank" rel="noreferrer">
-                  settings/organizations
-                </a>
-                .
-              </li>
-            )}
-          </ul>
+              ))}
+            </div>
+          )}
+          {hasIssue && (
+            <ul className="diag-issues">
+              {missingReadOrg && (
+                <li>
+                  PAT classic without <code>read:org</code> or <code>admin:org</code>. Edit at{' '}
+                  <a href="https://github.com/settings/tokens" target="_blank" rel="noreferrer">settings/tokens</a>.
+                </li>
+              )}
+              {tokenInfo.type === 'fine-grained' && noOrgs && (
+                <li>
+                  Fine-grained PATs only see approved orgs. Consider a classic with <code>repo</code> + <code>read:org</code>.
+                </li>
+              )}
+              {ssoIssue && (
+                <li>
+                  Missing SAML SSO authorization for some orgs.{' '}
+                  <a href={tokenInfo.ssoRequired!.url} target="_blank" rel="noreferrer">Authorize</a>.
+                </li>
+              )}
+            </ul>
+          )}
         </div>
       )}
     </div>
   )
 }
 
-function RepoCard({ repo, selected, onSelect }: { repo: Repo; selected: boolean; onSelect: () => void }) {
+function getLangIcon(name: string): IconType | null {
+  const key = name?.toLowerCase() ?? ''
+  const icons: Record<string, IconType> = {
+    python: FaPython,
+    javascript: FaJs,
+    typescript: SiTypescript,
+    java: FaJava,
+    go: SiGo,
+    rust: SiRust,
+    docker: FaDatabase,
+    vue: FaVuejs,
+    react: FaReact,
+    angular: FaAngular,
+    nodejs: FaNode,
+    sql: FaDatabase,
+    postgresql: SiMysql,
+    mysql: SiMysql,
+    mongodb: SiMongodb,
+    swift: FaNode,
+    shell: FaNode,
+    yaml: VscSymbolMisc,
+    json: VscJson,
+  }
+  return icons[key] ?? null
+}
+
+function RepoCard({ repo, onSelect }: { repo: Repo; onSelect: () => void }) {
+  const langKey = repo.primaryLanguage?.name?.toLowerCase() ?? ''
+  const LangIcon = langKey ? getLangIcon(langKey) : null
+  const isJS = langKey === 'javascript'
+  const isTS = langKey === 'typescript'
+
   return (
     <article
-      className={`card ${repo.isArchived ? 'archived' : ''} ${selected ? 'selected' : ''}`}
+      className={`card ${repo.isArchived ? 'archived' : ''}`}
       onClick={onSelect}
     >
       <header>
-        <a
-          href={repo.url}
-          target="_blank"
-          rel="noreferrer"
-          className="title"
-          onClick={(e) => e.stopPropagation()}
-        >
-          {repo.name}
-        </a>
+        <span className="title">{repo.name}</span>
         <span className="badges">
-          {repo.isPrivate && <span className="badge">private</span>}
-          {repo.isFork && <span className="badge">fork</span>}
-          {repo.isArchived && <span className="badge">archived</span>}
+          {repo.isPrivate && <span className="badge" title="Private"><FaLock size={10} /></span>}
+          {repo.isFork && <span className="badge" title="Forked"><FaCodeBranch size={10} /></span>}
+          {repo.isArchived && <span className="badge" title="Archived"><FaExclamationCircle size={10} /></span>}
+          {isJS && <span className="badge" title="JavaScript">JS</span>}
+          {isTS && <span className="badge" title="TypeScript">TS</span>}
+          {LangIcon && !isJS && !isTS && <span className="badge" title={repo.primaryLanguage?.name}><LangIcon size={10} color={repo.primaryLanguage?.color ?? '#888'} /></span>}
         </span>
       </header>
       <p className="owner muted">{repo.owner.login}</p>
       {repo.description && <p className="desc">{repo.description}</p>}
-      <footer onClick={(e) => e.stopPropagation()}>
-        {repo.primaryLanguage && (
-          <span className="lang">
-            <span className="dot" style={{ background: repo.primaryLanguage.color ?? '#888' }} />
-            {repo.primaryLanguage.name}
+      <footer>
+        {repo.defaultBranchRef && (
+          <span className="meta" title={`Branch: ${repo.defaultBranchRef.name}`}>
+            <FaCodeBranch size={10} /> {repo.defaultBranchRef.name}
           </span>
         )}
-        <span title="Stars">★ {repo.stargazerCount}</span>
-        <a href={`${repo.url}/pulls`} target="_blank" rel="noreferrer" title="Open PRs">
-          PR {repo.openPRs.totalCount}
-        </a>
-        <a href={`${repo.url}/issues`} target="_blank" rel="noreferrer" title="Open issues">
-          IS {repo.openIssues.totalCount}
-        </a>
-        <span className="muted" title={repo.pushedAt}>
-          {timeAgo(repo.pushedAt)}
-        </span>
+        {repo.openPRs.totalCount > 0 && (
+          <span className="meta" title="Open PRs">⚡{repo.openPRs.totalCount} PR{repo.openPRs.totalCount > 1 ? 's' : ''}</span>
+        )}
+        <span className="muted" title={repo.pushedAt}>{timeAgo(repo.pushedAt)}</span>
+        {repo.stargazerCount > 0 && <span title="Stars">★{repo.stargazerCount}</span>}
+        {repo.openIssues.totalCount > 0 && <span title="Open issues" className="issues">◎{repo.openIssues.totalCount}</span>}
       </footer>
     </article>
   )
 }
 
-function groupRepos(repos: Repo[], by: GroupBy): [string, Repo[]][] {
+function groupRepos(repos: Repo[], by: GroupBy): Array<[string, Repo[]]> {
+  if (by === 'none') return [['', repos]]
   const map = new Map<string, Repo[]>()
   for (const r of repos) {
     const key = keyFor(r, by)
@@ -393,13 +552,13 @@ function groupRepos(repos: Repo[], by: GroupBy): [string, Repo[]][] {
 
 function keyFor(r: Repo, by: GroupBy): string {
   if (by === 'owner') return r.owner.login
-  if (by === 'language') return r.primaryLanguage?.name ?? '— sin lenguaje —'
+  if (by === 'language') return r.primaryLanguage?.name ?? '— no language —'
   const days = (Date.now() - new Date(r.pushedAt).getTime()) / 86_400_000
-  if (days < 7) return 'Última semana'
-  if (days < 30) return 'Último mes'
-  if (days < 90) return 'Últimos 3 meses'
-  if (days < 365) return 'Último año'
-  return 'Más de un año'
+  if (days < 7) return 'Last week'
+  if (days < 30) return 'Last month'
+  if (days < 90) return 'Last 3 months'
+  if (days < 365) return 'Last year'
+  return 'Over a year'
 }
 
 function timeAgo(iso: string): string {
