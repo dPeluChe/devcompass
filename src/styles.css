@@ -1264,20 +1264,3 @@ button:disabled { opacity: 0.5; cursor: not-allowed; }
   height: 16px;
 }
 
-.org-chips { display: flex; gap: 4px; flex-wrap: wrap; }
-.org-chip {
-  background: var(--panel);
-  border: 1px solid var(--border);
-  border-radius: 4px;
-  padding: 4px 8px;
-  color: var(--muted);
-  font-size: 0.8rem;
-  cursor: pointer;
-}
-.org-chip:hover { border-color: var(--accent); }
-.org-chip.active {
-  background: var(--accent);
-  color: var(--bg);
-  border-color: var(--accent);
-}
-
