@@ -83,7 +83,9 @@ class GHDatabase extends Dexie {
 
 export const db = new GHDatabase()
 
-export async function cacheRepos(_orgLogin: string, repos: CachedRepo[]) {
+type RepoCacheInput = Omit<CachedRepo, 'cachedAt'>
+
+export async function cacheRepos(_orgLogin: string, repos: RepoCacheInput[]) {
   await db.repos.bulkPut(
     repos.map(r => ({
       ...r,
@@ -92,8 +94,8 @@ export async function cacheRepos(_orgLogin: string, repos: CachedRepo[]) {
   )
 }
 
-export async function getCachedRepos(orgLogin: string): Promise<CachedRepo[]> {
-  const cutoff = Date.now() - (60 * 60 * 1000)
+export async function getCachedRepos(orgLogin: string, maxAgeHours = 24 * 7): Promise<CachedRepo[]> {
+  const cutoff = Date.now() - (maxAgeHours * 60 * 60 * 1000)
   return db.repos
     .where('owner.login')
     .equals(orgLogin)

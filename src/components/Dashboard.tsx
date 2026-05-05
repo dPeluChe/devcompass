@@ -6,6 +6,7 @@ import { PRInbox } from './PRInbox'
 import { OrgManager } from './OrgManager'
 import { Skeleton, CardSkeleton, FadeIn, Pulse } from './ui'
 import { orgConfigStore } from '../store/orgConfig'
+import { cacheRepos, getCachedRepos } from '../store/db'
 import { FaPython, FaJs, FaJava, FaVuejs, FaReact, FaAngular, FaNode, FaDatabase, FaLock, FaCodeBranch, FaExclamationCircle } from 'react-icons/fa'
 import { SiTypescript, SiGo, SiRust, SiMysql, SiMongodb } from 'react-icons/si'
 import { VscJson, VscSymbolMisc } from 'react-icons/vsc'
@@ -20,6 +21,7 @@ function useViewerData(token: string) {
   const [progressMsg, setProgressMsg] = useState('')
   const [repos, setRepos] = useState<Repo[]>([])
   const [errors, setErrors] = useState<{ source: string; message: string }[]>([])
+  const [loadedFromCache, setLoadedFromCache] = useState(false)
   
   const viewerQuery = useQuery({
     queryKey: ['viewer', token],
@@ -62,7 +64,7 @@ function useViewerData(token: string) {
     }
     const allOrgsList = [...merged.values()]
     
-    const { setAllOrgs, getEnabledOrgs, getSyncingOrgs } = orgConfigStore.getState()
+    const { setAllOrgs, getEnabledOrgs, getSyncingOrgs, orgNeedsSync, markOrgSynced } = orgConfigStore.getState()
     setAllOrgs(allOrgsList.map(o => ({
       login: o.login,
       avatarUrl: o.avatarUrl,
@@ -74,31 +76,54 @@ function useViewerData(token: string) {
     const enabledOrgs = getEnabledOrgs()
     const syncingOrgs = getSyncingOrgs()
     
-    setProgressMsg(`Loading repos from ${enabledOrgs.length} orgs...`)
+    setProgressMsg(`Checking local cache for ${enabledOrgs.length} orgs...`)
     
     const byId = new Map<string, Repo>()
     const errs: { source: string; message: string }[] = []
+    const cachedByOrg = new Map<string, Repo[]>()
+
+    await Promise.all(syncingOrgs.map(async (login) => {
+      const cached = await getCachedRepos(login)
+      cachedByOrg.set(login, cached)
+      for (const r of cached) byId.set(r.id, r)
+    }))
+
+    if (byId.size > 0) {
+      setRepos(sortRepos([...byId.values()]))
+      setLoadedFromCache(true)
+    }
+
+    const orgsToFetch = syncingOrgs.filter((login) => {
+      const cached = cachedByOrg.get(login) ?? []
+      return cached.length === 0 || orgNeedsSync(login)
+    })
+
+    if (orgsToFetch.length === 0) {
+      setProgressMsg('')
+      setErrors([])
+      return
+    }
     
-    for (let i = 0; i < syncingOrgs.length; i++) {
-      const login = syncingOrgs[i]
+    for (let i = 0; i < orgsToFetch.length; i++) {
+      const login = orgsToFetch[i]
       const current = i + 1
-      const total = syncingOrgs.length
-      setProgressMsg(`Fetching repos from @${login} (${current}/${total})`)
+      const total = orgsToFetch.length
+      const prefix = byId.size > 0 ? 'Refreshing' : 'Fetching'
+      setProgressMsg(`${prefix} repos from @${login} (${current}/${total})`)
       
       try {
         const orgRepos = await fetchOrgReposSimple(token, login)
+        await cacheRepos(login, orgRepos)
+        markOrgSynced(login)
         for (const r of orgRepos) byId.set(r.id, r)
+        setRepos(sortRepos([...byId.values()]))
       } catch (e) {
         console.warn(`Failed to load repos from ${login}:`, e)
         errs.push({ source: login, message: e instanceof Error ? e.message : String(e) })
       }
     }
 
-    const allRepos = [...byId.values()].sort(
-      (a, b) => new Date(b.pushedAt).getTime() - new Date(a.pushedAt).getTime()
-    )
-    
-    setRepos(allRepos)
+    setRepos(sortRepos([...byId.values()]))
     setErrors(errs)
     setProgressMsg('')
   }, [token, viewerQuery.data, userOrgsQuery.data])
@@ -116,10 +141,15 @@ function useViewerData(token: string) {
     errors,
     rateLimit: rateLimitQuery.data,
     progressMsg,
-    isLoading: isInitialLoading || !!progressMsg,
+    isLoading: repos.length === 0 && (isInitialLoading || !!progressMsg),
     isFetching: viewerQuery.isFetching || tokenInfoQuery.isFetching || rateLimitQuery.isFetching || !!progressMsg,
+    loadedFromCache,
     error: viewerQuery.error || null
   }
+}
+
+function sortRepos(repos: Repo[]): Repo[] {
+  return repos.sort((a, b) => new Date(b.pushedAt).getTime() - new Date(a.pushedAt).getTime())
 }
 
 export function Dashboard({ token, onLogout }: Props) {
@@ -201,6 +231,7 @@ export function Dashboard({ token, onLogout }: Props) {
             {!data.isLoading && !data.progressMsg && (
               <span>
                 {view === 'repos' ? `${filtered.length}/${data.repos.length} repos` : `${data.repos.length} repos`} · {data.viewer?.organizations.nodes.length ?? 0} orgs
+                {data.loadedFromCache && data.isFetching ? ' · local cache' : ''}
               </span>
             )}
             {data.rateLimit && <span>· {data.rateLimit.remaining}/{data.rateLimit.limit}</span>}
