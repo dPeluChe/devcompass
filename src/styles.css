@@ -932,35 +932,38 @@ button:disabled { opacity: 0.5; cursor: not-allowed; }
   font-weight: bold;
 }
 
-/* compact collapsible diagnostics chip */
-.diag-strip {
-  margin-bottom: 12px;
-  font-size: 0.82em;
-}
-.diag-toggle {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  background: var(--panel);
-  border: 1px solid var(--border);
-  border-radius: 14px;
-  padding: 3px 12px;
-  cursor: pointer;
-  color: var(--text);
-}
-.diag-toggle:hover { border-color: var(--accent); }
-.diag-strip.warn .diag-toggle { border-color: #d29922; }
-.diag-dot.ok { color: #3fb950; }
-.diag-dot.warn { color: #d29922; }
-.diag-body {
-  margin-top: 8px;
-  padding: 10px 12px;
-  background: var(--panel);
-  border: 1px solid var(--border);
-  border-radius: 6px;
+.token-panel {
   display: flex;
   flex-direction: column;
+  gap: 14px;
+}
+.token-summary {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(140px, 1fr));
+  gap: 12px;
+}
+.token-summary > div {
+  background: var(--panel-2);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 12px;
+}
+.token-status {
+  display: flex;
+  align-items: center;
   gap: 8px;
+  font-weight: 600;
+}
+.token-status.ok { color: #3fb950; }
+.token-status.warn { color: #d29922; }
+.token-status-dot { font-size: 0.9em; }
+.token-block {
+  border-top: 1px solid var(--border);
+  padding-top: 12px;
+}
+.token-block h3 {
+  margin: 0 0 8px;
+  font-size: 0.9rem;
 }
 .diag-row { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
 .diag-pill {

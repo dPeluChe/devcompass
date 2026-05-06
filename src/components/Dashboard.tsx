@@ -591,7 +591,7 @@ function ConfigView({
               <h2>Token access</h2>
               <span className="muted">Scopes, SSO and org visibility.</span>
             </div>
-            <DiagnosticsBar tokenInfo={tokenInfo} orgs={orgs} />
+            <TokenAccessPanel tokenInfo={tokenInfo} orgs={orgs} />
             {errors.length > 0 && (
               <details className="partial-errors" open>
                 <summary>{errors.length} sync errors</summary>
@@ -620,8 +620,7 @@ function ConfigView({
   )
 }
 
-function DiagnosticsBar({ tokenInfo, orgs }: { tokenInfo: TokenInfo; orgs: Org[] }) {
-  const [open, setOpen] = useState(false)
+function TokenAccessPanel({ tokenInfo, orgs }: { tokenInfo: TokenInfo; orgs: Org[] }) {
   if (!tokenInfo) return null
 
   const hasReadOrg = tokenInfo.scopes.includes('read:org') || tokenInfo.scopes.includes('admin:org')
@@ -632,55 +631,77 @@ function DiagnosticsBar({ tokenInfo, orgs }: { tokenInfo: TokenInfo; orgs: Org[]
   const ok = !hasIssue
 
   return (
-    <div className={`diag-strip ${ok ? 'ok' : 'warn'}`}>
-      <button className="diag-toggle" onClick={() => setOpen((o) => !o)}>
-        <span className={`diag-dot ${ok ? 'ok' : 'warn'}`}>{ok ? '●' : '⚠'}</span>
-        <span>{tokenInfo.type} · {orgs.length} orgs</span>
-        {hasIssue && <span className="muted">· review</span>}
-        <span className="muted">{open ? '▴' : '▾'}</span>
-      </button>
+    <div className="token-panel">
+      <div className="token-summary">
+        <div className={`token-status ${ok ? 'ok' : 'warn'}`}>
+          <span className="token-status-dot">{ok ? '●' : '⚠'}</span>
+          <span>{ok ? 'Ready' : 'Needs review'}</span>
+        </div>
+        <div>
+          <span className="stat-value">{tokenInfo.type}</span>
+          <span className="stat-label">Token type</span>
+        </div>
+        <div>
+          <span className="stat-value">{orgs.length}</span>
+          <span className="stat-label">Visible orgs</span>
+        </div>
+        <div>
+          <span className="stat-value">{tokenInfo.scopes.length || '0'}</span>
+          <span className="stat-label">Scopes</span>
+        </div>
+      </div>
 
-      {open && (
-        <div className="diag-body">
-          {tokenInfo.scopes.length > 0 && (
-            <div className="diag-row">
-              <span className="muted">scopes:</span>
-              {tokenInfo.scopes.map((s) => (
-                <span key={s} className="diag-pill">{s}</span>
-              ))}
-            </div>
-          )}
-          {orgs.length > 0 && (
-            <div className="diag-orgs">
-              {orgs.map((o) => (
-                <a key={o.login} href={o.url} target="_blank" rel="noreferrer" title={o.login}>
-                  <img src={o.avatarUrl} alt={o.login} width={20} height={20} />
-                  <span>{o.login}</span>
-                </a>
-              ))}
-            </div>
-          )}
-          {hasIssue && (
-            <ul className="diag-issues">
-              {missingReadOrg && (
-                <li>
-                  PAT classic without <code>read:org</code> or <code>admin:org</code>. Edit at{' '}
-                  <a href="https://github.com/settings/tokens" target="_blank" rel="noreferrer">settings/tokens</a>.
-                </li>
-              )}
-              {tokenInfo.type === 'fine-grained' && noOrgs && (
-                <li>
-                  Fine-grained PATs only see approved orgs. Consider a classic with <code>repo</code> + <code>read:org</code>.
-                </li>
-              )}
-              {ssoIssue && (
-                <li>
-                  Missing SAML SSO authorization for some orgs.{' '}
-                  <a href={tokenInfo.ssoRequired!.url} target="_blank" rel="noreferrer">Authorize</a>.
-                </li>
-              )}
-            </ul>
-          )}
+      <div className="token-block">
+        <h3>Scopes</h3>
+        {tokenInfo.scopes.length > 0 ? (
+          <div className="diag-row">
+            {tokenInfo.scopes.map((s) => (
+              <span key={s} className="diag-pill">{s}</span>
+            ))}
+          </div>
+        ) : (
+          <p className="muted">No scopes reported by GitHub for this token.</p>
+        )}
+      </div>
+
+      <div className="token-block">
+        <h3>Organizations</h3>
+        {orgs.length > 0 ? (
+          <div className="diag-orgs">
+            {orgs.map((o) => (
+              <a key={o.login} href={o.url} target="_blank" rel="noreferrer" title={o.login}>
+                <img src={o.avatarUrl} alt={o.login} width={20} height={20} />
+                <span>{o.login}</span>
+              </a>
+            ))}
+          </div>
+        ) : (
+          <p className="muted">No organizations are visible with this token.</p>
+        )}
+      </div>
+
+      {hasIssue && (
+        <div className="token-block">
+          <h3>Action needed</h3>
+          <ul className="diag-issues">
+            {missingReadOrg && (
+              <li>
+                PAT classic without <code>read:org</code> or <code>admin:org</code>. Edit at{' '}
+                <a href="https://github.com/settings/tokens" target="_blank" rel="noreferrer">settings/tokens</a>.
+              </li>
+            )}
+            {tokenInfo.type === 'fine-grained' && noOrgs && (
+              <li>
+                Fine-grained PATs only see approved orgs. Consider a classic with <code>repo</code> + <code>read:org</code>.
+              </li>
+            )}
+            {ssoIssue && (
+              <li>
+                Missing SAML SSO authorization for some orgs.{' '}
+                <a href={tokenInfo.ssoRequired!.url} target="_blank" rel="noreferrer">Authorize</a>.
+              </li>
+            )}
+          </ul>
         </div>
       )}
     </div>
