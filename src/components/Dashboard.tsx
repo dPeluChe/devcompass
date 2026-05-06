@@ -15,9 +15,17 @@ import { VscJson, VscSymbolMisc } from 'react-icons/vsc'
 export { Skeleton, CardSkeleton, FadeIn, Pulse } from './ui'
 
 type Props = { token: string; onLogout: () => void }
+type View = 'home' | 'repos' | 'prs' | 'config'
 type GroupBy = 'none' | 'owner' | 'language' | 'activity'
 type RepoScope = 'all' | 'pinned'
 type IconType = typeof FaPython
+type RepoSignalLevel = 'critical' | 'attention' | 'active' | 'quiet'
+type RepoSignal = {
+  level: RepoSignalLevel
+  label: string
+  reasons: string[]
+  score: number
+}
 
 function useViewerData(token: string) {
   const [progressMsg, setProgressMsg] = useState('')
@@ -161,7 +169,7 @@ function sortRepos(repos: Repo[]): Repo[] {
 export function Dashboard({ token, onLogout }: Props) {
   const data = useViewerData(token)
   
-  const [view, setView] = useState<'repos' | 'prs' | 'config'>('repos')
+  const [view, setView] = useState<View>('home')
   const [repoScope, setRepoScope] = useState<RepoScope>('all')
   const [search, setSearch] = useState('')
   const [groupBy, setGroupBy] = useState<GroupBy>('none')
@@ -227,6 +235,7 @@ export function Dashboard({ token, onLogout }: Props) {
   }, [scopedFiltered, pinnedIds, repoScope])
 
   const groups = useMemo(() => groupRepos(unpinnedFiltered, groupBy), [unpinnedFiltered, groupBy])
+  const home = useMemo(() => buildHomeModel(data.repos, pinnedIds, pinnedOrder), [data.repos, pinnedIds, pinnedOrder])
 
   const owners = useMemo(() => {
     const totalCounts = new Map<string, number>()
@@ -293,6 +302,9 @@ export function Dashboard({ token, onLogout }: Props) {
           </div>
 
           <nav className="view-tabs">
+            <button className={`view-tab ${view === 'home' ? 'active' : ''}`} onClick={() => setView('home')}>
+              Home
+            </button>
             <button className={`view-tab ${view === 'repos' ? 'active' : ''}`} onClick={() => setView('repos')}>
               Repos
             </button>
@@ -312,7 +324,11 @@ export function Dashboard({ token, onLogout }: Props) {
             )}
             {!data.isLoading && !data.progressMsg && (
               <span>
-                {view === 'repos' ? `${scopedFiltered.length}/${data.repos.length} repos` : `${data.repos.length} repos`} · {data.viewer?.organizations.nodes.length ?? 0} orgs
+                {view === 'home'
+                  ? `${home.needsAttention.length} attention · ${data.repos.length} repos`
+                  : view === 'repos'
+                    ? `${scopedFiltered.length}/${data.repos.length} repos`
+                    : `${data.repos.length} repos`} · {data.viewer?.organizations.nodes.length ?? 0} orgs
                 {data.loadedFromCache && data.isFetching ? ' · local cache' : ''}
               </span>
             )}
@@ -320,6 +336,24 @@ export function Dashboard({ token, onLogout }: Props) {
             <button className="link-btn" onClick={onLogout}>Logout</button>
           </div>
         </header>
+
+        {view === 'home' && (
+          <>
+            {(data.isLoading || data.progressMsg) ? (
+              <LoadingSkeleton progressMsg={data.progressMsg} />
+            ) : (
+              <HomeView
+                model={home}
+                onOpenRepo={(repo) => {
+                  setSelected({ owner: repo.owner.login, name: repo.name })
+                  setView('repos')
+                }}
+                onOpenRepos={() => setView('repos')}
+                onOpenPRs={() => setView('prs')}
+              />
+            )}
+          </>
+        )}
 
         {view === 'prs' && data.viewer && <PRInbox token={token} viewer={data.viewer} />}
 
@@ -464,6 +498,126 @@ export function Dashboard({ token, onLogout }: Props) {
         )}
       </div>
     </div>
+  )
+}
+
+function HomeView({
+  model,
+  onOpenRepo,
+  onOpenRepos,
+  onOpenPRs
+}: {
+  model: HomeModel
+  onOpenRepo: (repo: Repo) => void
+  onOpenRepos: () => void
+  onOpenPRs: () => void
+}) {
+  return (
+    <main className="home-view">
+      <section className="home-summary">
+        <button className="home-stat attention" onClick={onOpenPRs}>
+          <span className="stat-value">{model.summary.openPRRepos}</span>
+          <span className="stat-label">Repos with PRs</span>
+        </button>
+        <button className="home-stat warning" onClick={onOpenRepos}>
+          <span className="stat-value">{model.summary.issueRepos}</span>
+          <span className="stat-label">Repos with issues</span>
+        </button>
+        <button className="home-stat ok" onClick={onOpenRepos}>
+          <span className="stat-value">{model.summary.activeRepos}</span>
+          <span className="stat-label">Active 7d</span>
+        </button>
+        <button className="home-stat pinned" onClick={onOpenRepos}>
+          <span className="stat-value">{model.summary.pinnedRepos}</span>
+          <span className="stat-label">Pinned</span>
+        </button>
+      </section>
+
+      <section className="home-section">
+        <div className="home-section-header">
+          <div>
+            <h2>Needs Attention</h2>
+            <p className="muted">Repos with open PRs, issue load, or pinned work that should stay visible.</p>
+          </div>
+        </div>
+        {model.needsAttention.length === 0 ? (
+          <p className="muted empty">No attention signals from the current repo data.</p>
+        ) : (
+          <div className="attention-list">
+            {model.needsAttention.map((item) => (
+              <RepoAttentionRow key={item.repo.id} item={item} onOpen={() => onOpenRepo(item.repo)} />
+            ))}
+          </div>
+        )}
+      </section>
+
+      <div className="home-columns">
+        <section className="home-section">
+          <h2>Active Work</h2>
+          <div className="compact-repo-list">
+            {model.activeWork.map((repo) => (
+              <CompactRepoRow key={repo.id} repo={repo} onOpen={() => onOpenRepo(repo)} />
+            ))}
+            {model.activeWork.length === 0 && <p className="muted empty">No repos pushed in the last 7 days.</p>}
+          </div>
+        </section>
+
+        <section className="home-section">
+          <h2>Pinned Repos</h2>
+          <div className="compact-repo-list">
+            {model.pinnedRepos.map((repo) => (
+              <CompactRepoRow key={repo.id} repo={repo} onOpen={() => onOpenRepo(repo)} />
+            ))}
+            {model.pinnedRepos.length === 0 && <p className="muted empty">Pin active repos to make this home screen useful.</p>}
+          </div>
+        </section>
+      </div>
+
+      <section className="home-section">
+        <h2>Recent Activity</h2>
+        <div className="activity-feed">
+          {model.recentActivity.map((repo) => (
+            <CompactRepoRow key={repo.id} repo={repo} onOpen={() => onOpenRepo(repo)} />
+          ))}
+        </div>
+      </section>
+    </main>
+  )
+}
+
+function RepoAttentionRow({ item, onOpen }: { item: RepoAttention; onOpen: () => void }) {
+  const { repo, signal } = item
+  return (
+    <button className={`attention-row signal-${signal.level}`} onClick={onOpen}>
+      <span className={`status-dot status-${signal.level}`} />
+      <span className="attention-main">
+        <strong>{repo.nameWithOwner}</strong>
+        <span className="muted">{signal.reasons.join(' · ')}</span>
+      </span>
+      <span className="attention-meta">
+        {repo.openPRs.totalCount > 0 && <span>{repo.openPRs.totalCount} PR</span>}
+        {repo.openIssues.totalCount > 0 && <span>{repo.openIssues.totalCount} issues</span>}
+        <span title={repo.pushedAt}>commit {timeAgo(repo.pushedAt)}</span>
+      </span>
+    </button>
+  )
+}
+
+function CompactRepoRow({ repo, onOpen }: { repo: Repo; onOpen: () => void }) {
+  const signal = repoSignal(repo, false)
+  return (
+    <button className="compact-repo-row" onClick={onOpen}>
+      <span className={`status-dot status-${signal.level}`} />
+      <span className="compact-repo-main">
+        <strong>{repo.name}</strong>
+        <span className="muted">{repo.owner.login}</span>
+      </span>
+      <span className="compact-repo-meta">
+        {repo.primaryLanguage?.name && <span>{repo.primaryLanguage.name}</span>}
+        {repo.openPRs.totalCount > 0 && <span>{repo.openPRs.totalCount} PR</span>}
+        <span title={repo.pushedAt}>{timeAgo(repo.pushedAt)}</span>
+      </span>
+    </button>
   )
 }
 
@@ -750,15 +904,19 @@ function RepoCard({
   const LangIcon = langKey ? getLangIcon(langKey) : null
   const isJS = langKey === 'javascript'
   const isTS = langKey === 'typescript'
+  const signal = repoSignal(repo, pinned)
 
   return (
     <article
-      className={`card ${repo.isArchived ? 'archived' : ''} ${pinned ? 'pinned' : ''}`}
+      className={`card signal-${signal.level} ${repo.isArchived ? 'archived' : ''} ${pinned ? 'pinned' : ''}`}
       onClick={onSelect}
     >
       <header>
         <span className="title">{repo.name}</span>
         <span className="badges">
+          <span className={`op-status status-${signal.level}`} title={signal.reasons.join(' · ')}>
+            {signal.label}
+          </span>
           {onTogglePinned && (
             <button
               className={`pin-btn ${pinned ? 'active' : ''}`}
@@ -790,12 +948,95 @@ function RepoCard({
         {repo.openPRs.totalCount > 0 && (
           <span className="meta" title="Open PRs">⚡{repo.openPRs.totalCount} PR{repo.openPRs.totalCount > 1 ? 's' : ''}</span>
         )}
-        <span className="muted" title={repo.pushedAt}>{timeAgo(repo.pushedAt)}</span>
+        <span className="muted" title={repo.pushedAt}>commit {timeAgo(repo.pushedAt)}</span>
         {repo.stargazerCount > 0 && <span title="Stars">★{repo.stargazerCount}</span>}
         {repo.openIssues.totalCount > 0 && <span title="Open issues" className="issues">◎{repo.openIssues.totalCount}</span>}
       </footer>
     </article>
   )
+}
+
+type HomeModel = {
+  summary: {
+    openPRRepos: number
+    issueRepos: number
+    activeRepos: number
+    pinnedRepos: number
+  }
+  needsAttention: RepoAttention[]
+  activeWork: Repo[]
+  pinnedRepos: Repo[]
+  recentActivity: Repo[]
+}
+
+type RepoAttention = {
+  repo: Repo
+  signal: RepoSignal
+}
+
+function buildHomeModel(repos: Repo[], pinnedIds: Set<string>, pinnedOrder: Map<string, number>): HomeModel {
+  const visible = repos.filter((repo) => !repo.isArchived)
+  const activeCutoff = Date.now() - 7 * 86_400_000
+  const attention = visible
+    .map((repo) => ({ repo, signal: repoSignal(repo, pinnedIds.has(repo.id)) }))
+    .filter((item) => item.signal.score >= 20)
+    .sort((a, b) => b.signal.score - a.signal.score || new Date(b.repo.pushedAt).getTime() - new Date(a.repo.pushedAt).getTime())
+
+  return {
+    summary: {
+      openPRRepos: visible.filter((repo) => repo.openPRs.totalCount > 0).length,
+      issueRepos: visible.filter((repo) => repo.openIssues.totalCount > 0).length,
+      activeRepos: visible.filter((repo) => new Date(repo.pushedAt).getTime() >= activeCutoff).length,
+      pinnedRepos: pinnedIds.size,
+    },
+    needsAttention: attention.slice(0, 10),
+    activeWork: visible
+      .filter((repo) => new Date(repo.pushedAt).getTime() >= activeCutoff)
+      .sort((a, b) => new Date(b.pushedAt).getTime() - new Date(a.pushedAt).getTime())
+      .slice(0, 8),
+    pinnedRepos: visible
+      .filter((repo) => pinnedIds.has(repo.id))
+      .sort((a, b) => (pinnedOrder.get(a.id) ?? 0) - (pinnedOrder.get(b.id) ?? 0))
+      .slice(0, 8),
+    recentActivity: visible
+      .sort((a, b) => new Date(b.pushedAt).getTime() - new Date(a.pushedAt).getTime())
+      .slice(0, 12),
+  }
+}
+
+function repoSignal(repo: Repo, pinned: boolean): RepoSignal {
+  const reasons: string[] = []
+  let score = 0
+
+  if (pinned) {
+    score += 20
+    reasons.push('pinned')
+  }
+  if (repo.openPRs.totalCount > 0) {
+    score += 40 + Math.min(repo.openPRs.totalCount, 5) * 4
+    reasons.push(`${repo.openPRs.totalCount} open PR${repo.openPRs.totalCount > 1 ? 's' : ''}`)
+  }
+  if (repo.openIssues.totalCount > 0) {
+    score += Math.min(repo.openIssues.totalCount, 10)
+    reasons.push(`${repo.openIssues.totalCount} open issue${repo.openIssues.totalCount > 1 ? 's' : ''}`)
+  }
+
+  const daysSincePush = (Date.now() - new Date(repo.pushedAt).getTime()) / 86_400_000
+  if (daysSincePush <= 7) {
+    score += 10
+    reasons.push('recent commit')
+  } else if (pinned && daysSincePush > 90) {
+    score += 12
+    reasons.push('pinned but stale')
+  }
+
+  if (repo.isFork) reasons.push('fork')
+  if (repo.isArchived) return { level: 'quiet', label: 'archived', reasons: ['archived'], score: 0 }
+
+  if (score >= 60) return { level: 'critical', label: 'needs attention', reasons, score }
+  if (score >= 25) return { level: 'attention', label: 'watch', reasons, score }
+  if (daysSincePush <= 7) return { level: 'active', label: 'active', reasons: ['recent commit'], score: 10 }
+  return { level: 'quiet', label: 'quiet', reasons: reasons.length ? reasons : ['no immediate signal'], score }
 }
 
 function groupRepos(repos: Repo[], by: GroupBy): Array<[string, Repo[]]> {
