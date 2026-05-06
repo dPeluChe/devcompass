@@ -224,30 +224,45 @@ button:disabled { opacity: 0.5; cursor: not-allowed; }
 
 .controls {
   display: flex;
-  gap: 8px;
+  gap: 6px;
   align-items: center;
   flex-wrap: wrap;
   margin-bottom: 16px;
 }
 .filter-row {
   display: flex;
-  gap: 8px;
+  gap: 6px;
   align-items: center;
-  flex-wrap: wrap;
-  flex: 0 1 auto;
+  flex-wrap: nowrap;
+  flex: 1 1 720px;
+  min-width: 520px;
 }
 .controls input[type='search'].compact-search {
-  flex: 0 0 300px;
-  min-width: 220px;
+  flex: 1 1 260px;
+  min-width: 180px;
   max-width: 100%;
+}
+.filter-row select {
+  flex: 0 0 auto;
+  min-width: 118px;
+}
+.filter-row .scope-select {
+  min-width: 112px;
+}
+.filter-row label {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  white-space: nowrap;
+  flex: 0 0 auto;
 }
 .org-chips {
   display: flex;
   gap: 6px;
   flex-wrap: wrap;
   align-items: center;
-  flex: 1 1 520px;
-  min-width: 280px;
+  flex: 0 1 auto;
+  min-width: 0;
 }
 .search-row { display: flex; gap: 8px; }
 .search-row input { flex: 1; }

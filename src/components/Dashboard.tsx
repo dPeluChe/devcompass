@@ -15,6 +15,7 @@ export { Skeleton, CardSkeleton, FadeIn, Pulse } from './ui'
 
 type Props = { token: string; onLogout: () => void }
 type GroupBy = 'none' | 'owner' | 'language' | 'activity'
+type RepoScope = 'all' | 'pinned'
 type IconType = typeof FaPython
 
 function useViewerData(token: string) {
@@ -159,6 +160,7 @@ export function Dashboard({ token, onLogout }: Props) {
   const data = useViewerData(token)
   
   const [view, setView] = useState<'repos' | 'prs'>('repos')
+  const [repoScope, setRepoScope] = useState<RepoScope>('all')
   const [search, setSearch] = useState('')
   const [groupBy, setGroupBy] = useState<GroupBy>('none')
   const [hideArchived, setHideArchived] = useState(true)
@@ -197,12 +199,19 @@ export function Dashboard({ token, onLogout }: Props) {
 
   const pinnedIds = useMemo(() => new Set(pinned.map((p) => p.repoId)), [pinned])
   const pinnedOrder = useMemo(() => new Map(pinned.map((p, i) => [p.repoId, i])), [pinned])
-  const pinnedRepos = useMemo(() => {
+  const scopedFiltered = useMemo(() => {
+    if (repoScope === 'pinned') return filtered.filter((r) => pinnedIds.has(r.id))
     return filtered
+  }, [filtered, pinnedIds, repoScope])
+  const pinnedRepos = useMemo(() => {
+    return scopedFiltered
       .filter((r) => pinnedIds.has(r.id))
       .sort((a, b) => (pinnedOrder.get(a.id) ?? 0) - (pinnedOrder.get(b.id) ?? 0))
-  }, [filtered, pinnedIds, pinnedOrder])
-  const unpinnedFiltered = useMemo(() => filtered.filter((r) => !pinnedIds.has(r.id)), [filtered, pinnedIds])
+  }, [scopedFiltered, pinnedIds, pinnedOrder])
+  const unpinnedFiltered = useMemo(() => {
+    if (repoScope === 'pinned') return []
+    return scopedFiltered.filter((r) => !pinnedIds.has(r.id))
+  }, [scopedFiltered, pinnedIds, repoScope])
 
   const groups = useMemo(() => groupRepos(unpinnedFiltered, groupBy), [unpinnedFiltered, groupBy])
 
@@ -282,7 +291,7 @@ export function Dashboard({ token, onLogout }: Props) {
             )}
             {!data.isLoading && !data.progressMsg && (
               <span>
-                {view === 'repos' ? `${filtered.length}/${data.repos.length} repos` : `${data.repos.length} repos`} · {data.viewer?.organizations.nodes.length ?? 0} orgs
+                {view === 'repos' ? `${scopedFiltered.length}/${data.repos.length} repos` : `${data.repos.length} repos`} · {data.viewer?.organizations.nodes.length ?? 0} orgs
                 {data.loadedFromCache && data.isFetching ? ' · local cache' : ''}
               </span>
             )}
@@ -311,7 +320,7 @@ export function Dashboard({ token, onLogout }: Props) {
         {view === 'repos' && selected && (
           <RepoBrowser
             token={token}
-            repos={filtered}
+            repos={scopedFiltered}
             current={selected}
             onSelect={(r) => setSelected({ owner: r.owner.login, name: r.name })}
             onClose={() => setSelected(null)}
@@ -354,6 +363,14 @@ export function Dashboard({ token, onLogout }: Props) {
                     })}
                   </div>
                   <div className="filter-row">
+                    <select
+                      className="scope-select"
+                      value={repoScope}
+                      onChange={(e) => setRepoScope(e.target.value as RepoScope)}
+                    >
+                      <option value="all">All repos</option>
+                      <option value="pinned">Pinned</option>
+                    </select>
                     <input
                       className="compact-search"
                       type="search"
