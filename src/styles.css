@@ -400,6 +400,62 @@ button:disabled { opacity: 0.5; cursor: not-allowed; }
 .view-tab.active { color: var(--text); background: var(--panel); border-color: var(--border); }
 .view-tab:hover { color: var(--text); }
 
+.config-view {
+  max-width: 1180px;
+  padding: 8px 0 32px;
+}
+.config-tabs {
+  display: inline-flex;
+  gap: 4px;
+  padding: 3px;
+  margin-bottom: 12px;
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+}
+.config-tab {
+  border: 0;
+  background: transparent;
+  color: var(--muted);
+  padding: 6px 12px;
+}
+.config-tab.active {
+  background: var(--panel-2);
+  color: var(--text);
+}
+.config-panel {
+  width: 100%;
+}
+.config-section {
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 14px;
+  margin-bottom: 12px;
+}
+.config-section-header {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 16px;
+  margin-bottom: 10px;
+}
+.config-section h2 {
+  margin: 0;
+  font-size: 1rem;
+}
+.config-section .org-manager {
+  display: inline-flex;
+}
+.config-view .settings-tab {
+  max-width: none;
+  margin: 0;
+  padding: 0;
+}
+.config-view .settings-tab section {
+  margin-bottom: 12px;
+}
+
 /* PR inbox: list (left) + detail (right) */
 .inbox-split {
   display: grid;
@@ -1101,6 +1157,15 @@ button:disabled { opacity: 0.5; cursor: not-allowed; }
   display: flex;
   flex-direction: column;
   gap: 4px;
+}
+.org-manager-inline {
+  width: 100%;
+}
+.org-list.inline {
+  max-height: none;
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+  gap: 6px;
 }
 .org-row {
   display: flex;

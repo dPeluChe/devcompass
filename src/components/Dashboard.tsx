@@ -4,6 +4,7 @@ import { fetchRateLimit, fetchTokenInfo, fetchUserOrgsRest, fetchViewer, fetchOr
 import { RepoDetail } from './RepoDetail'
 import { PRInbox } from './PRInbox'
 import { OrgManager } from './OrgManager'
+import { SettingsTab } from './SettingsTab'
 import { Skeleton, CardSkeleton, FadeIn, Pulse } from './ui'
 import { orgConfigStore } from '../store/orgConfig'
 import { cacheRepos, getCachedRepos, getPinnedRepos, pinRepo, unpinRepo, type PinnedRepo } from '../store/db'
@@ -159,7 +160,7 @@ function sortRepos(repos: Repo[]): Repo[] {
 export function Dashboard({ token, onLogout }: Props) {
   const data = useViewerData(token)
   
-  const [view, setView] = useState<'repos' | 'prs'>('repos')
+  const [view, setView] = useState<'repos' | 'prs' | 'config'>('repos')
   const [repoScope, setRepoScope] = useState<RepoScope>('all')
   const [search, setSearch] = useState('')
   const [groupBy, setGroupBy] = useState<GroupBy>('none')
@@ -297,11 +298,10 @@ export function Dashboard({ token, onLogout }: Props) {
             <button className={`view-tab ${view === 'prs' ? 'active' : ''}`} onClick={() => setView('prs')}>
               PRs
             </button>
+            <button className={`view-tab ${view === 'config' ? 'active' : ''}`} onClick={() => setView('config')}>
+              Config
+            </button>
           </nav>
-
-          {data.viewer && (
-            <OrgManager orgs={data.viewer.organizations.nodes} />
-          )}
 
           <div className="meta muted">
             {(data.isLoading || data.progressMsg) && (
@@ -320,22 +320,15 @@ export function Dashboard({ token, onLogout }: Props) {
           </div>
         </header>
 
-        {data.tokenInfo && <DiagnosticsBar tokenInfo={data.tokenInfo} orgs={data.viewer?.organizations.nodes ?? []} />}
-
-        {data.errors.length > 0 && (
-          <details className="partial-errors">
-            <summary>{data.errors.length} partial errors (view)</summary>
-            <ul>
-              {data.errors.map((e, i) => (
-                <li key={i}>
-                  <strong>{e.source}:</strong> {e.message}
-                </li>
-              ))}
-            </ul>
-          </details>
-        )}
-
         {view === 'prs' && data.viewer && <PRInbox token={token} viewer={data.viewer} />}
+
+        {view === 'config' && (
+          <ConfigView
+            tokenInfo={data.tokenInfo}
+            orgs={data.orgs}
+            errors={data.errors}
+          />
+        )}
 
         {view === 'repos' && selected && (
           <RepoBrowser
@@ -549,6 +542,80 @@ function RepoBrowser({
         name={current.name}
         onClose={onClose}
       />
+    </div>
+  )
+}
+
+function ConfigView({
+  tokenInfo,
+  orgs,
+  errors
+}: {
+  tokenInfo: TokenInfo | undefined
+  orgs: Org[]
+  errors: { source: string; message: string }[]
+}) {
+  const [section, setSection] = useState<'orgs' | 'token' | 'storage' | 'pinned'>('orgs')
+
+  return (
+    <div className="config-view">
+      <div className="config-tabs">
+        <button className={`config-tab ${section === 'orgs' ? 'active' : ''}`} onClick={() => setSection('orgs')}>
+          Orgs
+        </button>
+        <button className={`config-tab ${section === 'token' ? 'active' : ''}`} onClick={() => setSection('token')}>
+          Token
+        </button>
+        <button className={`config-tab ${section === 'storage' ? 'active' : ''}`} onClick={() => setSection('storage')}>
+          Storage
+        </button>
+        <button className={`config-tab ${section === 'pinned' ? 'active' : ''}`} onClick={() => setSection('pinned')}>
+          Pinned
+        </button>
+      </div>
+
+      <div className="config-panel">
+        {section === 'orgs' && (
+          <section className="config-section">
+            <div className="config-section-header">
+              <h2>Organizations</h2>
+              <span className="muted">Choose which orgs are available and synced.</span>
+            </div>
+            <OrgManager orgs={orgs} variant="inline" />
+          </section>
+        )}
+
+        {section === 'token' && tokenInfo && (
+          <section className="config-section">
+            <div className="config-section-header">
+              <h2>Token access</h2>
+              <span className="muted">Scopes, SSO and org visibility.</span>
+            </div>
+            <DiagnosticsBar tokenInfo={tokenInfo} orgs={orgs} />
+            {errors.length > 0 && (
+              <details className="partial-errors" open>
+                <summary>{errors.length} sync errors</summary>
+                <ul>
+                  {errors.map((e, i) => (
+                    <li key={i}>
+                      <strong>{e.source}:</strong> {e.message}
+                    </li>
+                  ))}
+                </ul>
+              </details>
+            )}
+          </section>
+        )}
+
+        {section === 'token' && !tokenInfo && (
+          <section className="config-section">
+            <p className="muted">Token information is still loading.</p>
+          </section>
+        )}
+
+        {section === 'storage' && <SettingsTab panel="storage" />}
+        {section === 'pinned' && <SettingsTab panel="pinned" />}
+      </div>
     </div>
   )
 }
