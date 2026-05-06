@@ -542,18 +542,22 @@ function HomeView({
         <button className="home-stat attention" onClick={onOpenPRs}>
           <span className="stat-value">{model.summary.criticalRepos}</span>
           <span className="stat-label">Critical</span>
+          <span className="stat-hint">Immediate attention</span>
         </button>
         <button className="home-stat warning" onClick={onOpenRepos}>
           <span className="stat-value">{model.summary.reviewDebtRepos}</span>
           <span className="stat-label">Review debt</span>
+          <span className="stat-hint">Open PR pressure</span>
         </button>
         <button className="home-stat stale" onClick={onOpenRepos}>
           <span className="stat-value">{model.summary.stalePrRepos}</span>
           <span className="stat-label">Stale PRs</span>
+          <span className="stat-hint">No recent activity</span>
         </button>
         <button className="home-stat quiet" onClick={onOpenRepos}>
           <span className="stat-value">{model.summary.quietRepos}</span>
           <span className="stat-label">Quiet hidden</span>
+          <span className="stat-hint">Filtered from Home</span>
         </button>
       </section>
 
@@ -632,13 +636,15 @@ function HomeView({
                 title="Critical"
                 items={model.priority.critical}
                 onOpenRepo={onOpenRepo}
+                onOpenMore={onOpenRepos}
               />
             )}
             {model.priority.reviewNeeded.length > 0 && (
               <PriorityGroup
-                title="Review Needed"
+                title="Review Debt"
                 items={model.priority.reviewNeeded}
                 onOpenRepo={onOpenRepo}
+                onOpenMore={onOpenRepos}
               />
             )}
             {model.priority.stalePrs.length > 0 && (
@@ -646,6 +652,7 @@ function HomeView({
                 title="Stale PRs"
                 items={model.priority.stalePrs}
                 onOpenRepo={onOpenRepo}
+                onOpenMore={onOpenRepos}
               />
             )}
             {model.priority.recentWork.length > 0 && (
@@ -653,6 +660,7 @@ function HomeView({
                 title="Recent Work"
                 items={model.priority.recentWork}
                 onOpenRepo={onOpenRepo}
+                onOpenMore={onOpenRepos}
               />
             )}
             {model.priority.quietCount > 0 && (
@@ -694,21 +702,26 @@ function HomeView({
 function PriorityGroup({
   title,
   items,
-  onOpenRepo
+  onOpenRepo,
+  onOpenMore
 }: {
   title: string
   items: RepoAttention[]
   onOpenRepo: (repo: Repo) => void
+  onOpenMore: () => void
 }) {
   const key = title.toLowerCase().replace(/\s+/g, '-')
+  const visibleItems = items.slice(0, 3)
+  const hiddenCount = Math.max(0, items.length - visibleItems.length)
   return (
     <section className={`priority-group priority-${key}`}>
-      <h3>{title}</h3>
+      <h3>{title} <span>({items.length})</span></h3>
       <div className="attention-list">
-        {items.map((item) => (
+        {visibleItems.map((item) => (
           <RepoAttentionRow key={item.repo.id} item={item} onOpen={() => onOpenRepo(item.repo)} />
         ))}
       </div>
+      {hiddenCount > 0 && <button className="priority-more" onClick={onOpenMore}>View {hiddenCount} more...</button>}
     </section>
   )
 }
