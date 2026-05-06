@@ -636,7 +636,6 @@ function HomeView({
                 title="Critical"
                 items={model.priority.critical}
                 onOpenRepo={onOpenRepo}
-                onOpenMore={onOpenRepos}
               />
             )}
             {model.priority.reviewNeeded.length > 0 && (
@@ -644,7 +643,6 @@ function HomeView({
                 title="Review Debt"
                 items={model.priority.reviewNeeded}
                 onOpenRepo={onOpenRepo}
-                onOpenMore={onOpenRepos}
               />
             )}
             {model.priority.stalePrs.length > 0 && (
@@ -652,7 +650,6 @@ function HomeView({
                 title="Stale PRs"
                 items={model.priority.stalePrs}
                 onOpenRepo={onOpenRepo}
-                onOpenMore={onOpenRepos}
               />
             )}
             {model.priority.recentWork.length > 0 && (
@@ -660,7 +657,6 @@ function HomeView({
                 title="Recent Work"
                 items={model.priority.recentWork}
                 onOpenRepo={onOpenRepo}
-                onOpenMore={onOpenRepos}
               />
             )}
             {model.priority.quietCount > 0 && (
@@ -702,16 +698,15 @@ function HomeView({
 function PriorityGroup({
   title,
   items,
-  onOpenRepo,
-  onOpenMore
+  onOpenRepo
 }: {
   title: string
   items: RepoAttention[]
   onOpenRepo: (repo: Repo) => void
-  onOpenMore: () => void
 }) {
+  const [expanded, setExpanded] = useState(false)
   const key = title.toLowerCase().replace(/\s+/g, '-')
-  const visibleItems = items.slice(0, 3)
+  const visibleItems = expanded ? items : items.slice(0, 3)
   const hiddenCount = Math.max(0, items.length - visibleItems.length)
   return (
     <section className={`priority-group priority-${key}`}>
@@ -721,7 +716,11 @@ function PriorityGroup({
           <RepoAttentionRow key={item.repo.id} item={item} onOpen={() => onOpenRepo(item.repo)} />
         ))}
       </div>
-      {hiddenCount > 0 && <button className="priority-more" onClick={onOpenMore}>View {hiddenCount} more...</button>}
+      {items.length > 3 && (
+        <button className="priority-more" onClick={() => setExpanded((value) => !value)}>
+          {expanded ? 'Show less' : `View ${hiddenCount} more...`}
+        </button>
+      )}
     </section>
   )
 }
