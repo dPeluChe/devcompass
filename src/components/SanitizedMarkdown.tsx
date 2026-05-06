@@ -6,6 +6,23 @@ type Props = {
 }
 
 const allowedProtocol = /^(https?:|mailto:|tel:|#|\/)/i
+const voidElements = new Set([
+  'area',
+  'base',
+  'br',
+  'col',
+  'embed',
+  'hr',
+  'img',
+  'input',
+  'link',
+  'meta',
+  'param',
+  'source',
+  'track',
+  'wbr',
+])
+const booleanAttributes = new Set(['checked', 'disabled', 'selected', 'readonly', 'multiple'])
 
 export function SanitizedMarkdown({ html }: Props) {
   const content = useMemo(() => renderSafeHtml(html), [html])
@@ -39,6 +56,8 @@ function nodeToReact(node: ChildNode, key: number | string): ReactNode {
     if ((name === 'href' || name === 'src') && !allowedProtocol.test(value)) continue
     if (name === 'class') props.className = value
     else if (name === 'for') props.htmlFor = value
+    else if (name === 'readonly') props.readOnly = true
+    else if (booleanAttributes.has(name)) props[name] = true
     else if (name === 'style') continue
     else props[name] = value
   }
@@ -47,6 +66,9 @@ function nodeToReact(node: ChildNode, key: number | string): ReactNode {
     props.target = '_blank'
     props.rel = 'noreferrer'
   }
+
+  if (tag === 'input' && props.checked !== undefined) props.readOnly = true
+  if (voidElements.has(tag)) return createElement(tag, props)
 
   const children = Array.from(el.childNodes).map((child, index) => nodeToReact(child, index))
   return createElement(tag || Fragment, props, children)
