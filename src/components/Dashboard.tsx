@@ -262,6 +262,15 @@ export function Dashboard({ token, onLogout }: Props) {
     })
   }
 
+  function showAllRepos() {
+    setRepoScope('all')
+    setSelectedOwners([])
+    setSearch('')
+    setActivityWindow(0)
+    setHideArchived(false)
+    setHideForks(false)
+  }
+
   if (data.error) {
     return (
       <div className="error">
@@ -347,12 +356,9 @@ export function Dashboard({ token, onLogout }: Props) {
                 <div className="controls">
                   <div className="org-chips">
                     <button
-                      className={`org-chip ${selectedOwners.length === 0 ? 'active' : ''}`}
-                      onClick={() => {
-                        setRepoScope('all')
-                        setSelectedOwners([])
-                      }}
-                      title="Show every org"
+                      className={`org-chip ${repoScope === 'all' && selectedOwners.length === 0 ? 'active' : ''}`}
+                      onClick={showAllRepos}
+                      title="Show all loaded repos"
                     >
                       <span className="org-label">All</span>
                       <span className="chip-count">{data.repos.length}</span>
