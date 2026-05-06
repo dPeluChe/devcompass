@@ -349,7 +349,7 @@ export function Dashboard({ token, onLogout }: Props) {
                 <div className="controls">
                   <div className="org-chips">
                     <button
-                      className={`org-chip ${repoScope === 'all' && selectedOwners.length === 0 ? 'active' : ''}`}
+                      className={`org-chip scope-chip ${repoScope === 'all' && selectedOwners.length === 0 ? 'active' : ''}`}
                       onClick={showAllRepos}
                       title="Show all loaded repos"
                     >
@@ -357,7 +357,7 @@ export function Dashboard({ token, onLogout }: Props) {
                       <span className="chip-count">{data.repos.length}</span>
                     </button>
                     <button
-                      className={`org-chip ${repoScope === 'pinned' ? 'active' : ''} ${pinned.length === 0 ? 'empty' : ''}`}
+                      className={`org-chip scope-chip ${repoScope === 'pinned' ? 'active' : ''} ${pinned.length === 0 ? 'empty' : ''}`}
                       onClick={() => pinned.length > 0 && setRepoScope(repoScope === 'pinned' ? 'all' : 'pinned')}
                       disabled={pinned.length === 0}
                       title={pinned.length > 0 ? 'Show pinned repos' : 'No pinned repos yet'}
@@ -371,7 +371,7 @@ export function Dashboard({ token, onLogout }: Props) {
                       return (
                         <button
                           key={login}
-                          className={`org-chip ${selected ? 'active' : ''} ${filteredCount === 0 ? 'empty' : ''}`}
+                          className={`org-chip org-filter-chip ${selected ? 'active' : ''} ${filteredCount === 0 ? 'empty' : ''}`}
                           onClick={() => toggleOwner(login)}
                           aria-pressed={selected}
                           title={`${login}: ${filteredCount} matching current filters / ${totalCount} total`}
