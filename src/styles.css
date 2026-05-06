@@ -247,16 +247,24 @@ button:disabled { opacity: 0.5; cursor: not-allowed; }
   background: var(--panel);
   border: 1px solid var(--border);
   border-radius: 4px;
-  padding: 4px 10px;
+  padding: 2px 7px;
   color: var(--muted);
-  font-size: 0.8rem;
+  font-size: 0.72rem;
+  line-height: 1;
   cursor: pointer;
   display: flex;
   align-items: center;
   gap: 4px;
+  min-height: 24px;
+  max-width: 148px;
+  white-space: nowrap;
 }
-.chip-count { opacity: 0.6; font-size: 0.7rem; }
-.chip-avatar { width: 16px; height: 16px; border-radius: 50%; }
+.org-label {
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.chip-count { opacity: 0.6; font-size: 0.66rem; flex-shrink: 0; }
+.chip-avatar { width: 14px; height: 14px; border-radius: 50%; flex-shrink: 0; }
 .org-chip:hover { border-color: var(--accent); }
 .org-chip.empty {
   opacity: 0.58;

@@ -208,12 +208,12 @@ export function Dashboard({ token, onLogout }: Props) {
 
   const owners = useMemo(() => {
     const counts = new Map<string, number>()
-    for (const r of baseFiltered) counts.set(r.owner.login, (counts.get(r.owner.login) ?? 0) + 1)
+    for (const r of data.repos) counts.set(r.owner.login, (counts.get(r.owner.login) ?? 0) + 1)
     const orgLogins = data.orgs.length > 0 ? data.orgs.map((org) => org.login) : [...new Set(data.repos.map((r) => r.owner.login))]
     return orgLogins
       .map((login) => [login, counts.get(login) ?? 0] as const)
       .sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]))
-  }, [baseFiltered, data.orgs, data.repos])
+  }, [data.orgs, data.repos])
 
   async function handleTogglePinned(repo: Repo) {
     if (pinnedIds.has(repo.id)) {
@@ -320,7 +320,8 @@ export function Dashboard({ token, onLogout }: Props) {
                       onClick={() => setSelectedOwners([])}
                       title="Show every org"
                     >
-                      All <span className="chip-count">{baseFiltered.length}</span>
+                      <span className="org-label">All</span>
+                      <span className="chip-count">{data.repos.length}</span>
                     </button>
                     {owners.map(([login, count]) => {
                       const org = data.orgs.find(o => o.login === login)
@@ -333,7 +334,8 @@ export function Dashboard({ token, onLogout }: Props) {
                           aria-pressed={selected}
                         >
                           {org?.avatarUrl && <img src={org.avatarUrl} alt="" className="chip-avatar" />}
-                          {login} <span className="chip-count">{count}</span>
+                          <span className="org-label">{login}</span>
+                          <span className="chip-count">{count}</span>
                         </button>
                       )
                     })}
