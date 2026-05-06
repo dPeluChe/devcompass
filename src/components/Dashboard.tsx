@@ -1,11 +1,14 @@
-import { useEffect, useMemo, useState, useCallback } from 'react'
+import { useEffect, useMemo, useRef, useState, useCallback } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { fetchRateLimit, fetchTokenInfo, fetchUserOrgsRest, fetchViewer, fetchOrgReposSimple, fetchViewerReposSimple, type Repo, type RepoOpenPR, type TokenInfo, type Org } from '../api/github'
 import { RepoDetail } from './RepoDetail'
-import { PRInbox } from './PRInbox'
+import { PRInbox, type InboxFilter } from './PRInbox'
 import { OrgManager } from './OrgManager'
 import { SettingsTab } from './SettingsTab'
+import { QuickSwitcher, type QSAction } from './QuickSwitcher'
+import { ShortcutsHelp } from './ShortcutsHelp'
 import { Skeleton, CardSkeleton, FadeIn, Pulse } from './ui'
+import { useGlobalShortcuts } from '../hooks/useGlobalShortcuts'
 import { orgConfigStore } from '../store/orgConfig'
 import { cacheRepos, getCachedRepos, getPinnedRepos, getPref, pinRepo, savePref, unpinRepo, type PinnedRepo } from '../store/db'
 import { FaPython, FaJs, FaJava, FaVuejs, FaReact, FaAngular, FaNode, FaDatabase, FaLock, FaCodeBranch, FaExclamationCircle, FaStar } from 'react-icons/fa'
@@ -41,6 +44,9 @@ function useViewerData(token: string) {
   const [orgs, setOrgs] = useState<Org[]>([])
   const [errors, setErrors] = useState<{ source: string; message: string }[]>([])
   const [loadedFromCache, setLoadedFromCache] = useState(false)
+  const [lastSyncAt, setLastSyncAt] = useState<number | null>(null)
+  const [refreshSeq, setRefreshSeq] = useState(0)
+  const inFlight = useRef(false)
   
   const viewerQuery = useQuery({
     queryKey: ['viewer', token],
@@ -71,7 +77,9 @@ function useViewerData(token: string) {
 
   const isInitialLoading = viewerQuery.isLoading || tokenInfoQuery.isLoading || rateLimitQuery.isLoading
 
-  const loadReposSequentially = useCallback(async () => {
+  const loadReposSequentially = useCallback(async (forceFresh = false) => {
+    if (inFlight.current) return
+    inFlight.current = true
     const v = viewerQuery.data!
     const restOrgs = userOrgsQuery.data ?? []
     const merged = new Map<string, Org>()
@@ -114,14 +122,19 @@ function useViewerData(token: string) {
       setLoadedFromCache(true)
     }
 
-    const orgsToFetch = sourcesToSync.filter((login) => {
-      const cached = cachedByOrg.get(login) ?? []
-      return cached.length === 0 || orgNeedsSync(login)
-    })
+    const orgsToFetch = forceFresh
+      ? sourcesToSync.slice()
+      : sourcesToSync.filter((login) => {
+          const cached = cachedByOrg.get(login) ?? []
+          return cached.length === 0 || orgNeedsSync(login)
+        })
 
     if (orgsToFetch.length === 0) {
       setProgressMsg('')
       setErrors([])
+      // Treat a no-op refresh as "we've confirmed cache is fresh".
+      if (lastSyncAt === null) setLastSyncAt(Date.now())
+      inFlight.current = false
       return
     }
     
@@ -147,13 +160,28 @@ function useViewerData(token: string) {
     setRepos(sortRepos([...byId.values()]))
     setErrors(errs)
     setProgressMsg('')
-  }, [token, viewerQuery.data, userOrgsQuery.data])
+    setLastSyncAt(Date.now())
+    inFlight.current = false
+  }, [token, viewerQuery.data, userOrgsQuery.data, lastSyncAt])
 
   useEffect(() => {
     if (viewerQuery.data && userOrgsQuery.data && repos.length === 0) {
       loadReposSequentially()
     }
   }, [viewerQuery.data, userOrgsQuery.data, loadReposSequentially])
+
+  // Manual refresh button — bumps a sequence so the effect re-runs even when
+  // repos.length > 0 (the initial-load guard above would otherwise skip).
+  useEffect(() => {
+    if (refreshSeq === 0) return
+    if (!viewerQuery.data || !userOrgsQuery.data) return
+    loadReposSequentially(true)
+    rateLimitQuery.refetch()
+  }, [refreshSeq])
+
+  const refresh = useCallback(() => {
+    setRefreshSeq((n) => n + 1)
+  }, [])
 
   return {
     viewer: viewerQuery.data,
@@ -166,6 +194,8 @@ function useViewerData(token: string) {
     isLoading: repos.length === 0 && (isInitialLoading || !!progressMsg),
     isFetching: viewerQuery.isFetching || tokenInfoQuery.isFetching || rateLimitQuery.isFetching || !!progressMsg,
     loadedFromCache,
+    lastSyncAt,
+    refresh,
     error: viewerQuery.error || null
   }
 }
@@ -190,6 +220,10 @@ export function Dashboard({ token, onLogout }: Props) {
   const [pinned, setPinned] = useState<PinnedRepo[]>([])
   const [pinnedLoaded, setPinnedLoaded] = useState(false)
   const [visitSnapshot, setVisitSnapshot] = useState<RepoVisitSnapshot | null>(null)
+  const [qsOpen, setQsOpen] = useState(false)
+  const [helpOpen, setHelpOpen] = useState(false)
+  const [prFilter, setPrFilter] = useState<InboxFilter | undefined>(undefined)
+  const repoSearchRef = useRef<HTMLInputElement>(null)
 
   useEffect(() => {
     getPinnedRepos()
@@ -304,6 +338,68 @@ export function Dashboard({ token, onLogout }: Props) {
     setVisitSnapshot(snapshot)
   }
 
+  function gotoView(target: View) {
+    setView(target)
+    setSelected(null)
+    if (target !== 'prs') setSelectedPR(null)
+  }
+
+  function openPRsWith(filter: InboxFilter) {
+    setPrFilter(filter)
+    setSelectedPR(null)
+    setView('prs')
+  }
+
+  function showQuietRepos() {
+    setView('repos')
+    setSelected(null)
+    setRepoScope('all')
+    setSelectedOwners([])
+    setActivityWindow(0)
+    setHideArchived(false)
+    setHideForks(false)
+  }
+
+  function handleQuickPick(action: QSAction) {
+    if (action.kind === 'view') {
+      gotoView(action.view)
+      return
+    }
+    if (action.kind === 'repo') {
+      setSelected({ owner: action.repo.owner.login, name: action.repo.name })
+      setSelectedPR(null)
+      setView('repos')
+      return
+    }
+    setSelectedPR({ owner: action.repo.owner.login, name: action.repo.name, number: action.pr.number })
+    setSelected(null)
+    setPrFilter(undefined)
+    setView('prs')
+  }
+
+  useGlobalShortcuts({
+    onQuickSwitcher: () => { setHelpOpen(false); setQsOpen(true) },
+    onHelp: () => { setQsOpen(false); setHelpOpen((v) => !v) },
+    onGoHome: () => gotoView('home'),
+    onGoRepos: () => gotoView('repos'),
+    onGoPRs: () => gotoView('prs'),
+    onGoConfig: () => gotoView('config'),
+    onFocusSearch: () => {
+      if (view === 'repos') {
+        repoSearchRef.current?.focus()
+        repoSearchRef.current?.select()
+      } else {
+        setView('repos')
+        // The input mounts on the next render; focus once it's in the DOM.
+        queueMicrotask(() => repoSearchRef.current?.focus())
+      }
+    },
+    onEscape: () => {
+      if (qsOpen) setQsOpen(false)
+      else if (helpOpen) setHelpOpen(false)
+    }
+  })
+
   if (data.error) {
     return (
       <div className="error">
@@ -314,47 +410,79 @@ export function Dashboard({ token, onLogout }: Props) {
     )
   }
 
+  const isSyncing = !!data.progressMsg
+
   return (
     <div className="dashboard">
       <div className="main-col">
-        <header className="topbar">
+        <header className="topbar topbar-sticky">
           <div className="user">
             {data.viewer && <img src={data.viewer.avatarUrl} alt="" width={24} height={24} />}
             <strong>@{data.viewer?.login ?? '...'}</strong>
           </div>
 
-          <nav className="view-tabs">
-            <button className={`view-tab ${view === 'home' ? 'active' : ''}`} onClick={() => setView('home')}>
+          <nav className="view-tabs" aria-label="Primary">
+            <button className={`view-tab ${view === 'home' ? 'active' : ''}`} onClick={() => gotoView('home')} title="Home (g h)">
               Home
             </button>
-            <button className={`view-tab ${view === 'repos' ? 'active' : ''}`} onClick={() => setView('repos')}>
+            <button className={`view-tab ${view === 'repos' ? 'active' : ''}`} onClick={() => gotoView('repos')} title="Repos (g r)">
               Repos
             </button>
-            <button className={`view-tab ${view === 'prs' ? 'active' : ''}`} onClick={() => setView('prs')}>
+            <button className={`view-tab ${view === 'prs' ? 'active' : ''}`} onClick={() => gotoView('prs')} title="PRs (g p)">
               PRs
             </button>
-            <button className={`view-tab ${view === 'config' ? 'active' : ''}`} onClick={() => setView('config')}>
+            <button className={`view-tab ${view === 'config' ? 'active' : ''}`} onClick={() => gotoView('config')} title="Config (g c)">
               Config
             </button>
           </nav>
 
           <div className="meta muted">
-            {(data.isLoading || data.progressMsg) && (
-              <span>
-                <Pulse>{data.progressMsg || 'Loading...'}</Pulse>
-              </span>
-            )}
-            {!data.isLoading && !data.progressMsg && (
-              <span>
+            <button
+              className="qs-trigger"
+              onClick={() => setQsOpen(true)}
+              title="Quick switcher (⌘K)"
+            >
+              <span className="qs-trigger-text">Jump to…</span>
+              <span className="qs-trigger-kbd"><kbd>⌘</kbd><kbd>K</kbd></span>
+            </button>
+
+            <span className="sync-indicator" title={data.lastSyncAt ? new Date(data.lastSyncAt).toLocaleString() : 'Not synced yet'}>
+              {isSyncing ? (
+                <Pulse>{data.progressMsg || 'Syncing...'}</Pulse>
+              ) : (
+                <>
+                  <span className={`sync-dot ${data.lastSyncAt ? 'ok' : 'cold'}`} />
+                  {data.lastSyncAt ? `Synced ${timeAgoShort(data.lastSyncAt)}` : 'Not synced'}
+                </>
+              )}
+            </span>
+
+            <button
+              className="refresh-btn"
+              onClick={() => data.refresh()}
+              disabled={isSyncing}
+              title="Force refresh from GitHub"
+            >
+              ↻
+            </button>
+
+            {!data.isLoading && (
+              <span className="meta-summary">
                 {view === 'home'
                   ? `${home.priority.critical.length} critical · ${home.summary.reviewDebtRepos} review debt · ${data.repos.length} repos`
                   : view === 'repos'
                     ? `${scopedFiltered.length}/${data.repos.length} repos`
                     : `${data.repos.length} repos`} · {data.viewer?.organizations.nodes.length ?? 0} orgs
-                {data.loadedFromCache && data.isFetching ? ' · local cache' : ''}
+                {data.loadedFromCache && data.isFetching ? ' · cache' : ''}
               </span>
             )}
-            {data.rateLimit && <span>· {data.rateLimit.remaining}/{data.rateLimit.limit}</span>}
+            {data.rateLimit && (
+              <span title={`Rate limit resets ${new Date(data.rateLimit.resetAt).toLocaleTimeString()}`}>
+                {data.rateLimit.remaining}/{data.rateLimit.limit}
+              </span>
+            )}
+
+            <button className="link-btn" onClick={() => setHelpOpen(true)} title="Keyboard shortcuts (?)">?</button>
             <button className="link-btn" onClick={onLogout}>Logout</button>
           </div>
         </header>
@@ -373,10 +501,15 @@ export function Dashboard({ token, onLogout }: Props) {
                   setView('repos')
                 }}
                 onOpenRepos={() => setView('repos')}
-                onOpenPRs={() => setView('prs')}
+                onOpenPRs={() => { setPrFilter(undefined); setView('prs') }}
+                onOpenCritical={() => openPRsWith('failing')}
+                onOpenReviewDebt={() => openPRsWith('review')}
+                onOpenStalePRs={() => openPRsWith('stale')}
+                onOpenQuiet={showQuietRepos}
                 onOpenPR={(repo, pr) => {
                   setSelectedPR({ owner: repo.owner.login, name: repo.name, number: pr.number })
                   setSelected(null)
+                  setPrFilter(undefined)
                   setView('prs')
                 }}
               />
@@ -385,7 +518,7 @@ export function Dashboard({ token, onLogout }: Props) {
         )}
 
         {view === 'prs' && data.viewer && (
-          <PRInbox token={token} viewer={data.viewer} initialSelected={selectedPR} />
+          <PRInbox token={token} viewer={data.viewer} initialSelected={selectedPR} initialFilter={prFilter} />
         )}
 
         {view === 'config' && (
@@ -452,9 +585,10 @@ export function Dashboard({ token, onLogout }: Props) {
                   </div>
                   <div className="filter-row">
                     <input
+                      ref={repoSearchRef}
                       className="compact-search"
                       type="search"
-                      placeholder="Search repos..."
+                      placeholder="Search repos... (/)"
                       value={search}
                       onChange={(e) => setSearch(e.target.value)}
                     />
@@ -528,8 +662,28 @@ export function Dashboard({ token, onLogout }: Props) {
           </>
         )}
       </div>
+
+      <QuickSwitcher
+        open={qsOpen}
+        onClose={() => setQsOpen(false)}
+        onPick={handleQuickPick}
+        repos={data.repos}
+      />
+      <ShortcutsHelp open={helpOpen} onClose={() => setHelpOpen(false)} />
     </div>
   )
+}
+
+function timeAgoShort(ms: number): string {
+  const diff = Date.now() - ms
+  const s = Math.floor(diff / 1000)
+  if (s < 45) return 'just now'
+  const m = Math.floor(s / 60)
+  if (m < 60) return `${m}m ago`
+  const h = Math.floor(m / 60)
+  if (h < 24) return `${h}h ago`
+  const d = Math.floor(h / 24)
+  return `${d}d ago`
 }
 
 function HomeView({
@@ -538,7 +692,11 @@ function HomeView({
   onOpenRepo,
   onOpenRepos,
   onOpenPRs,
-  onOpenPR
+  onOpenPR,
+  onOpenCritical,
+  onOpenReviewDebt,
+  onOpenStalePRs,
+  onOpenQuiet
 }: {
   model: HomeModel
   onMarkSeen: () => void
@@ -546,29 +704,33 @@ function HomeView({
   onOpenRepos: () => void
   onOpenPRs: () => void
   onOpenPR: (repo: Repo, pr: RepoOpenPR) => void
+  onOpenCritical: () => void
+  onOpenReviewDebt: () => void
+  onOpenStalePRs: () => void
+  onOpenQuiet: () => void
 }) {
   return (
     <main className="home-view">
       <section className="home-summary">
-        <button className="home-stat attention" onClick={onOpenPRs}>
+        <button className="home-stat attention" onClick={onOpenCritical} title="Show failing PRs">
           <span className="stat-value">{model.summary.criticalRepos}</span>
           <span className="stat-label">Critical</span>
-          <span className="stat-hint">Immediate attention</span>
+          <span className="stat-hint">Failing CI · open PRs</span>
         </button>
-        <button className="home-stat warning" onClick={onOpenRepos}>
+        <button className="home-stat warning" onClick={onOpenReviewDebt} title="Show PRs needing my review">
           <span className="stat-value">{model.summary.reviewDebtRepos}</span>
           <span className="stat-label">Review debt</span>
-          <span className="stat-hint">Open PR pressure</span>
+          <span className="stat-hint">Awaiting my review</span>
         </button>
-        <button className="home-stat stale" onClick={onOpenRepos}>
+        <button className="home-stat stale" onClick={onOpenStalePRs} title="Show PRs idle for 14d+">
           <span className="stat-value">{model.summary.stalePrRepos}</span>
           <span className="stat-label">Stale PRs</span>
-          <span className="stat-hint">No recent activity</span>
+          <span className="stat-hint">Idle for 14d+</span>
         </button>
-        <button className="home-stat quiet" onClick={onOpenRepos}>
+        <button className="home-stat quiet" onClick={onOpenQuiet} title="Show all repos including archived">
           <span className="stat-value">{model.summary.quietRepos}</span>
           <span className="stat-label">Quiet hidden</span>
-          <span className="stat-hint">Filtered from Home</span>
+          <span className="stat-hint">Show full repo list</span>
         </button>
       </section>
 
