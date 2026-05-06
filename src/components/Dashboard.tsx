@@ -20,8 +20,8 @@ type GroupBy = 'none' | 'owner' | 'language' | 'activity'
 type RepoScope = 'all' | 'pinned'
 type IconType = typeof FaPython
 type RepoSignalLevel = 'critical' | 'attention' | 'active' | 'quiet'
-type WaitingOn = 'REVIEW' | 'TRIAGE' | 'ACTIVITY' | 'NONE'
-type HealthLabel = 'review needed' | 'active' | 'stale' | 'healthy' | 'quiet' | 'archived'
+type WaitingOn = 'PR_OPEN' | 'TRIAGE' | 'ACTIVITY' | 'NONE'
+type HealthLabel = 'pr open' | 'active' | 'stale' | 'healthy' | 'quiet' | 'archived'
 type RepoSignal = {
   level: RepoSignalLevel
   label: string
@@ -346,7 +346,7 @@ export function Dashboard({ token, onLogout }: Props) {
             {!data.isLoading && !data.progressMsg && (
               <span>
                 {view === 'home'
-                  ? `${home.priority.critical.length} critical · ${home.priority.active.length} active · ${data.repos.length} repos`
+                  ? `${home.priority.critical.length} critical · ${home.summary.reviewDebtRepos} review debt · ${data.repos.length} repos`
                   : view === 'repos'
                     ? `${scopedFiltered.length}/${data.repos.length} repos`
                     : `${data.repos.length} repos`} · {data.viewer?.organizations.nodes.length ?? 0} orgs
@@ -540,20 +540,20 @@ function HomeView({
     <main className="home-view">
       <section className="home-summary">
         <button className="home-stat attention" onClick={onOpenPRs}>
-          <span className="stat-value">{model.summary.attentionRepos}</span>
-          <span className="stat-label">Attention</span>
+          <span className="stat-value">{model.summary.criticalRepos}</span>
+          <span className="stat-label">Critical</span>
         </button>
         <button className="home-stat warning" onClick={onOpenRepos}>
-          <span className="stat-value">{model.summary.riskRepos}</span>
-          <span className="stat-label">Risk signals</span>
+          <span className="stat-value">{model.summary.reviewDebtRepos}</span>
+          <span className="stat-label">Review debt</span>
         </button>
-        <button className="home-stat ok" onClick={onOpenRepos}>
-          <span className="stat-value">{model.summary.activeRepos}</span>
-          <span className="stat-label">Active 7d</span>
+        <button className="home-stat stale" onClick={onOpenRepos}>
+          <span className="stat-value">{model.summary.stalePrRepos}</span>
+          <span className="stat-label">Stale PRs</span>
         </button>
-        <button className="home-stat pinned" onClick={onOpenRepos}>
-          <span className="stat-value">{model.summary.pinnedRepos}</span>
-          <span className="stat-label">Pinned</span>
+        <button className="home-stat quiet" onClick={onOpenRepos}>
+          <span className="stat-value">{model.summary.quietRepos}</span>
+          <span className="stat-label">Quiet hidden</span>
         </button>
       </section>
 
@@ -565,8 +565,15 @@ function HomeView({
           </div>
           <button className="mark-seen-btn" onClick={onMarkSeen}>Mark seen</button>
         </div>
-        <div className="since-list">
-          {model.sinceLastVisit.length > 0 ? (
+        {model.sinceLastVisit.length === 1 && model.sinceLastVisit[0].key === 'baseline' ? (
+          <button className="since-baseline" onClick={onMarkSeen}>
+            <span className="status-dot status-quiet" />
+            <span>No baseline yet.</span>
+            <strong>Start tracking</strong>
+          </button>
+        ) : (
+          <div className="since-list">
+            {model.sinceLastVisit.length > 0 ? (
             model.sinceLastVisit.map((event) => (
               <button
                 key={event.key}
@@ -577,9 +584,35 @@ function HomeView({
                 <span>{event.text}</span>
               </button>
             ))
-          ) : (
-            <div className="since-empty">No new repo signals since the last saved snapshot.</div>
+            ) : (
+              <div className="since-empty">No new repo signals since the last saved snapshot.</div>
+            )}
+          </div>
+        )}
+      </section>
+
+      <section className="home-section pinned-center-section">
+        <div className="home-section-header">
+          <div>
+            <h2>Pinned Control Center</h2>
+            <p className="muted">{model.summary.pinnedRepos} pinned systems.</p>
+          </div>
+        </div>
+        <div className="pinned-control">
+          {model.pinnedRepos.length > 0 && (
+            <div className="pinned-control-head">
+              <span>Health</span>
+              <span>Repo</span>
+              <span>PR</span>
+              <span>Issues</span>
+              <span>Last</span>
+              <span>State</span>
+            </div>
           )}
+          {model.pinnedRepos.map((repo) => (
+            <PinnedControlRow key={repo.id} repo={repo} onOpen={() => onOpenRepo(repo)} />
+          ))}
+          {model.pinnedRepos.length === 0 && <p className="muted empty">Pin active repos to make this home screen useful.</p>}
         </div>
       </section>
 
@@ -590,7 +623,7 @@ function HomeView({
             <p className="muted">Prioritized by operational signals. Quiet repos stay out of the default Home.</p>
           </div>
         </div>
-        {model.priority.critical.length === 0 && model.priority.active.length === 0 ? (
+        {model.priority.critical.length === 0 && model.priority.reviewNeeded.length === 0 && model.priority.stalePrs.length === 0 && model.priority.recentWork.length === 0 ? (
           <p className="muted empty">No attention signals from the current repo data.</p>
         ) : (
           <div className="priority-groups">
@@ -601,10 +634,24 @@ function HomeView({
                 onOpenRepo={onOpenRepo}
               />
             )}
-            {model.priority.active.length > 0 && (
+            {model.priority.reviewNeeded.length > 0 && (
               <PriorityGroup
-                title="Active"
-                items={model.priority.active}
+                title="Review Needed"
+                items={model.priority.reviewNeeded}
+                onOpenRepo={onOpenRepo}
+              />
+            )}
+            {model.priority.stalePrs.length > 0 && (
+              <PriorityGroup
+                title="Stale PRs"
+                items={model.priority.stalePrs}
+                onOpenRepo={onOpenRepo}
+              />
+            )}
+            {model.priority.recentWork.length > 0 && (
+              <PriorityGroup
+                title="Recent Work"
+                items={model.priority.recentWork}
                 onOpenRepo={onOpenRepo}
               />
             )}
@@ -629,37 +676,17 @@ function HomeView({
         </section>
 
         <section className="home-section">
-          <h2>Pinned Control Center</h2>
-          <div className="pinned-control">
-            {model.pinnedRepos.length > 0 && (
-              <div className="pinned-control-head">
-                <span>Health</span>
-                <span>Repo</span>
-                <span>PR</span>
-                <span>Issues</span>
-                <span>Last</span>
-                <span>Waiting</span>
-              </div>
-            )}
-            {model.pinnedRepos.map((repo) => (
-              <PinnedControlRow key={repo.id} repo={repo} onOpen={() => onOpenRepo(repo)} />
+          <h2>Operational Digest</h2>
+          <div className="digest-list">
+            {model.digest.map((item) => (
+              <button key={item.text} className={`digest-item digest-${item.level}`} onClick={item.target === 'prs' ? onOpenPRs : onOpenRepos}>
+                <span className={`status-dot status-${item.level}`} />
+                <span>{item.text}</span>
+              </button>
             ))}
-            {model.pinnedRepos.length === 0 && <p className="muted empty">Pin active repos to make this home screen useful.</p>}
           </div>
         </section>
       </div>
-
-      <section className="home-section">
-        <h2>Operational Digest</h2>
-        <div className="digest-list">
-          {model.digest.map((item) => (
-            <button key={item.text} className={`digest-item digest-${item.level}`} onClick={item.target === 'prs' ? onOpenPRs : onOpenRepos}>
-              <span className={`status-dot status-${item.level}`} />
-              <span>{item.text}</span>
-            </button>
-          ))}
-        </div>
-      </section>
     </main>
   )
 }
@@ -673,8 +700,9 @@ function PriorityGroup({
   items: RepoAttention[]
   onOpenRepo: (repo: Repo) => void
 }) {
+  const key = title.toLowerCase().replace(/\s+/g, '-')
   return (
-    <section className={`priority-group priority-${title.toLowerCase()}`}>
+    <section className={`priority-group priority-${key}`}>
       <h3>{title}</h3>
       <div className="attention-list">
         {items.map((item) => (
@@ -708,7 +736,7 @@ function RepoAttentionRow({ item, onOpen }: { item: RepoAttention; onOpen: () =>
         </span>
       </span>
       <span className="attention-meta">
-        <span className={`waiting-pill waiting-${signal.waitingOn.toLowerCase()}`}>waiting {signal.waitingOn}</span>
+        <span className={`waiting-pill waiting-${signal.waitingOn.toLowerCase()}`}>{stateLabel(signal.waitingOn)}</span>
         <span title={repo.pushedAt}>{signal.activityLabel}</span>
       </span>
     </button>
@@ -745,7 +773,7 @@ function PinnedControlRow({ repo, onOpen }: { repo: Repo; onOpen: () => void }) 
       <span>{repo.openPRs.totalCount || '-'}</span>
       <span>{repo.openIssues.totalCount || '-'}</span>
       <span title={repo.pushedAt}>{shortActivity(signal.activityLabel)}</span>
-      <span>{signal.waitingOn === 'NONE' ? '-' : signal.waitingOn}</span>
+      <span>{stateLabel(signal.waitingOn)}</span>
     </button>
   )
 }
@@ -1087,14 +1115,17 @@ function RepoCard({
 
 type HomeModel = {
   summary: {
-    attentionRepos: number
-    riskRepos: number
-    activeRepos: number
+    criticalRepos: number
+    reviewDebtRepos: number
+    stalePrRepos: number
     pinnedRepos: number
+    quietRepos: number
   }
   priority: {
     critical: RepoAttention[]
-    active: RepoAttention[]
+    reviewNeeded: RepoAttention[]
+    stalePrs: RepoAttention[]
+    recentWork: RepoAttention[]
     quietCount: number
   }
   sinceLastVisit: VisitEvent[]
@@ -1135,9 +1166,12 @@ function buildHomeModel(
     .filter((item) => item.signal.score >= 20)
     .sort((a, b) => b.signal.score - a.signal.score || new Date(b.repo.pushedAt).getTime() - new Date(a.repo.pushedAt).getTime())
   const critical = attention.filter((item) => item.signal.level === 'critical')
-  const activeAttention = attention.filter((item) => item.signal.level !== 'critical')
+  const stalePrs = attention.filter((item) => item.repo.openPRs.totalCount > 0 && daysSince(item.repo.pushedAt) >= 14 && item.signal.level !== 'critical')
+  const reviewNeeded = attention.filter((item) => item.repo.openPRs.totalCount > 0 && daysSince(item.repo.pushedAt) < 14 && item.signal.level !== 'critical')
+  const recentWork = attention.filter((item) => item.repo.openPRs.totalCount === 0 && daysSince(item.repo.pushedAt) < 14 && item.signal.level !== 'critical')
   const stalePinned = visible.filter((repo) => pinnedIds.has(repo.id) && daysSince(repo.pushedAt) > 14)
   const prLoad = visible.filter((repo) => repo.openPRs.totalCount > 0)
+  const stalePrLoad = prLoad.filter((repo) => daysSince(repo.pushedAt) >= 14)
   const issueLoad = visible.filter((repo) => repo.openIssues.totalCount > 0)
   const activeRepos = visible
     .filter((repo) => new Date(repo.pushedAt).getTime() >= activeCutoff)
@@ -1146,14 +1180,17 @@ function buildHomeModel(
 
   return {
     summary: {
-      attentionRepos: attention.length,
-      riskRepos: prLoad.length + stalePinned.length,
-      activeRepos: activeRepos.length,
+      criticalRepos: critical.length,
+      reviewDebtRepos: prLoad.length,
+      stalePrRepos: stalePrLoad.length,
       pinnedRepos: pinnedIds.size,
+      quietRepos: Math.max(0, visible.length - attention.length),
     },
     priority: {
       critical: critical.slice(0, 5),
-      active: activeAttention.slice(0, 8),
+      reviewNeeded: reviewNeeded.slice(0, 8),
+      stalePrs: stalePrs.slice(0, 8),
+      recentWork: recentWork.slice(0, 8),
       quietCount: Math.max(0, visible.length - attention.length),
     },
     sinceLastVisit: buildVisitEvents(visible, visitSnapshot).slice(0, 8),
@@ -1269,9 +1306,9 @@ function repoSignal(repo: Repo, pinned: boolean): RepoSignal {
   }
   if (repo.openPRs.totalCount > 0) {
     score += 40 + Math.min(repo.openPRs.totalCount, 5) * 4
-    primaryReasons.push(`${repo.openPRs.totalCount} PR pending`)
-    waitingOn = 'REVIEW'
-    health = 'review needed'
+    primaryReasons.push(`${repo.openPRs.totalCount} PR open`)
+    waitingOn = 'PR_OPEN'
+    health = 'pr open'
   }
   if (repo.openIssues.totalCount > 0) {
     score += Math.min(repo.openIssues.totalCount, 10)
@@ -1356,11 +1393,18 @@ function shortActivity(label: string): string {
 
 function criticalSummary(repo: Repo, signal: RepoSignal): string {
   const parts = []
-  if (repo.openPRs.totalCount > 0) parts.push(`${repo.openPRs.totalCount} PR${repo.openPRs.totalCount > 1 ? 's' : ''} pending`)
+  if (repo.openPRs.totalCount > 0) parts.push(`${repo.openPRs.totalCount} PR${repo.openPRs.totalCount > 1 ? 's' : ''} open`)
   if (repo.openIssues.totalCount > 0) parts.push(`${repo.openIssues.totalCount} issue${repo.openIssues.totalCount > 1 ? 's' : ''}`)
   parts.push(signal.activityLabel)
-  if (signal.waitingOn !== 'NONE') parts.push(`waiting ${signal.waitingOn}`)
+  if (signal.waitingOn !== 'NONE') parts.push(stateLabel(signal.waitingOn))
   return parts.join(' · ')
+}
+
+function stateLabel(state: WaitingOn): string {
+  if (state === 'PR_OPEN') return 'PR OPEN'
+  if (state === 'TRIAGE') return 'TRIAGE'
+  if (state === 'ACTIVITY') return 'ACTIVITY'
+  return '-'
 }
 
 function groupRepos(repos: Repo[], by: GroupBy): Array<[string, Repo[]]> {
