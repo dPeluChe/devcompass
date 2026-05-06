@@ -7,7 +7,7 @@ import { OrgManager } from './OrgManager'
 import { SettingsTab } from './SettingsTab'
 import { Skeleton, CardSkeleton, FadeIn, Pulse } from './ui'
 import { orgConfigStore } from '../store/orgConfig'
-import { cacheRepos, getCachedRepos, getPinnedRepos, pinRepo, unpinRepo, type PinnedRepo } from '../store/db'
+import { cacheRepos, getCachedRepos, getPinnedRepos, getPref, pinRepo, savePref, unpinRepo, type PinnedRepo } from '../store/db'
 import { FaPython, FaJs, FaJava, FaVuejs, FaReact, FaAngular, FaNode, FaDatabase, FaLock, FaCodeBranch, FaExclamationCircle, FaStar } from 'react-icons/fa'
 import { SiTypescript, SiGo, SiRust, SiMysql, SiMongodb } from 'react-icons/si'
 import { VscJson, VscSymbolMisc } from 'react-icons/vsc'
@@ -33,6 +33,7 @@ type RepoSignal = {
   activityLabel: string
   score: number
 }
+type RepoVisitSnapshot = Record<string, { pushedAt: string; openPRs: number; openIssues: number }>
 
 function useViewerData(token: string) {
   const [progressMsg, setProgressMsg] = useState('')
@@ -187,6 +188,7 @@ export function Dashboard({ token, onLogout }: Props) {
   const [selected, setSelected] = useState<{ owner: string; name: string } | null>(null)
   const [pinned, setPinned] = useState<PinnedRepo[]>([])
   const [pinnedLoaded, setPinnedLoaded] = useState(false)
+  const [visitSnapshot, setVisitSnapshot] = useState<RepoVisitSnapshot | null>(null)
 
   useEffect(() => {
     getPinnedRepos()
@@ -196,6 +198,12 @@ export function Dashboard({ token, onLogout }: Props) {
       })
       .catch((e) => console.warn('Failed to load pinned repos:', e))
       .finally(() => setPinnedLoaded(true))
+  }, [])
+
+  useEffect(() => {
+    getPref<RepoVisitSnapshot | null>('home.repoVisitSnapshot', null)
+      .then(setVisitSnapshot)
+      .catch((e) => console.warn('Failed to load visit snapshot:', e))
   }, [])
 
   useEffect(() => {
@@ -242,7 +250,7 @@ export function Dashboard({ token, onLogout }: Props) {
   }, [scopedFiltered, pinnedIds, repoScope])
 
   const groups = useMemo(() => groupRepos(unpinnedFiltered, groupBy), [unpinnedFiltered, groupBy])
-  const home = useMemo(() => buildHomeModel(data.repos, pinnedIds, pinnedOrder), [data.repos, pinnedIds, pinnedOrder])
+  const home = useMemo(() => buildHomeModel(data.repos, pinnedIds, pinnedOrder, visitSnapshot), [data.repos, pinnedIds, pinnedOrder, visitSnapshot])
 
   const owners = useMemo(() => {
     const totalCounts = new Map<string, number>()
@@ -287,6 +295,12 @@ export function Dashboard({ token, onLogout }: Props) {
     setActivityWindow(0)
     setHideArchived(false)
     setHideForks(false)
+  }
+
+  async function markHomeSeen() {
+    const snapshot = buildVisitSnapshot(data.repos)
+    await savePref('home.repoVisitSnapshot', snapshot)
+    setVisitSnapshot(snapshot)
   }
 
   if (data.error) {
@@ -351,6 +365,7 @@ export function Dashboard({ token, onLogout }: Props) {
             ) : (
               <HomeView
                 model={home}
+                onMarkSeen={markHomeSeen}
                 onOpenRepo={(repo) => {
                   setSelected({ owner: repo.owner.login, name: repo.name })
                   setView('repos')
@@ -510,11 +525,13 @@ export function Dashboard({ token, onLogout }: Props) {
 
 function HomeView({
   model,
+  onMarkSeen,
   onOpenRepo,
   onOpenRepos,
   onOpenPRs
 }: {
   model: HomeModel
+  onMarkSeen: () => void
   onOpenRepo: (repo: Repo) => void
   onOpenRepos: () => void
   onOpenPRs: () => void
@@ -538,6 +555,32 @@ function HomeView({
           <span className="stat-value">{model.summary.pinnedRepos}</span>
           <span className="stat-label">Pinned</span>
         </button>
+      </section>
+
+      <section className="home-section since-section">
+        <div className="home-section-header">
+          <div>
+            <h2>Since Last Visit</h2>
+            <p className="muted">Local snapshot comparison. Nothing leaves this browser.</p>
+          </div>
+          <button className="mark-seen-btn" onClick={onMarkSeen}>Mark seen</button>
+        </div>
+        <div className="since-list">
+          {model.sinceLastVisit.length > 0 ? (
+            model.sinceLastVisit.map((event) => (
+              <button
+                key={event.key}
+                className={`since-item since-${event.level}`}
+                onClick={event.repo ? () => onOpenRepo(event.repo!) : event.target === 'prs' ? onOpenPRs : onOpenRepos}
+              >
+                <span className={`status-dot status-${event.level}`} />
+                <span>{event.text}</span>
+              </button>
+            ))
+          ) : (
+            <div className="since-empty">No new repo signals since the last saved snapshot.</div>
+          )}
+        </div>
       </section>
 
       <section className="home-section">
@@ -1054,6 +1097,7 @@ type HomeModel = {
     active: RepoAttention[]
     quietCount: number
   }
+  sinceLastVisit: VisitEvent[]
   activeWork: Repo[]
   pinnedRepos: Repo[]
   digest: DigestItem[]
@@ -1070,7 +1114,20 @@ type DigestItem = {
   text: string
 }
 
-function buildHomeModel(repos: Repo[], pinnedIds: Set<string>, pinnedOrder: Map<string, number>): HomeModel {
+type VisitEvent = {
+  key: string
+  level: RepoSignalLevel
+  target: 'repos' | 'prs'
+  text: string
+  repo?: Repo
+}
+
+function buildHomeModel(
+  repos: Repo[],
+  pinnedIds: Set<string>,
+  pinnedOrder: Map<string, number>,
+  visitSnapshot: RepoVisitSnapshot | null
+): HomeModel {
   const visible = repos.filter((repo) => !repo.isArchived)
   const activeCutoff = Date.now() - 7 * 86_400_000
   const attention = visible
@@ -1099,6 +1156,7 @@ function buildHomeModel(repos: Repo[], pinnedIds: Set<string>, pinnedOrder: Map<
       active: activeAttention.slice(0, 8),
       quietCount: Math.max(0, visible.length - attention.length),
     },
+    sinceLastVisit: buildVisitEvents(visible, visitSnapshot).slice(0, 8),
     activeWork: activeRepos.slice(0, 8),
     pinnedRepos: visible
       .filter((repo) => pinnedIds.has(repo.id))
@@ -1106,6 +1164,85 @@ function buildHomeModel(repos: Repo[], pinnedIds: Set<string>, pinnedOrder: Map<
       .slice(0, 8),
     digest,
   }
+}
+
+function buildVisitSnapshot(repos: Repo[]): RepoVisitSnapshot {
+  const snapshot: RepoVisitSnapshot = {}
+  for (const repo of repos) {
+    snapshot[repo.id] = {
+      pushedAt: repo.pushedAt,
+      openPRs: repo.openPRs.totalCount,
+      openIssues: repo.openIssues.totalCount,
+    }
+  }
+  return snapshot
+}
+
+function buildVisitEvents(repos: Repo[], snapshot: RepoVisitSnapshot | null): VisitEvent[] {
+  if (!snapshot) {
+    return [{
+      key: 'baseline',
+      level: 'quiet',
+      target: 'repos',
+      text: 'No baseline yet. Mark seen to start tracking changes.',
+    }]
+  }
+
+  const events: VisitEvent[] = []
+  for (const repo of repos) {
+    const prev = snapshot[repo.id]
+    if (!prev) {
+      events.push({
+        key: `${repo.id}:new`,
+        level: 'active',
+        target: 'repos',
+        text: `New repo visible: ${repo.nameWithOwner}`,
+        repo,
+      })
+      continue
+    }
+
+    const prDelta = repo.openPRs.totalCount - prev.openPRs
+    if (prDelta > 0) {
+      events.push({
+        key: `${repo.id}:prs`,
+        level: 'critical',
+        target: 'prs',
+        text: `${prDelta} new PR${prDelta > 1 ? 's' : ''} in ${repo.nameWithOwner}`,
+        repo,
+      })
+    }
+
+    const issueDelta = repo.openIssues.totalCount - prev.openIssues
+    if (issueDelta > 0) {
+      events.push({
+        key: `${repo.id}:issues`,
+        level: 'attention',
+        target: 'repos',
+        text: `${issueDelta} new issue${issueDelta > 1 ? 's' : ''} in ${repo.nameWithOwner}`,
+        repo,
+      })
+    }
+
+    if (new Date(repo.pushedAt).getTime() > new Date(prev.pushedAt).getTime()) {
+      events.push({
+        key: `${repo.id}:push`,
+        level: 'active',
+        target: 'repos',
+        text: `New commit activity in ${repo.nameWithOwner}`,
+        repo,
+      })
+    }
+  }
+
+  return events.sort((a, b) => eventWeight(b) - eventWeight(a))
+}
+
+function eventWeight(event: VisitEvent): number {
+  if (event.level === 'critical') return 3
+  if (event.level === 'attention') return 2
+  if (event.level === 'active') return 1
+  return 0
 }
 
 function buildDigest(openPRRepos: number, issueRepos: number, stalePinned: number, activeRepos: number, quietRepos: number): DigestItem[] {
