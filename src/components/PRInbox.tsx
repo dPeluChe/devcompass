@@ -3,12 +3,14 @@ import { searchPRs, type PullRequest, type Viewer } from '../api/github'
 import { PRDetail } from './PRDetail'
 
 type Role = 'mine' | 'assigned' | 'review'
+type InboxFilter = 'all' | Role | 'failing' | 'stale'
 
 type EnrichedPR = PullRequest & { roles: Role[] }
 
-type Props = { token: string; viewer: Viewer }
+type SelectedPR = { owner: string; name: string; number: number }
+type Props = { token: string; viewer: Viewer; initialSelected?: SelectedPR | null }
 
-export function PRInbox({ token, viewer }: Props) {
+export function PRInbox({ token, viewer, initialSelected }: Props) {
   const [prs, setPrs] = useState<EnrichedPR[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
@@ -16,9 +18,13 @@ export function PRInbox({ token, viewer }: Props) {
   const [search, setSearch] = useState('')
   const [hideDrafts, setHideDrafts] = useState(false)
   const [showStale, setShowStale] = useState(true)
-  const [roleFilter, setRoleFilter] = useState<Role | 'all'>('all')
+  const [roleFilter, setRoleFilter] = useState<InboxFilter>('review')
 
-  const [selected, setSelected] = useState<{ owner: string; name: string; number: number } | null>(null)
+  const [selected, setSelected] = useState<SelectedPR | null>(initialSelected ?? null)
+
+  useEffect(() => {
+    if (initialSelected) setSelected(initialSelected)
+  }, [initialSelected])
 
   useEffect(() => {
     let cancelled = false
@@ -36,7 +42,7 @@ export function PRInbox({ token, viewer }: Props) {
         const merged = mergePRs(authored, assigned, review)
         setPrs(merged)
         // Auto-select first PR when arriving so the right pane has content.
-        if (merged.length > 0) {
+        if (!initialSelected && merged.length > 0) {
           const first = merged[0]
           const [owner, name] = first.repository.nameWithOwner.split('/')
           setSelected({ owner, name, number: first.number })
@@ -50,13 +56,15 @@ export function PRInbox({ token, viewer }: Props) {
     return () => {
       cancelled = true
     }
-  }, [token, viewer.login])
+  }, [token, viewer.login, initialSelected])
 
   const filtered = useMemo(() => {
     const q = search.toLowerCase().trim()
     return prs.filter((p) => {
       if (hideDrafts && p.isDraft) return false
-      if (roleFilter !== 'all' && !p.roles.includes(roleFilter)) return false
+      if (roleFilter === 'failing' && !isFailing(p)) return false
+      else if (roleFilter === 'stale' && !isStale(p)) return false
+      else if (roleFilter !== 'all' && roleFilter !== 'failing' && roleFilter !== 'stale' && !p.roles.includes(roleFilter)) return false
       if (!q) return true
       return (
         p.title.toLowerCase().includes(q) ||
@@ -67,11 +75,13 @@ export function PRInbox({ token, viewer }: Props) {
   }, [prs, search, hideDrafts, roleFilter])
 
   const counts = useMemo(() => {
-    const c = { all: prs.length, mine: 0, assigned: 0, review: 0 }
+    const c = { all: prs.length, mine: 0, assigned: 0, review: 0, failing: 0, stale: 0 }
     for (const p of prs) {
       if (p.roles.includes('mine')) c.mine++
       if (p.roles.includes('assigned')) c.assigned++
       if (p.roles.includes('review')) c.review++
+      if (isFailing(p)) c.failing++
+      if (isStale(p)) c.stale++
     }
     return c
   }, [prs])
@@ -87,11 +97,13 @@ export function PRInbox({ token, viewer }: Props) {
             onChange={(e) => setSearch(e.target.value)}
           />
         </div>
-        <div className="role-filters">
+        <div className="role-filters inbox-tabs">
+          <RolePill active={roleFilter === 'review'} onClick={() => setRoleFilter('review')} count={counts.review} label="Needs review" variant="review" />
+          <RolePill active={roleFilter === 'assigned'} onClick={() => setRoleFilter('assigned')} count={counts.assigned} label="Assigned" variant="assigned" />
+          <RolePill active={roleFilter === 'mine'} onClick={() => setRoleFilter('mine')} count={counts.mine} label="My PRs" variant="mine" />
+          <RolePill active={roleFilter === 'failing'} onClick={() => setRoleFilter('failing')} count={counts.failing} label="Failing" />
+          <RolePill active={roleFilter === 'stale'} onClick={() => setRoleFilter('stale')} count={counts.stale} label="Stale" />
           <RolePill active={roleFilter === 'all'} onClick={() => setRoleFilter('all')} count={counts.all} label="All" />
-          <RolePill active={roleFilter === 'mine'} onClick={() => setRoleFilter('mine')} count={counts.mine} label="🚀 I opened" variant="mine" />
-          <RolePill active={roleFilter === 'assigned'} onClick={() => setRoleFilter('assigned')} count={counts.assigned} label="👤 Assigned" variant="assigned" />
-          <RolePill active={roleFilter === 'review'} onClick={() => setRoleFilter('review')} count={counts.review} label="👀 Review" variant="review" />
         </div>
         <div className="inbox-toggles">
           <label>
@@ -176,6 +188,7 @@ function PRCard({
   const ageDays = (Date.now() - new Date(pr.updatedAt).getTime()) / 86_400_000
   const stale = showStale && ageDays > 14
   const ci = pr.ciState ?? 'NONE'
+  const waiting = waitingOn(pr)
 
   return (
     <li
@@ -202,6 +215,7 @@ function PRCard({
           <span className="del">−{pr.deletions}</span>
         </span>
         {pr.comments.totalCount > 0 && <span>💬 {pr.comments.totalCount}</span>}
+        <span className={`mini-flag waiting waiting-${waiting.toLowerCase()}`}>waiting: {waiting}</span>
         {pr.isDraft && <span className="mini-flag">draft</span>}
         {stale && <span className="mini-flag warn">stale</span>}
         {pr.reviewDecision === 'APPROVED' && <span className="mini-flag ok">✓</span>}
@@ -209,6 +223,21 @@ function PRCard({
       </div>
     </li>
   )
+}
+
+function isFailing(pr: PullRequest): boolean {
+  return pr.ciState === 'FAILURE' || pr.ciState === 'ERROR'
+}
+
+function isStale(pr: PullRequest): boolean {
+  return (Date.now() - new Date(pr.updatedAt).getTime()) / 86_400_000 > 14
+}
+
+function waitingOn(pr: EnrichedPR): 'YOU' | 'CI' | 'AUTHOR' | 'REVIEW' {
+  if (pr.roles.includes('review')) return 'YOU'
+  if (pr.ciState === 'PENDING' || pr.ciState === 'EXPECTED') return 'CI'
+  if (pr.reviewDecision === 'CHANGES_REQUESTED') return 'AUTHOR'
+  return 'REVIEW'
 }
 
 function mergePRs(authored: PullRequest[], assigned: PullRequest[], review: PullRequest[]): EnrichedPR[] {
