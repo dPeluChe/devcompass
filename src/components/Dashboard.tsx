@@ -737,21 +737,35 @@ function RepoAttentionRow({ item, onOpen }: { item: RepoAttention; onOpen: () =>
             {criticalSummary(repo, signal)}
           </span>
         )}
-        <span className="why-line">
-          <span className="why-label">Why</span>
-          {signal.primaryReasons.map((reason) => (
-            <span key={reason} className="reason-chip primary">{reason}</span>
-          ))}
-          {signal.secondaryReasons.slice(0, 2).map((reason) => (
-            <span key={reason} className="reason-chip secondary">{reason}</span>
-          ))}
-        </span>
+        <RepoPRList repo={repo} />
       </span>
       <span className="attention-meta">
         <span className={`waiting-pill waiting-${signal.waitingOn.toLowerCase()}`}>{stateLabel(signal.waitingOn)}</span>
         <span title={repo.pushedAt}>{signal.activityLabel}</span>
       </span>
     </button>
+  )
+}
+
+function RepoPRList({ repo }: { repo: Repo }) {
+  if (repo.openPRs.totalCount === 0) return null
+
+  const prs = repo.openPRs.nodes ?? []
+  if (prs.length === 0) {
+    return <span className="repo-pr-empty">{repo.openPRs.totalCount} open PR{repo.openPRs.totalCount > 1 ? 's' : ''}</span>
+  }
+
+  const extraCount = Math.max(0, repo.openPRs.totalCount - prs.length)
+  return (
+    <span className="repo-pr-list">
+      {prs.map((pr) => (
+        <span key={pr.id} className="repo-pr-item">
+          <span className="repo-pr-number">#{pr.number}</span>
+          <span className="repo-pr-title">{pr.isDraft ? 'Draft: ' : ''}{pr.title}</span>
+        </span>
+      ))}
+      {extraCount > 0 && <span className="repo-pr-more">+{extraCount} more</span>}
+    </span>
   )
 }
 

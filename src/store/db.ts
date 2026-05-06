@@ -15,7 +15,18 @@ export interface CachedRepo {
   primaryLanguage: { name: string; color: string | null } | null
   owner: { login: string; avatarUrl: string }
   defaultBranchRef: { name: string } | null
-  openPRs: { totalCount: number }
+  openPRs: {
+    totalCount: number
+    nodes?: {
+      id: string
+      number: number
+      title: string
+      url: string
+      updatedAt: string
+      isDraft: boolean
+      author: { login: string; avatarUrl: string } | null
+    }[]
+  }
   openIssues: { totalCount: number }
   cachedAt: number
 }

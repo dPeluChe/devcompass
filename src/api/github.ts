@@ -1,5 +1,15 @@
 const GH_GRAPHQL = 'https://api.github.com/graphql'
 
+export type RepoOpenPR = {
+  id: string
+  number: number
+  title: string
+  url: string
+  updatedAt: string
+  isDraft: boolean
+  author: { login: string; avatarUrl: string } | null
+}
+
 export type Repo = {
   id: string
   name: string
@@ -15,7 +25,7 @@ export type Repo = {
   primaryLanguage: { name: string; color: string | null } | null
   owner: { login: string; avatarUrl: string }
   defaultBranchRef: { name: string } | null
-  openPRs: { totalCount: number }
+  openPRs: { totalCount: number; nodes?: RepoOpenPR[] }
   openIssues: { totalCount: number }
 }
 
@@ -55,7 +65,18 @@ const REPO_FIELDS = `
   primaryLanguage { name color }
   owner { login avatarUrl }
   defaultBranchRef { name }
-  openPRs: pullRequests(states: OPEN) { totalCount }
+  openPRs: pullRequests(first: 3, states: OPEN, orderBy: { field: UPDATED_AT, direction: DESC }) {
+    totalCount
+    nodes {
+      id
+      number
+      title
+      url
+      updatedAt
+      isDraft
+      author { login avatarUrl }
+    }
+  }
   openIssues: issues(states: OPEN) { totalCount }
 `
 
