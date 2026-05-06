@@ -325,7 +325,7 @@ export function Dashboard({ token, onLogout }: Props) {
             {!data.isLoading && !data.progressMsg && (
               <span>
                 {view === 'home'
-                  ? `${home.needsAttention.length} attention · ${data.repos.length} repos`
+                  ? `${home.priority.critical.length} critical · ${home.priority.active.length} active · ${data.repos.length} repos`
                   : view === 'repos'
                     ? `${scopedFiltered.length}/${data.repos.length} repos`
                     : `${data.repos.length} repos`} · {data.viewer?.organizations.nodes.length ?? 0} orgs
@@ -516,12 +516,12 @@ function HomeView({
     <main className="home-view">
       <section className="home-summary">
         <button className="home-stat attention" onClick={onOpenPRs}>
-          <span className="stat-value">{model.summary.openPRRepos}</span>
-          <span className="stat-label">Repos with PRs</span>
+          <span className="stat-value">{model.summary.attentionRepos}</span>
+          <span className="stat-label">Attention</span>
         </button>
         <button className="home-stat warning" onClick={onOpenRepos}>
-          <span className="stat-value">{model.summary.issueRepos}</span>
-          <span className="stat-label">Repos with issues</span>
+          <span className="stat-value">{model.summary.riskRepos}</span>
+          <span className="stat-label">Risk signals</span>
         </button>
         <button className="home-stat ok" onClick={onOpenRepos}>
           <span className="stat-value">{model.summary.activeRepos}</span>
@@ -537,16 +537,32 @@ function HomeView({
         <div className="home-section-header">
           <div>
             <h2>Needs Attention</h2>
-            <p className="muted">Repos with open PRs, issue load, or pinned work that should stay visible.</p>
+            <p className="muted">Prioritized by operational signals. Quiet repos stay out of the default Home.</p>
           </div>
         </div>
-        {model.needsAttention.length === 0 ? (
+        {model.priority.critical.length === 0 && model.priority.active.length === 0 ? (
           <p className="muted empty">No attention signals from the current repo data.</p>
         ) : (
-          <div className="attention-list">
-            {model.needsAttention.map((item) => (
-              <RepoAttentionRow key={item.repo.id} item={item} onOpen={() => onOpenRepo(item.repo)} />
-            ))}
+          <div className="priority-groups">
+            {model.priority.critical.length > 0 && (
+              <PriorityGroup
+                title="Critical"
+                items={model.priority.critical}
+                onOpenRepo={onOpenRepo}
+              />
+            )}
+            {model.priority.active.length > 0 && (
+              <PriorityGroup
+                title="Active"
+                items={model.priority.active}
+                onOpenRepo={onOpenRepo}
+              />
+            )}
+            {model.priority.quietCount > 0 && (
+              <div className="quiet-summary">
+                {model.priority.quietCount} quiet repos hidden from Home.
+              </div>
+            )}
           </div>
         )}
       </section>
@@ -563,10 +579,19 @@ function HomeView({
         </section>
 
         <section className="home-section">
-          <h2>Pinned Repos</h2>
-          <div className="compact-repo-list">
+          <h2>Pinned Control Center</h2>
+          <div className="pinned-control">
+            {model.pinnedRepos.length > 0 && (
+              <div className="pinned-control-head">
+                <span>Health</span>
+                <span>Repo</span>
+                <span>PR</span>
+                <span>Issues</span>
+                <span>Commit</span>
+              </div>
+            )}
             {model.pinnedRepos.map((repo) => (
-              <CompactRepoRow key={repo.id} repo={repo} onOpen={() => onOpenRepo(repo)} />
+              <PinnedControlRow key={repo.id} repo={repo} onOpen={() => onOpenRepo(repo)} />
             ))}
             {model.pinnedRepos.length === 0 && <p className="muted empty">Pin active repos to make this home screen useful.</p>}
           </div>
@@ -574,14 +599,38 @@ function HomeView({
       </div>
 
       <section className="home-section">
-        <h2>Recent Activity</h2>
-        <div className="activity-feed">
-          {model.recentActivity.map((repo) => (
-            <CompactRepoRow key={repo.id} repo={repo} onOpen={() => onOpenRepo(repo)} />
+        <h2>Operational Digest</h2>
+        <div className="digest-list">
+          {model.digest.map((item) => (
+            <button key={item.text} className={`digest-item digest-${item.level}`} onClick={item.target === 'prs' ? onOpenPRs : onOpenRepos}>
+              <span className={`status-dot status-${item.level}`} />
+              <span>{item.text}</span>
+            </button>
           ))}
         </div>
       </section>
     </main>
+  )
+}
+
+function PriorityGroup({
+  title,
+  items,
+  onOpenRepo
+}: {
+  title: string
+  items: RepoAttention[]
+  onOpenRepo: (repo: Repo) => void
+}) {
+  return (
+    <section className={`priority-group priority-${title.toLowerCase()}`}>
+      <h3>{title}</h3>
+      <div className="attention-list">
+        {items.map((item) => (
+          <RepoAttentionRow key={item.repo.id} item={item} onOpen={() => onOpenRepo(item.repo)} />
+        ))}
+      </div>
+    </section>
   )
 }
 
@@ -592,12 +641,17 @@ function RepoAttentionRow({ item, onOpen }: { item: RepoAttention; onOpen: () =>
       <span className={`status-dot status-${signal.level}`} />
       <span className="attention-main">
         <strong>{repo.nameWithOwner}</strong>
-        <span className="muted">{signal.reasons.join(' · ')}</span>
+        <span className="why-line">
+          <span className="why-label">Why</span>
+          {signal.reasons.slice(0, 3).map((reason) => (
+            <span key={reason} className="reason-chip">{reason}</span>
+          ))}
+        </span>
       </span>
       <span className="attention-meta">
         {repo.openPRs.totalCount > 0 && <span>{repo.openPRs.totalCount} PR</span>}
         {repo.openIssues.totalCount > 0 && <span>{repo.openIssues.totalCount} issues</span>}
-        <span title={repo.pushedAt}>commit {timeAgo(repo.pushedAt)}</span>
+        <span title={repo.pushedAt}>idle {idleAge(repo.pushedAt)}</span>
       </span>
     </button>
   )
@@ -617,6 +671,22 @@ function CompactRepoRow({ repo, onOpen }: { repo: Repo; onOpen: () => void }) {
         {repo.openPRs.totalCount > 0 && <span>{repo.openPRs.totalCount} PR</span>}
         <span title={repo.pushedAt}>{timeAgo(repo.pushedAt)}</span>
       </span>
+    </button>
+  )
+}
+
+function PinnedControlRow({ repo, onOpen }: { repo: Repo; onOpen: () => void }) {
+  const signal = repoSignal(repo, true)
+  return (
+    <button className="pinned-control-row" onClick={onOpen}>
+      <span className={`op-status status-${signal.level}`}>{signal.label}</span>
+      <span className="pinned-name">
+        <strong>{repo.name}</strong>
+        <span className="muted">{repo.owner.login}</span>
+      </span>
+      <span>{repo.openPRs.totalCount || '-'}</span>
+      <span>{repo.openIssues.totalCount || '-'}</span>
+      <span title={repo.pushedAt}>{timeAgo(repo.pushedAt)}</span>
     </button>
   )
 }
@@ -958,20 +1028,30 @@ function RepoCard({
 
 type HomeModel = {
   summary: {
-    openPRRepos: number
-    issueRepos: number
+    attentionRepos: number
+    riskRepos: number
     activeRepos: number
     pinnedRepos: number
   }
-  needsAttention: RepoAttention[]
+  priority: {
+    critical: RepoAttention[]
+    active: RepoAttention[]
+    quietCount: number
+  }
   activeWork: Repo[]
   pinnedRepos: Repo[]
-  recentActivity: Repo[]
+  digest: DigestItem[]
 }
 
 type RepoAttention = {
   repo: Repo
   signal: RepoSignal
+}
+
+type DigestItem = {
+  level: RepoSignalLevel
+  target: 'repos' | 'prs'
+  text: string
 }
 
 function buildHomeModel(repos: Repo[], pinnedIds: Set<string>, pinnedOrder: Map<string, number>): HomeModel {
@@ -981,27 +1061,45 @@ function buildHomeModel(repos: Repo[], pinnedIds: Set<string>, pinnedOrder: Map<
     .map((repo) => ({ repo, signal: repoSignal(repo, pinnedIds.has(repo.id)) }))
     .filter((item) => item.signal.score >= 20)
     .sort((a, b) => b.signal.score - a.signal.score || new Date(b.repo.pushedAt).getTime() - new Date(a.repo.pushedAt).getTime())
+  const critical = attention.filter((item) => item.signal.level === 'critical')
+  const activeAttention = attention.filter((item) => item.signal.level !== 'critical')
+  const stalePinned = visible.filter((repo) => pinnedIds.has(repo.id) && daysSince(repo.pushedAt) > 14)
+  const prLoad = visible.filter((repo) => repo.openPRs.totalCount > 0)
+  const issueLoad = visible.filter((repo) => repo.openIssues.totalCount > 0)
+  const activeRepos = visible
+    .filter((repo) => new Date(repo.pushedAt).getTime() >= activeCutoff)
+    .sort((a, b) => new Date(b.pushedAt).getTime() - new Date(a.pushedAt).getTime())
+  const digest = buildDigest(prLoad.length, issueLoad.length, stalePinned.length, activeRepos.length, visible.length - attention.length)
 
   return {
     summary: {
-      openPRRepos: visible.filter((repo) => repo.openPRs.totalCount > 0).length,
-      issueRepos: visible.filter((repo) => repo.openIssues.totalCount > 0).length,
-      activeRepos: visible.filter((repo) => new Date(repo.pushedAt).getTime() >= activeCutoff).length,
+      attentionRepos: attention.length,
+      riskRepos: prLoad.length + stalePinned.length,
+      activeRepos: activeRepos.length,
       pinnedRepos: pinnedIds.size,
     },
-    needsAttention: attention.slice(0, 10),
-    activeWork: visible
-      .filter((repo) => new Date(repo.pushedAt).getTime() >= activeCutoff)
-      .sort((a, b) => new Date(b.pushedAt).getTime() - new Date(a.pushedAt).getTime())
-      .slice(0, 8),
+    priority: {
+      critical: critical.slice(0, 5),
+      active: activeAttention.slice(0, 8),
+      quietCount: Math.max(0, visible.length - attention.length),
+    },
+    activeWork: activeRepos.slice(0, 8),
     pinnedRepos: visible
       .filter((repo) => pinnedIds.has(repo.id))
       .sort((a, b) => (pinnedOrder.get(a.id) ?? 0) - (pinnedOrder.get(b.id) ?? 0))
       .slice(0, 8),
-    recentActivity: visible
-      .sort((a, b) => new Date(b.pushedAt).getTime() - new Date(a.pushedAt).getTime())
-      .slice(0, 12),
+    digest,
   }
+}
+
+function buildDigest(openPRRepos: number, issueRepos: number, stalePinned: number, activeRepos: number, quietRepos: number): DigestItem[] {
+  const items: DigestItem[] = []
+  if (openPRRepos > 0) items.push({ level: 'critical', target: 'prs', text: `${openPRRepos} repo${openPRRepos > 1 ? 's have' : ' has'} open PR work.` })
+  if (stalePinned > 0) items.push({ level: 'attention', target: 'repos', text: `${stalePinned} pinned repo${stalePinned > 1 ? 's are' : ' is'} idle over 14 days.` })
+  if (issueRepos > 0) items.push({ level: 'attention', target: 'repos', text: `${issueRepos} repo${issueRepos > 1 ? 's have' : ' has'} open issue load.` })
+  if (activeRepos > 0) items.push({ level: 'active', target: 'repos', text: `${activeRepos} repo${activeRepos > 1 ? 's pushed' : ' pushed'} code in the last 7 days.` })
+  if (quietRepos > 0) items.push({ level: 'quiet', target: 'repos', text: `${quietRepos} quiet repo${quietRepos > 1 ? 's are' : ' is'} collapsed out of Home.` })
+  return items.length > 0 ? items : [{ level: 'quiet', target: 'repos', text: 'No operational changes detected from current repo data.' }]
 }
 
 function repoSignal(repo: Repo, pinned: boolean): RepoSignal {
@@ -1025,9 +1123,9 @@ function repoSignal(repo: Repo, pinned: boolean): RepoSignal {
   if (daysSincePush <= 7) {
     score += 10
     reasons.push('recent commit')
-  } else if (pinned && daysSincePush > 90) {
-    score += 12
-    reasons.push('pinned but stale')
+  } else if (pinned && daysSincePush > 14) {
+    score += 18
+    reasons.push(`pinned idle ${Math.floor(daysSincePush)}d`)
   }
 
   if (repo.isFork) reasons.push('fork')
@@ -1037,6 +1135,19 @@ function repoSignal(repo: Repo, pinned: boolean): RepoSignal {
   if (score >= 25) return { level: 'attention', label: 'watch', reasons, score }
   if (daysSincePush <= 7) return { level: 'active', label: 'active', reasons: ['recent commit'], score: 10 }
   return { level: 'quiet', label: 'quiet', reasons: reasons.length ? reasons : ['no immediate signal'], score }
+}
+
+function daysSince(iso: string): number {
+  return (Date.now() - new Date(iso).getTime()) / 86_400_000
+}
+
+function idleAge(iso: string): string {
+  const days = Math.floor(daysSince(iso))
+  if (days <= 0) return timeAgo(iso)
+  if (days < 30) return `${days}d`
+  const months = Math.floor(days / 30)
+  if (months < 12) return `${months}mo`
+  return `${Math.floor(days / 365)}y`
 }
 
 function groupRepos(repos: Repo[], by: GroupBy): Array<[string, Repo[]]> {
