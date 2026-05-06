@@ -3,14 +3,19 @@ import { searchPRs, type PullRequest, type Viewer } from '../api/github'
 import { PRDetail } from './PRDetail'
 
 type Role = 'mine' | 'assigned' | 'review'
-type InboxFilter = 'all' | Role | 'failing' | 'stale'
+export type InboxFilter = 'all' | Role | 'failing' | 'stale'
 
 type EnrichedPR = PullRequest & { roles: Role[] }
 
 type SelectedPR = { owner: string; name: string; number: number }
-type Props = { token: string; viewer: Viewer; initialSelected?: SelectedPR | null }
+type Props = {
+  token: string
+  viewer: Viewer
+  initialSelected?: SelectedPR | null
+  initialFilter?: InboxFilter
+}
 
-export function PRInbox({ token, viewer, initialSelected }: Props) {
+export function PRInbox({ token, viewer, initialSelected, initialFilter }: Props) {
   const [prs, setPrs] = useState<EnrichedPR[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
@@ -18,13 +23,19 @@ export function PRInbox({ token, viewer, initialSelected }: Props) {
   const [search, setSearch] = useState('')
   const [hideDrafts, setHideDrafts] = useState(false)
   const [showStale, setShowStale] = useState(true)
-  const [roleFilter, setRoleFilter] = useState<InboxFilter>('review')
+  const [roleFilter, setRoleFilter] = useState<InboxFilter>(initialFilter ?? 'review')
 
   const [selected, setSelected] = useState<SelectedPR | null>(initialSelected ?? null)
 
   useEffect(() => {
     if (initialSelected) setSelected(initialSelected)
   }, [initialSelected])
+
+  // Allow Home KPIs to drive a fresh filter when navigating in. We only react
+  // to non-null prop changes so manual filter clicks aren't overwritten.
+  useEffect(() => {
+    if (initialFilter) setRoleFilter(initialFilter)
+  }, [initialFilter])
 
   useEffect(() => {
     let cancelled = false
