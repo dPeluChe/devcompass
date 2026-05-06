@@ -20,6 +20,7 @@ type IconType = typeof FaPython
 function useViewerData(token: string) {
   const [progressMsg, setProgressMsg] = useState('')
   const [repos, setRepos] = useState<Repo[]>([])
+  const [orgs, setOrgs] = useState<Org[]>([])
   const [errors, setErrors] = useState<{ source: string; message: string }[]>([])
   const [loadedFromCache, setLoadedFromCache] = useState(false)
   
@@ -63,6 +64,7 @@ function useViewerData(token: string) {
       }
     }
     const allOrgsList = [...merged.values()]
+    setOrgs(allOrgsList)
     
     const { setAllOrgs, getEnabledOrgs, getSyncingOrgs, orgNeedsSync, markOrgSynced } = orgConfigStore.getState()
     setAllOrgs(allOrgsList.map(o => ({
@@ -136,6 +138,7 @@ function useViewerData(token: string) {
 
   return {
     viewer: viewerQuery.data,
+    orgs,
     tokenInfo: tokenInfoQuery.data,
     repos,
     errors,
@@ -204,10 +207,13 @@ export function Dashboard({ token, onLogout }: Props) {
   const groups = useMemo(() => groupRepos(unpinnedFiltered, groupBy), [unpinnedFiltered, groupBy])
 
   const owners = useMemo(() => {
-    const set = new Map<string, number>()
-    for (const r of baseFiltered) set.set(r.owner.login, (set.get(r.owner.login) ?? 0) + 1)
-    return [...set.entries()].sort((a, b) => b[1] - a[1])
-  }, [baseFiltered])
+    const counts = new Map<string, number>()
+    for (const r of baseFiltered) counts.set(r.owner.login, (counts.get(r.owner.login) ?? 0) + 1)
+    const orgLogins = data.orgs.length > 0 ? data.orgs.map((org) => org.login) : [...new Set(data.repos.map((r) => r.owner.login))]
+    return orgLogins
+      .map((login) => [login, counts.get(login) ?? 0] as const)
+      .sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]))
+  }, [baseFiltered, data.orgs, data.repos])
 
   async function handleTogglePinned(repo: Repo) {
     if (pinnedIds.has(repo.id)) {
@@ -317,12 +323,12 @@ export function Dashboard({ token, onLogout }: Props) {
                       All <span className="chip-count">{baseFiltered.length}</span>
                     </button>
                     {owners.map(([login, count]) => {
-                      const org = data.viewer?.organizations.nodes.find(o => o.login === login)
+                      const org = data.orgs.find(o => o.login === login)
                       const selected = selectedOwners.includes(login)
                       return (
                         <button
                           key={login}
-                          className={`org-chip ${selected ? 'active' : ''}`}
+                          className={`org-chip ${selected ? 'active' : ''} ${count === 0 ? 'empty' : ''}`}
                           onClick={() => toggleOwner(login)}
                           aria-pressed={selected}
                         >

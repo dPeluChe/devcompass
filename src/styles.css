@@ -258,10 +258,14 @@ button:disabled { opacity: 0.5; cursor: not-allowed; }
 .chip-count { opacity: 0.6; font-size: 0.7rem; }
 .chip-avatar { width: 16px; height: 16px; border-radius: 50%; }
 .org-chip:hover { border-color: var(--accent); }
+.org-chip.empty {
+  opacity: 0.58;
+}
 .org-chip.active {
   background: rgba(88, 166, 255, 0.14);
   color: var(--text);
   border-color: var(--accent);
+  opacity: 1;
 }
 .org-chip.active .chip-count { color: var(--accent); opacity: 1; }
 
