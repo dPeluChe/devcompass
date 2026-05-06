@@ -20,10 +20,17 @@ type GroupBy = 'none' | 'owner' | 'language' | 'activity'
 type RepoScope = 'all' | 'pinned'
 type IconType = typeof FaPython
 type RepoSignalLevel = 'critical' | 'attention' | 'active' | 'quiet'
+type WaitingOn = 'REVIEW' | 'TRIAGE' | 'ACTIVITY' | 'NONE'
+type HealthLabel = 'review needed' | 'active' | 'stale' | 'healthy' | 'quiet' | 'archived'
 type RepoSignal = {
   level: RepoSignalLevel
   label: string
   reasons: string[]
+  primaryReasons: string[]
+  secondaryReasons: string[]
+  health: HealthLabel
+  waitingOn: WaitingOn
+  activityLabel: string
   score: number
 }
 
@@ -587,7 +594,8 @@ function HomeView({
                 <span>Repo</span>
                 <span>PR</span>
                 <span>Issues</span>
-                <span>Commit</span>
+                <span>Last</span>
+                <span>Waiting</span>
               </div>
             )}
             {model.pinnedRepos.map((repo) => (
@@ -641,17 +649,24 @@ function RepoAttentionRow({ item, onOpen }: { item: RepoAttention; onOpen: () =>
       <span className={`status-dot status-${signal.level}`} />
       <span className="attention-main">
         <strong>{repo.nameWithOwner}</strong>
+        {signal.level === 'critical' && (
+          <span className="critical-summary">
+            {criticalSummary(repo, signal)}
+          </span>
+        )}
         <span className="why-line">
           <span className="why-label">Why</span>
-          {signal.reasons.slice(0, 3).map((reason) => (
-            <span key={reason} className="reason-chip">{reason}</span>
+          {signal.primaryReasons.map((reason) => (
+            <span key={reason} className="reason-chip primary">{reason}</span>
+          ))}
+          {signal.secondaryReasons.slice(0, 2).map((reason) => (
+            <span key={reason} className="reason-chip secondary">{reason}</span>
           ))}
         </span>
       </span>
       <span className="attention-meta">
-        {repo.openPRs.totalCount > 0 && <span>{repo.openPRs.totalCount} PR</span>}
-        {repo.openIssues.totalCount > 0 && <span>{repo.openIssues.totalCount} issues</span>}
-        <span title={repo.pushedAt}>idle {idleAge(repo.pushedAt)}</span>
+        <span className={`waiting-pill waiting-${signal.waitingOn.toLowerCase()}`}>waiting {signal.waitingOn}</span>
+        <span title={repo.pushedAt}>{signal.activityLabel}</span>
       </span>
     </button>
   )
@@ -669,7 +684,7 @@ function CompactRepoRow({ repo, onOpen }: { repo: Repo; onOpen: () => void }) {
       <span className="compact-repo-meta">
         {repo.primaryLanguage?.name && <span>{repo.primaryLanguage.name}</span>}
         {repo.openPRs.totalCount > 0 && <span>{repo.openPRs.totalCount} PR</span>}
-        <span title={repo.pushedAt}>{timeAgo(repo.pushedAt)}</span>
+        <span title={repo.pushedAt}>{signal.activityLabel}</span>
       </span>
     </button>
   )
@@ -679,14 +694,15 @@ function PinnedControlRow({ repo, onOpen }: { repo: Repo; onOpen: () => void }) 
   const signal = repoSignal(repo, true)
   return (
     <button className="pinned-control-row" onClick={onOpen}>
-      <span className={`op-status status-${signal.level}`}>{signal.label}</span>
+      <span className={`op-status status-${signal.level}`}>{signal.health}</span>
       <span className="pinned-name">
         <strong>{repo.name}</strong>
         <span className="muted">{repo.owner.login}</span>
       </span>
       <span>{repo.openPRs.totalCount || '-'}</span>
       <span>{repo.openIssues.totalCount || '-'}</span>
-      <span title={repo.pushedAt}>{timeAgo(repo.pushedAt)}</span>
+      <span title={repo.pushedAt}>{shortActivity(signal.activityLabel)}</span>
+      <span>{signal.waitingOn === 'NONE' ? '-' : signal.waitingOn}</span>
     </button>
   )
 }
@@ -985,7 +1001,7 @@ function RepoCard({
         <span className="title">{repo.name}</span>
         <span className="badges">
           <span className={`op-status status-${signal.level}`} title={signal.reasons.join(' · ')}>
-            {signal.label}
+            {signal.health}
           </span>
           {onTogglePinned && (
             <button
@@ -1018,7 +1034,7 @@ function RepoCard({
         {repo.openPRs.totalCount > 0 && (
           <span className="meta" title="Open PRs">⚡{repo.openPRs.totalCount} PR{repo.openPRs.totalCount > 1 ? 's' : ''}</span>
         )}
-        <span className="muted" title={repo.pushedAt}>commit {timeAgo(repo.pushedAt)}</span>
+        <span className="muted" title={repo.pushedAt}>{signal.activityLabel}</span>
         {repo.stargazerCount > 0 && <span title="Stars">★{repo.stargazerCount}</span>}
         {repo.openIssues.totalCount > 0 && <span title="Open issues" className="issues">◎{repo.openIssues.totalCount}</span>}
       </footer>
@@ -1094,47 +1110,87 @@ function buildHomeModel(repos: Repo[], pinnedIds: Set<string>, pinnedOrder: Map<
 
 function buildDigest(openPRRepos: number, issueRepos: number, stalePinned: number, activeRepos: number, quietRepos: number): DigestItem[] {
   const items: DigestItem[] = []
-  if (openPRRepos > 0) items.push({ level: 'critical', target: 'prs', text: `${openPRRepos} repo${openPRRepos > 1 ? 's have' : ' has'} open PR work.` })
-  if (stalePinned > 0) items.push({ level: 'attention', target: 'repos', text: `${stalePinned} pinned repo${stalePinned > 1 ? 's are' : ' is'} idle over 14 days.` })
-  if (issueRepos > 0) items.push({ level: 'attention', target: 'repos', text: `${issueRepos} repo${issueRepos > 1 ? 's have' : ' has'} open issue load.` })
-  if (activeRepos > 0) items.push({ level: 'active', target: 'repos', text: `${activeRepos} repo${activeRepos > 1 ? 's pushed' : ' pushed'} code in the last 7 days.` })
-  if (quietRepos > 0) items.push({ level: 'quiet', target: 'repos', text: `${quietRepos} quiet repo${quietRepos > 1 ? 's are' : ' is'} collapsed out of Home.` })
-  return items.length > 0 ? items : [{ level: 'quiet', target: 'repos', text: 'No operational changes detected from current repo data.' }]
+  if (openPRRepos > 0) items.push({ level: 'critical', target: 'prs', text: `${openPRRepos} repos need review` })
+  if (stalePinned > 0) items.push({ level: 'attention', target: 'repos', text: `${stalePinned} pinned stale` })
+  if (issueRepos > 0) items.push({ level: 'attention', target: 'repos', text: `${issueRepos} repos need triage` })
+  if (activeRepos > 0) items.push({ level: 'active', target: 'repos', text: `${activeRepos} repos active 7d` })
+  if (quietRepos > 0) items.push({ level: 'quiet', target: 'repos', text: `${quietRepos} quiet repos hidden` })
+  return items.length > 0 ? items : [{ level: 'quiet', target: 'repos', text: 'No operational changes detected' }]
 }
 
 function repoSignal(repo: Repo, pinned: boolean): RepoSignal {
-  const reasons: string[] = []
+  const primaryReasons: string[] = []
+  const secondaryReasons: string[] = []
   let score = 0
+  const daysSincePush = daysSince(repo.pushedAt)
+  let waitingOn: WaitingOn = 'NONE'
+  let health: HealthLabel = 'quiet'
 
   if (pinned) {
     score += 20
-    reasons.push('pinned')
+    secondaryReasons.push('pinned')
   }
   if (repo.openPRs.totalCount > 0) {
     score += 40 + Math.min(repo.openPRs.totalCount, 5) * 4
-    reasons.push(`${repo.openPRs.totalCount} open PR${repo.openPRs.totalCount > 1 ? 's' : ''}`)
+    primaryReasons.push(`${repo.openPRs.totalCount} PR pending`)
+    waitingOn = 'REVIEW'
+    health = 'review needed'
   }
   if (repo.openIssues.totalCount > 0) {
     score += Math.min(repo.openIssues.totalCount, 10)
-    reasons.push(`${repo.openIssues.totalCount} open issue${repo.openIssues.totalCount > 1 ? 's' : ''}`)
+    const reason = `${repo.openIssues.totalCount} issue${repo.openIssues.totalCount > 1 ? 's' : ''}`
+    if (repo.openPRs.totalCount === 0) {
+      primaryReasons.push(reason)
+      waitingOn = 'TRIAGE'
+    } else {
+      secondaryReasons.push(reason)
+    }
   }
 
-  const daysSincePush = (Date.now() - new Date(repo.pushedAt).getTime()) / 86_400_000
   if (daysSincePush <= 7) {
     score += 10
-    reasons.push('recent commit')
+    secondaryReasons.push('recent commit')
+    if (health === 'quiet') health = 'active'
   } else if (pinned && daysSincePush > 14) {
     score += 18
-    reasons.push(`pinned idle ${Math.floor(daysSincePush)}d`)
+    primaryReasons.push(`stale pinned ${Math.floor(daysSincePush)}d`)
+    if (waitingOn === 'NONE') waitingOn = 'ACTIVITY'
+    if (health === 'quiet') health = 'stale'
   }
 
-  if (repo.isFork) reasons.push('fork')
-  if (repo.isArchived) return { level: 'quiet', label: 'archived', reasons: ['archived'], score: 0 }
+  if (repo.isFork) secondaryReasons.push('fork')
+  if (repo.isArchived) return buildSignal('quiet', 'archived', ['archived'], [], 'archived', 'NONE', repo.pushedAt, 0)
 
-  if (score >= 60) return { level: 'critical', label: 'needs attention', reasons, score }
-  if (score >= 25) return { level: 'attention', label: 'watch', reasons, score }
-  if (daysSincePush <= 7) return { level: 'active', label: 'active', reasons: ['recent commit'], score: 10 }
-  return { level: 'quiet', label: 'quiet', reasons: reasons.length ? reasons : ['no immediate signal'], score }
+  if (score >= 60) return buildSignal('critical', 'critical', primaryReasons, secondaryReasons, health, waitingOn, repo.pushedAt, score)
+  if (score >= 25) return buildSignal('attention', 'attention', primaryReasons, secondaryReasons, health, waitingOn, repo.pushedAt, score)
+  if (daysSincePush <= 7) return buildSignal('active', 'active', primaryReasons, secondaryReasons.length ? secondaryReasons : ['recent commit'], health, waitingOn, repo.pushedAt, 10)
+  const quietHealth: HealthLabel = daysSincePush > 90 ? 'stale' : 'healthy'
+  return buildSignal('quiet', 'quiet', primaryReasons, secondaryReasons.length ? secondaryReasons : ['no immediate signal'], quietHealth, waitingOn, repo.pushedAt, score)
+}
+
+function buildSignal(
+  level: RepoSignalLevel,
+  label: string,
+  primaryReasons: string[],
+  secondaryReasons: string[],
+  health: HealthLabel,
+  waitingOn: WaitingOn,
+  pushedAt: string,
+  score: number
+): RepoSignal {
+  const safePrimary = primaryReasons.length ? primaryReasons : secondaryReasons.slice(0, 1)
+  const safeSecondary = primaryReasons.length ? secondaryReasons : secondaryReasons.slice(1)
+  return {
+    level,
+    label,
+    primaryReasons: safePrimary,
+    secondaryReasons: safeSecondary,
+    reasons: [...safePrimary, ...safeSecondary],
+    health,
+    waitingOn,
+    activityLabel: activityLabel(pushedAt),
+    score,
+  }
 }
 
 function daysSince(iso: string): number {
@@ -1148,6 +1204,26 @@ function idleAge(iso: string): string {
   const months = Math.floor(days / 30)
   if (months < 12) return `${months}mo`
   return `${Math.floor(days / 365)}y`
+}
+
+function activityLabel(iso: string): string {
+  const days = daysSince(iso)
+  if (days < 7) return `last commit ${timeAgo(iso)}`
+  if (days < 14) return `last commit ${Math.floor(days)}d`
+  return `stale ${idleAge(iso)}`
+}
+
+function shortActivity(label: string): string {
+  return label.replace('last commit ', '').replace('stale ', '')
+}
+
+function criticalSummary(repo: Repo, signal: RepoSignal): string {
+  const parts = []
+  if (repo.openPRs.totalCount > 0) parts.push(`${repo.openPRs.totalCount} PR${repo.openPRs.totalCount > 1 ? 's' : ''} pending`)
+  if (repo.openIssues.totalCount > 0) parts.push(`${repo.openIssues.totalCount} issue${repo.openIssues.totalCount > 1 ? 's' : ''}`)
+  parts.push(signal.activityLabel)
+  if (signal.waitingOn !== 'NONE') parts.push(`waiting ${signal.waitingOn}`)
+  return parts.join(' · ')
 }
 
 function groupRepos(repos: Repo[], by: GroupBy): Array<[string, Repo[]]> {
