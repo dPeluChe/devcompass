@@ -1,12 +1,14 @@
 import { useEffect, useMemo, useState, useCallback } from 'react'
 import { useQuery } from '@tanstack/react-query'
-import { fetchRateLimit, fetchTokenInfo, fetchUserOrgsRest, fetchViewer, fetchOrgReposSimple, type Repo, type TokenInfo, type Org } from '../api/github'
+import { fetchRateLimit, fetchTokenInfo, fetchUserOrgsRest, fetchViewer, fetchOrgReposSimple, fetchViewerReposSimple, type Repo, type TokenInfo, type Org } from '../api/github'
 import { RepoDetail } from './RepoDetail'
 import { PRInbox } from './PRInbox'
 import { OrgManager } from './OrgManager'
+import { SettingsTab } from './SettingsTab'
 import { Skeleton, CardSkeleton, FadeIn, Pulse } from './ui'
 import { orgConfigStore } from '../store/orgConfig'
-import { FaPython, FaJs, FaJava, FaVuejs, FaReact, FaAngular, FaNode, FaDatabase, FaLock, FaCodeBranch, FaExclamationCircle } from 'react-icons/fa'
+import { cacheRepos, getCachedRepos, getPinnedRepos, pinRepo, unpinRepo, type PinnedRepo } from '../store/db'
+import { FaPython, FaJs, FaJava, FaVuejs, FaReact, FaAngular, FaNode, FaDatabase, FaLock, FaCodeBranch, FaExclamationCircle, FaStar } from 'react-icons/fa'
 import { SiTypescript, SiGo, SiRust, SiMysql, SiMongodb } from 'react-icons/si'
 import { VscJson, VscSymbolMisc } from 'react-icons/vsc'
 
@@ -14,12 +16,15 @@ export { Skeleton, CardSkeleton, FadeIn, Pulse } from './ui'
 
 type Props = { token: string; onLogout: () => void }
 type GroupBy = 'none' | 'owner' | 'language' | 'activity'
+type RepoScope = 'all' | 'pinned'
 type IconType = typeof FaPython
 
 function useViewerData(token: string) {
   const [progressMsg, setProgressMsg] = useState('')
   const [repos, setRepos] = useState<Repo[]>([])
+  const [orgs, setOrgs] = useState<Org[]>([])
   const [errors, setErrors] = useState<{ source: string; message: string }[]>([])
+  const [loadedFromCache, setLoadedFromCache] = useState(false)
   
   const viewerQuery = useQuery({
     queryKey: ['viewer', token],
@@ -60,9 +65,10 @@ function useViewerData(token: string) {
         merged.set(o.login, { login: o.login, avatarUrl: o.avatar_url, url: o.url })
       }
     }
-    const allOrgsList = [...merged.values()]
+    const allOrgsList = [{ login: v.login, avatarUrl: v.avatarUrl, url: v.url }, ...merged.values()]
+    setOrgs(allOrgsList)
     
-    const { setAllOrgs, getEnabledOrgs, getSyncingOrgs } = orgConfigStore.getState()
+    const { setAllOrgs, getEnabledOrgs, getSyncingOrgs, orgNeedsSync, markOrgSynced } = orgConfigStore.getState()
     setAllOrgs(allOrgsList.map(o => ({
       login: o.login,
       avatarUrl: o.avatarUrl,
@@ -74,31 +80,55 @@ function useViewerData(token: string) {
     const enabledOrgs = getEnabledOrgs()
     const syncingOrgs = getSyncingOrgs()
     
-    setProgressMsg(`Loading repos from ${enabledOrgs.length} orgs...`)
+    setProgressMsg(`Checking local cache for ${enabledOrgs.length} orgs...`)
     
     const byId = new Map<string, Repo>()
     const errs: { source: string; message: string }[] = []
+    const cachedByOrg = new Map<string, Repo[]>()
+    const sourcesToSync = [v.login, ...syncingOrgs.filter((login) => login !== v.login)]
+
+    await Promise.all(sourcesToSync.map(async (login) => {
+      const cached = await getCachedRepos(login)
+      cachedByOrg.set(login, cached)
+      for (const r of cached) byId.set(r.id, r)
+    }))
+
+    if (byId.size > 0) {
+      setRepos(sortRepos([...byId.values()]))
+      setLoadedFromCache(true)
+    }
+
+    const orgsToFetch = sourcesToSync.filter((login) => {
+      const cached = cachedByOrg.get(login) ?? []
+      return cached.length === 0 || orgNeedsSync(login)
+    })
+
+    if (orgsToFetch.length === 0) {
+      setProgressMsg('')
+      setErrors([])
+      return
+    }
     
-    for (let i = 0; i < syncingOrgs.length; i++) {
-      const login = syncingOrgs[i]
+    for (let i = 0; i < orgsToFetch.length; i++) {
+      const login = orgsToFetch[i]
       const current = i + 1
-      const total = syncingOrgs.length
-      setProgressMsg(`Fetching repos from @${login} (${current}/${total})`)
+      const total = orgsToFetch.length
+      const prefix = byId.size > 0 ? 'Refreshing' : 'Fetching'
+      setProgressMsg(`${prefix} repos from @${login} (${current}/${total})`)
       
       try {
-        const orgRepos = await fetchOrgReposSimple(token, login)
+        const orgRepos = login === v.login ? await fetchViewerReposSimple(token) : await fetchOrgReposSimple(token, login)
+        await cacheRepos(login, orgRepos)
+        markOrgSynced(login)
         for (const r of orgRepos) byId.set(r.id, r)
+        setRepos(sortRepos([...byId.values()]))
       } catch (e) {
         console.warn(`Failed to load repos from ${login}:`, e)
         errs.push({ source: login, message: e instanceof Error ? e.message : String(e) })
       }
     }
 
-    const allRepos = [...byId.values()].sort(
-      (a, b) => new Date(b.pushedAt).getTime() - new Date(a.pushedAt).getTime()
-    )
-    
-    setRepos(allRepos)
+    setRepos(sortRepos([...byId.values()]))
     setErrors(errs)
     setProgressMsg('')
   }, [token, viewerQuery.data, userOrgsQuery.data])
@@ -111,36 +141,58 @@ function useViewerData(token: string) {
 
   return {
     viewer: viewerQuery.data,
+    orgs,
     tokenInfo: tokenInfoQuery.data,
     repos,
     errors,
     rateLimit: rateLimitQuery.data,
     progressMsg,
-    isLoading: isInitialLoading || !!progressMsg,
+    isLoading: repos.length === 0 && (isInitialLoading || !!progressMsg),
     isFetching: viewerQuery.isFetching || tokenInfoQuery.isFetching || rateLimitQuery.isFetching || !!progressMsg,
+    loadedFromCache,
     error: viewerQuery.error || null
   }
+}
+
+function sortRepos(repos: Repo[]): Repo[] {
+  return repos.sort((a, b) => new Date(b.pushedAt).getTime() - new Date(a.pushedAt).getTime())
 }
 
 export function Dashboard({ token, onLogout }: Props) {
   const data = useViewerData(token)
   
-  const [view, setView] = useState<'repos' | 'prs'>('repos')
+  const [view, setView] = useState<'repos' | 'prs' | 'config'>('repos')
+  const [repoScope, setRepoScope] = useState<RepoScope>('all')
   const [search, setSearch] = useState('')
   const [groupBy, setGroupBy] = useState<GroupBy>('none')
   const [hideArchived, setHideArchived] = useState(true)
   const [hideForks, setHideForks] = useState(false)
-  const [ownerFilter, setOwnerFilter] = useState<string>('')
+  const [selectedOwners, setSelectedOwners] = useState<string[]>([])
   const [activityWindow, setActivityWindow] = useState<number>(90)
   const [selected, setSelected] = useState<{ owner: string; name: string } | null>(null)
+  const [pinned, setPinned] = useState<PinnedRepo[]>([])
+  const [pinnedLoaded, setPinnedLoaded] = useState(false)
 
-  const filtered = useMemo(() => {
+  useEffect(() => {
+    getPinnedRepos()
+      .then((items) => {
+        setPinned(items)
+        if (items.length > 0) setRepoScope('pinned')
+      })
+      .catch((e) => console.warn('Failed to load pinned repos:', e))
+      .finally(() => setPinnedLoaded(true))
+  }, [])
+
+  useEffect(() => {
+    if (pinnedLoaded && pinned.length === 0 && repoScope === 'pinned') setRepoScope('all')
+  }, [pinned.length, pinnedLoaded, repoScope])
+
+  const baseFiltered = useMemo(() => {
     const q = search.toLowerCase().trim()
     const cutoff = activityWindow > 0 ? Date.now() - activityWindow * 86_400_000 : 0
     return data.repos.filter((r) => {
       if (hideArchived && r.isArchived) return false
       if (hideForks && r.isFork) return false
-      if (ownerFilter && r.owner.login !== ownerFilter) return false
       if (cutoff && new Date(r.pushedAt).getTime() < cutoff) return false
       if (!q) return true
       return (
@@ -150,15 +202,76 @@ export function Dashboard({ token, onLogout }: Props) {
         (r.primaryLanguage?.name ?? '').toLowerCase().includes(q)
       )
     })
-  }, [data.repos, search, hideArchived, hideForks, ownerFilter, activityWindow])
+  }, [data.repos, search, hideArchived, hideForks, activityWindow])
 
-  const groups = useMemo(() => groupRepos(filtered, groupBy), [filtered, groupBy])
+  const filtered = useMemo(() => {
+    if (selectedOwners.length === 0) return baseFiltered
+    const selected = new Set(selectedOwners)
+    return baseFiltered.filter((r) => selected.has(r.owner.login))
+  }, [baseFiltered, selectedOwners])
+
+  const pinnedIds = useMemo(() => new Set(pinned.map((p) => p.repoId)), [pinned])
+  const pinnedOrder = useMemo(() => new Map(pinned.map((p, i) => [p.repoId, i])), [pinned])
+  const scopedFiltered = useMemo(() => {
+    if (repoScope === 'pinned') return filtered.filter((r) => pinnedIds.has(r.id))
+    return filtered
+  }, [filtered, pinnedIds, repoScope])
+  const pinnedRepos = useMemo(() => {
+    return scopedFiltered
+      .filter((r) => pinnedIds.has(r.id))
+      .sort((a, b) => (pinnedOrder.get(a.id) ?? 0) - (pinnedOrder.get(b.id) ?? 0))
+  }, [scopedFiltered, pinnedIds, pinnedOrder])
+  const unpinnedFiltered = useMemo(() => {
+    if (repoScope === 'pinned') return []
+    return scopedFiltered.filter((r) => !pinnedIds.has(r.id))
+  }, [scopedFiltered, pinnedIds, repoScope])
+
+  const groups = useMemo(() => groupRepos(unpinnedFiltered, groupBy), [unpinnedFiltered, groupBy])
 
   const owners = useMemo(() => {
-    const set = new Map<string, number>()
-    for (const r of filtered) set.set(r.owner.login, (set.get(r.owner.login) ?? 0) + 1)
-    return [...set.entries()].sort((a, b) => b[1] - a[1])
-  }, [filtered])
+    const totalCounts = new Map<string, number>()
+    const filteredCounts = new Map<string, number>()
+    for (const r of data.repos) totalCounts.set(r.owner.login, (totalCounts.get(r.owner.login) ?? 0) + 1)
+    for (const r of baseFiltered) filteredCounts.set(r.owner.login, (filteredCounts.get(r.owner.login) ?? 0) + 1)
+    const orgLogins = data.orgs.length > 0 ? data.orgs.map((org) => org.login) : [...new Set(data.repos.map((r) => r.owner.login))]
+    return orgLogins
+      .map((login) => ({
+        login,
+        totalCount: totalCounts.get(login) ?? 0,
+        filteredCount: filteredCounts.get(login) ?? 0
+      }))
+      .sort((a, b) => b.totalCount - a.totalCount || a.login.localeCompare(b.login))
+  }, [baseFiltered, data.orgs, data.repos])
+
+  async function handleTogglePinned(repo: Repo) {
+    if (pinnedIds.has(repo.id)) {
+      await unpinRepo(repo.id)
+    } else {
+      await pinRepo(repo.id, repo.nameWithOwner)
+    }
+    setPinned(await getPinnedRepos())
+  }
+
+  function toggleOwner(login: string) {
+    const owner = owners.find((item) => item.login === login)
+    if (owner && owner.filteredCount === 0 && owner.totalCount > 0) {
+      setActivityWindow(0)
+      setSearch('')
+    }
+    setSelectedOwners((current) => {
+      if (current.includes(login)) return current.filter((item) => item !== login)
+      return [...current, login]
+    })
+  }
+
+  function showAllRepos() {
+    setRepoScope('all')
+    setSelectedOwners([])
+    setSearch('')
+    setActivityWindow(0)
+    setHideArchived(false)
+    setHideForks(false)
+  }
 
   if (data.error) {
     return (
@@ -186,11 +299,10 @@ export function Dashboard({ token, onLogout }: Props) {
             <button className={`view-tab ${view === 'prs' ? 'active' : ''}`} onClick={() => setView('prs')}>
               PRs
             </button>
+            <button className={`view-tab ${view === 'config' ? 'active' : ''}`} onClick={() => setView('config')}>
+              Config
+            </button>
           </nav>
-
-          {data.viewer && (
-            <OrgManager orgs={data.viewer.organizations.nodes} />
-          )}
 
           <div className="meta muted">
             {(data.isLoading || data.progressMsg) && (
@@ -200,7 +312,8 @@ export function Dashboard({ token, onLogout }: Props) {
             )}
             {!data.isLoading && !data.progressMsg && (
               <span>
-                {view === 'repos' ? `${filtered.length}/${data.repos.length} repos` : `${data.repos.length} repos`} · {data.viewer?.organizations.nodes.length ?? 0} orgs
+                {view === 'repos' ? `${scopedFiltered.length}/${data.repos.length} repos` : `${data.repos.length} repos`} · {data.viewer?.organizations.nodes.length ?? 0} orgs
+                {data.loadedFromCache && data.isFetching ? ' · local cache' : ''}
               </span>
             )}
             {data.rateLimit && <span>· {data.rateLimit.remaining}/{data.rateLimit.limit}</span>}
@@ -208,27 +321,20 @@ export function Dashboard({ token, onLogout }: Props) {
           </div>
         </header>
 
-        {data.tokenInfo && <DiagnosticsBar tokenInfo={data.tokenInfo} orgs={data.viewer?.organizations.nodes ?? []} />}
-
-        {data.errors.length > 0 && (
-          <details className="partial-errors">
-            <summary>{data.errors.length} partial errors (view)</summary>
-            <ul>
-              {data.errors.map((e, i) => (
-                <li key={i}>
-                  <strong>{e.source}:</strong> {e.message}
-                </li>
-              ))}
-            </ul>
-          </details>
-        )}
-
         {view === 'prs' && data.viewer && <PRInbox token={token} viewer={data.viewer} />}
+
+        {view === 'config' && (
+          <ConfigView
+            tokenInfo={data.tokenInfo}
+            orgs={data.orgs}
+            errors={data.errors}
+          />
+        )}
 
         {view === 'repos' && selected && (
           <RepoBrowser
             token={token}
-            repos={filtered}
+            repos={scopedFiltered}
             current={selected}
             onSelect={(r) => setSelected({ owner: r.owner.login, name: r.name })}
             onClose={() => setSelected(null)}
@@ -243,59 +349,94 @@ export function Dashboard({ token, onLogout }: Props) {
               <>
                 <div className="controls">
                   <div className="org-chips">
-                    {owners.slice(0, 6).map(([login, count]) => {
-                      const org = data.viewer?.organizations.nodes.find(o => o.login === login)
+                    <button
+                      className={`org-chip scope-chip ${repoScope === 'all' && selectedOwners.length === 0 ? 'active' : ''}`}
+                      onClick={showAllRepos}
+                      title="Show all loaded repos"
+                    >
+                      <span className="org-label">All</span>
+                      <span className="chip-count">{data.repos.length}</span>
+                    </button>
+                    <button
+                      className={`org-chip scope-chip ${repoScope === 'pinned' ? 'active' : ''} ${pinned.length === 0 ? 'empty' : ''}`}
+                      onClick={() => pinned.length > 0 && setRepoScope(repoScope === 'pinned' ? 'all' : 'pinned')}
+                      disabled={pinned.length === 0}
+                      title={pinned.length > 0 ? 'Show pinned repos' : 'No pinned repos yet'}
+                    >
+                      <span className="org-label">Pinned</span>
+                      <span className="chip-count">{pinned.length}</span>
+                    </button>
+                    {owners.map(({ login, totalCount, filteredCount }) => {
+                      const org = data.orgs.find(o => o.login === login)
+                      const selected = selectedOwners.includes(login)
+                      const label = login === data.viewer?.login ? 'Personal' : login
                       return (
                         <button
                           key={login}
-                          className={`org-chip ${ownerFilter === login ? 'active' : ''}`}
-                          onClick={() => setOwnerFilter(ownerFilter === login ? '' : login)}
+                          className={`org-chip org-filter-chip ${selected ? 'active' : ''} ${filteredCount === 0 ? 'empty' : ''}`}
+                          onClick={() => toggleOwner(login)}
+                          aria-pressed={selected}
+                          title={`${label} (${login}): ${filteredCount} matching current filters / ${totalCount} total`}
                         >
                           {org?.avatarUrl && <img src={org.avatarUrl} alt="" className="chip-avatar" />}
-                          {login} <span className="chip-count">{count}</span>
+                          <span className="org-label">{label}</span>
+                          <span className="chip-count">{totalCount}</span>
                         </button>
                       )
                     })}
-                    {owners.length > 6 && (
-                      <button
-                        className={`org-chip ${ownerFilter === '' ? 'active' : ''}`}
-                        onClick={() => setOwnerFilter('')}
-                      >
-                        +{owners.length - 6}
-                      </button>
-                    )}
                   </div>
-                  <input
-                    type="search"
-                    placeholder="Search repos, description, language..."
-                    value={search}
-                    onChange={(e) => setSearch(e.target.value)}
-                  />
-                  <select value={activityWindow} onChange={(e) => setActivityWindow(Number(e.target.value))}>
-                    <option value={7}>Active 7d</option>
-                    <option value={30}>Active 30d</option>
-                    <option value={90}>Active 3m</option>
-                    <option value={180}>Active 6m</option>
-                    <option value={365}>Active 1y</option>
-                    <option value={0}>All</option>
-                  </select>
-                  <select value={groupBy} onChange={(e) => setGroupBy(e.target.value as GroupBy)}>
-                    <option value="none">Recent first</option>
-                    <option value="activity">By activity</option>
-                    <option value="owner">By owner</option>
-                    <option value="language">By language</option>
-                  </select>
-                  <label>
-                    <input type="checkbox" checked={hideArchived} onChange={(e) => setHideArchived(e.target.checked)} />
-                    No archived
-                  </label>
-                  <label>
-                    <input type="checkbox" checked={hideForks} onChange={(e) => setHideForks(e.target.checked)} />
-                    No forks
-                  </label>
+                  <div className="filter-row">
+                    <input
+                      className="compact-search"
+                      type="search"
+                      placeholder="Search repos..."
+                      value={search}
+                      onChange={(e) => setSearch(e.target.value)}
+                    />
+                    <select value={activityWindow} onChange={(e) => setActivityWindow(Number(e.target.value))}>
+                      <option value={7}>Active 7d</option>
+                      <option value={30}>Active 30d</option>
+                      <option value={90}>Active 3m</option>
+                      <option value={180}>Active 6m</option>
+                      <option value={365}>Active 1y</option>
+                      <option value={0}>All</option>
+                    </select>
+                    <select value={groupBy} onChange={(e) => setGroupBy(e.target.value as GroupBy)}>
+                      <option value="none">Recent first</option>
+                      <option value="activity">By activity</option>
+                      <option value="owner">By owner</option>
+                      <option value="language">By language</option>
+                    </select>
+                    <label>
+                      <input type="checkbox" checked={hideArchived} onChange={(e) => setHideArchived(e.target.checked)} />
+                      No archived
+                    </label>
+                    <label>
+                      <input type="checkbox" checked={hideForks} onChange={(e) => setHideForks(e.target.checked)} />
+                      No forks
+                    </label>
+                  </div>
                 </div>
 
                 <main>
+                  {pinnedRepos.length > 0 && (
+                    <section className="group pinned-group">
+                      <h2>
+                        Pinned <span className="muted">({pinnedRepos.length})</span>
+                      </h2>
+                      <div className="grid">
+                        {pinnedRepos.map((r) => (
+                          <RepoCard
+                            key={r.id}
+                            repo={r}
+                            pinned
+                            onTogglePinned={() => handleTogglePinned(r)}
+                            onSelect={() => setSelected({ owner: r.owner.login, name: r.name })}
+                          />
+                        ))}
+                      </div>
+                    </section>
+                  )}
                   {groups.map(([group, items]) => (
                     <section key={group || '_'} className="group">
                       {group && (
@@ -308,6 +449,8 @@ export function Dashboard({ token, onLogout }: Props) {
                           <RepoCard
                             key={r.id}
                             repo={r}
+                            pinned={pinnedIds.has(r.id)}
+                            onTogglePinned={() => handleTogglePinned(r)}
                             onSelect={() => setSelected({ owner: r.owner.login, name: r.name })}
                           />
                         ))}
@@ -404,8 +547,81 @@ function RepoBrowser({
   )
 }
 
-function DiagnosticsBar({ tokenInfo, orgs }: { tokenInfo: TokenInfo; orgs: Org[] }) {
-  const [open, setOpen] = useState(false)
+function ConfigView({
+  tokenInfo,
+  orgs,
+  errors
+}: {
+  tokenInfo: TokenInfo | undefined
+  orgs: Org[]
+  errors: { source: string; message: string }[]
+}) {
+  const [section, setSection] = useState<'orgs' | 'token' | 'storage' | 'pinned'>('orgs')
+
+  return (
+    <div className="config-view">
+      <div className="config-tabs">
+        <button className={`config-tab ${section === 'orgs' ? 'active' : ''}`} onClick={() => setSection('orgs')}>
+          Orgs
+        </button>
+        <button className={`config-tab ${section === 'token' ? 'active' : ''}`} onClick={() => setSection('token')}>
+          Token
+        </button>
+        <button className={`config-tab ${section === 'storage' ? 'active' : ''}`} onClick={() => setSection('storage')}>
+          Storage
+        </button>
+        <button className={`config-tab ${section === 'pinned' ? 'active' : ''}`} onClick={() => setSection('pinned')}>
+          Pinned
+        </button>
+      </div>
+
+      <div className="config-panel">
+        {section === 'orgs' && (
+          <section className="config-section">
+            <div className="config-section-header">
+              <h2>Organizations</h2>
+              <span className="muted">Choose which orgs are available and synced.</span>
+            </div>
+            <OrgManager orgs={orgs} variant="inline" />
+          </section>
+        )}
+
+        {section === 'token' && tokenInfo && (
+          <section className="config-section">
+            <div className="config-section-header">
+              <h2>Token access</h2>
+              <span className="muted">Scopes, SSO and org visibility.</span>
+            </div>
+            <TokenAccessPanel tokenInfo={tokenInfo} orgs={orgs} />
+            {errors.length > 0 && (
+              <details className="partial-errors" open>
+                <summary>{errors.length} sync errors</summary>
+                <ul>
+                  {errors.map((e, i) => (
+                    <li key={i}>
+                      <strong>{e.source}:</strong> {e.message}
+                    </li>
+                  ))}
+                </ul>
+              </details>
+            )}
+          </section>
+        )}
+
+        {section === 'token' && !tokenInfo && (
+          <section className="config-section">
+            <p className="muted">Token information is still loading.</p>
+          </section>
+        )}
+
+        {section === 'storage' && <SettingsTab panel="storage" />}
+        {section === 'pinned' && <SettingsTab panel="pinned" />}
+      </div>
+    </div>
+  )
+}
+
+function TokenAccessPanel({ tokenInfo, orgs }: { tokenInfo: TokenInfo; orgs: Org[] }) {
   if (!tokenInfo) return null
 
   const hasReadOrg = tokenInfo.scopes.includes('read:org') || tokenInfo.scopes.includes('admin:org')
@@ -416,55 +632,77 @@ function DiagnosticsBar({ tokenInfo, orgs }: { tokenInfo: TokenInfo; orgs: Org[]
   const ok = !hasIssue
 
   return (
-    <div className={`diag-strip ${ok ? 'ok' : 'warn'}`}>
-      <button className="diag-toggle" onClick={() => setOpen((o) => !o)}>
-        <span className={`diag-dot ${ok ? 'ok' : 'warn'}`}>{ok ? '●' : '⚠'}</span>
-        <span>{tokenInfo.type} · {orgs.length} orgs</span>
-        {hasIssue && <span className="muted">· review</span>}
-        <span className="muted">{open ? '▴' : '▾'}</span>
-      </button>
+    <div className="token-panel">
+      <div className="token-summary">
+        <div className={`token-status ${ok ? 'ok' : 'warn'}`}>
+          <span className="token-status-dot">{ok ? '●' : '⚠'}</span>
+          <span>{ok ? 'Ready' : 'Needs review'}</span>
+        </div>
+        <div>
+          <span className="stat-value">{tokenInfo.type}</span>
+          <span className="stat-label">Token type</span>
+        </div>
+        <div>
+          <span className="stat-value">{orgs.length}</span>
+          <span className="stat-label">Visible orgs</span>
+        </div>
+        <div>
+          <span className="stat-value">{tokenInfo.scopes.length || '0'}</span>
+          <span className="stat-label">Scopes</span>
+        </div>
+      </div>
 
-      {open && (
-        <div className="diag-body">
-          {tokenInfo.scopes.length > 0 && (
-            <div className="diag-row">
-              <span className="muted">scopes:</span>
-              {tokenInfo.scopes.map((s) => (
-                <span key={s} className="diag-pill">{s}</span>
-              ))}
-            </div>
-          )}
-          {orgs.length > 0 && (
-            <div className="diag-orgs">
-              {orgs.map((o) => (
-                <a key={o.login} href={o.url} target="_blank" rel="noreferrer" title={o.login}>
-                  <img src={o.avatarUrl} alt={o.login} width={20} height={20} />
-                  <span>{o.login}</span>
-                </a>
-              ))}
-            </div>
-          )}
-          {hasIssue && (
-            <ul className="diag-issues">
-              {missingReadOrg && (
-                <li>
-                  PAT classic without <code>read:org</code> or <code>admin:org</code>. Edit at{' '}
-                  <a href="https://github.com/settings/tokens" target="_blank" rel="noreferrer">settings/tokens</a>.
-                </li>
-              )}
-              {tokenInfo.type === 'fine-grained' && noOrgs && (
-                <li>
-                  Fine-grained PATs only see approved orgs. Consider a classic with <code>repo</code> + <code>read:org</code>.
-                </li>
-              )}
-              {ssoIssue && (
-                <li>
-                  Missing SAML SSO authorization for some orgs.{' '}
-                  <a href={tokenInfo.ssoRequired!.url} target="_blank" rel="noreferrer">Authorize</a>.
-                </li>
-              )}
-            </ul>
-          )}
+      <div className="token-block">
+        <h3>Scopes</h3>
+        {tokenInfo.scopes.length > 0 ? (
+          <div className="diag-row">
+            {tokenInfo.scopes.map((s) => (
+              <span key={s} className="diag-pill">{s}</span>
+            ))}
+          </div>
+        ) : (
+          <p className="muted">No scopes reported by GitHub for this token.</p>
+        )}
+      </div>
+
+      <div className="token-block">
+        <h3>Organizations</h3>
+        {orgs.length > 0 ? (
+          <div className="diag-orgs">
+            {orgs.map((o) => (
+              <a key={o.login} href={o.url} target="_blank" rel="noreferrer" title={o.login}>
+                <img src={o.avatarUrl} alt={o.login} width={20} height={20} />
+                <span>{o.login}</span>
+              </a>
+            ))}
+          </div>
+        ) : (
+          <p className="muted">No organizations are visible with this token.</p>
+        )}
+      </div>
+
+      {hasIssue && (
+        <div className="token-block">
+          <h3>Action needed</h3>
+          <ul className="diag-issues">
+            {missingReadOrg && (
+              <li>
+                PAT classic without <code>read:org</code> or <code>admin:org</code>. Edit at{' '}
+                <a href="https://github.com/settings/tokens" target="_blank" rel="noreferrer">settings/tokens</a>.
+              </li>
+            )}
+            {tokenInfo.type === 'fine-grained' && noOrgs && (
+              <li>
+                Fine-grained PATs only see approved orgs. Consider a classic with <code>repo</code> + <code>read:org</code>.
+              </li>
+            )}
+            {ssoIssue && (
+              <li>
+                Missing SAML SSO authorization for some orgs.{' '}
+                <a href={tokenInfo.ssoRequired!.url} target="_blank" rel="noreferrer">Authorize</a>.
+              </li>
+            )}
+          </ul>
         </div>
       )}
     </div>
@@ -497,7 +735,17 @@ function getLangIcon(name: string): IconType | null {
   return icons[key] ?? null
 }
 
-function RepoCard({ repo, onSelect }: { repo: Repo; onSelect: () => void }) {
+function RepoCard({
+  repo,
+  pinned = false,
+  onTogglePinned,
+  onSelect
+}: {
+  repo: Repo
+  pinned?: boolean
+  onTogglePinned?: () => void
+  onSelect: () => void
+}) {
   const langKey = repo.primaryLanguage?.name?.toLowerCase() ?? ''
   const LangIcon = langKey ? getLangIcon(langKey) : null
   const isJS = langKey === 'javascript'
@@ -505,12 +753,24 @@ function RepoCard({ repo, onSelect }: { repo: Repo; onSelect: () => void }) {
 
   return (
     <article
-      className={`card ${repo.isArchived ? 'archived' : ''}`}
+      className={`card ${repo.isArchived ? 'archived' : ''} ${pinned ? 'pinned' : ''}`}
       onClick={onSelect}
     >
       <header>
         <span className="title">{repo.name}</span>
         <span className="badges">
+          {onTogglePinned && (
+            <button
+              className={`pin-btn ${pinned ? 'active' : ''}`}
+              title={pinned ? 'Unpin repo' : 'Pin repo'}
+              onClick={(e) => {
+                e.stopPropagation()
+                onTogglePinned()
+              }}
+            >
+              <FaStar size={11} />
+            </button>
+          )}
           {repo.isPrivate && <span className="badge" title="Private"><FaLock size={10} /></span>}
           {repo.isFork && <span className="badge" title="Forked"><FaCodeBranch size={10} /></span>}
           {repo.isArchived && <span className="badge" title="Archived"><FaExclamationCircle size={10} /></span>}

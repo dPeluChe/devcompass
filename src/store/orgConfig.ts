@@ -16,6 +16,7 @@ interface OrgConfigState {
   setAllOrgs: (orgs: OrgConfig[]) => void
   toggleOrg: (login: string) => void
   toggleOrgSync: (login: string) => void
+  markOrgSynced: (login: string, syncedAt?: number) => void
   getEnabledOrgs: () => string[]
   getSyncingOrgs: () => string[]
   orgNeedsSync: (login: string) => boolean
@@ -33,7 +34,7 @@ export const orgConfigStore = create<OrgConfigState>()(
         
         for (const org of newOrgs) {
           merged[org.login] = existing[org.login] 
-            ? { ...existing[org.login], ...org }
+            ? { ...org, ...existing[org.login], avatarUrl: org.avatarUrl }
             : { ...org, enabled: true, syncEnabled: true, lastSyncedAt: null }
         }
         
@@ -53,6 +54,21 @@ export const orgConfigStore = create<OrgConfigState>()(
         }
         
         set({ 
+          orgs: updated,
+          allOrgs: allOrgs.map(o => o.login === login ? updated[login] : o)
+        })
+      },
+
+      markOrgSynced: (login, syncedAt = Date.now()) => {
+        const { orgs, allOrgs } = get()
+        if (!orgs[login]) return
+
+        const updated = {
+          ...orgs,
+          [login]: { ...orgs[login], lastSyncedAt: syncedAt }
+        }
+
+        set({
           orgs: updated,
           allOrgs: allOrgs.map(o => o.login === login ? updated[login] : o)
         })

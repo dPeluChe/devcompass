@@ -227,35 +227,97 @@ button:disabled { opacity: 0.5; cursor: not-allowed; }
   gap: 8px;
   align-items: center;
   flex-wrap: wrap;
-  margin-bottom: 20px;
+  margin-bottom: 16px;
 }
-.controls input[type='search'] { flex: 1; min-width: 240px; }
-.org-chips { display: flex; gap: 6px; flex-wrap: wrap; }
+.filter-row {
+  display: flex;
+  gap: 6px;
+  align-items: center;
+  flex-wrap: nowrap;
+  flex: 1 1 640px;
+  min-width: 520px;
+}
+.controls input[type='search'].compact-search {
+  flex: 0 1 240px;
+  min-width: 160px;
+  max-width: 100%;
+}
+.filter-row select {
+  flex: 0 0 auto;
+  min-width: 118px;
+}
+.filter-row label {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  white-space: nowrap;
+  flex: 0 0 auto;
+}
+.org-chips {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+  align-items: center;
+  flex: 1 1 760px;
+  min-width: 620px;
+}
 .search-row { display: flex; gap: 8px; }
 .search-row input { flex: 1; }
 .org-chip {
   background: var(--panel);
   border: 1px solid var(--border);
   border-radius: 4px;
-  padding: 4px 10px;
+  padding: 0 7px;
   color: var(--muted);
-  font-size: 0.8rem;
+  font-size: 0.72rem;
+  line-height: 1;
   cursor: pointer;
   display: flex;
   align-items: center;
   gap: 4px;
+  flex: 0 0 auto;
+  height: 24px;
+  white-space: nowrap;
+  overflow: hidden;
 }
-.chip-count { opacity: 0.6; font-size: 0.7rem; }
-.chip-avatar { width: 16px; height: 16px; border-radius: 50%; }
+.scope-chip {
+  width: 78px;
+}
+.org-filter-chip {
+  width: 126px;
+}
+.org-label {
+  flex: 1 1 auto;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  min-width: 0;
+}
+.chip-count {
+  opacity: 0.6;
+  font-size: 0.66rem;
+  flex: 0 0 auto;
+  min-width: 16px;
+  text-align: right;
+}
+.chip-avatar { width: 14px; height: 14px; border-radius: 50%; flex-shrink: 0; }
 .org-chip:hover { border-color: var(--accent); }
-.org-chip.active {
-  background: var(--accent);
-  color: var(--bg);
-  border-color: var(--accent);
+.org-chip:disabled {
+  cursor: default;
 }
+.org-chip.empty {
+  opacity: 0.58;
+}
+.org-chip.active {
+  background: rgba(88, 166, 255, 0.14);
+  color: var(--text);
+  border-color: var(--accent);
+  opacity: 1;
+}
+.org-chip.active .chip-count { color: var(--accent); opacity: 1; }
 
 .group { margin-bottom: 28px; }
 .group h2 { font-size: 1.05em; margin: 0 0 10px; padding-bottom: 6px; border-bottom: 1px solid var(--border); }
+.pinned-group h2 { color: #f0c239; }
 
 .grid {
   display: grid;
@@ -352,6 +414,62 @@ button:disabled { opacity: 0.5; cursor: not-allowed; }
 }
 .view-tab.active { color: var(--text); background: var(--panel); border-color: var(--border); }
 .view-tab:hover { color: var(--text); }
+
+.config-view {
+  max-width: 1180px;
+  padding: 8px 0 32px;
+}
+.config-tabs {
+  display: inline-flex;
+  gap: 4px;
+  padding: 3px;
+  margin-bottom: 12px;
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+}
+.config-tab {
+  border: 0;
+  background: transparent;
+  color: var(--muted);
+  padding: 6px 12px;
+}
+.config-tab.active {
+  background: var(--panel-2);
+  color: var(--text);
+}
+.config-panel {
+  width: 100%;
+}
+.config-section {
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 14px;
+  margin-bottom: 12px;
+}
+.config-section-header {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 16px;
+  margin-bottom: 10px;
+}
+.config-section h2 {
+  margin: 0;
+  font-size: 1rem;
+}
+.config-section .org-manager {
+  display: inline-flex;
+}
+.config-view .settings-tab {
+  max-width: none;
+  margin: 0;
+  padding: 0;
+}
+.config-view .settings-tab section {
+  margin-bottom: 12px;
+}
 
 /* PR inbox: list (left) + detail (right) */
 .inbox-split {
@@ -829,35 +947,38 @@ button:disabled { opacity: 0.5; cursor: not-allowed; }
   font-weight: bold;
 }
 
-/* compact collapsible diagnostics chip */
-.diag-strip {
-  margin-bottom: 12px;
-  font-size: 0.82em;
-}
-.diag-toggle {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  background: var(--panel);
-  border: 1px solid var(--border);
-  border-radius: 14px;
-  padding: 3px 12px;
-  cursor: pointer;
-  color: var(--text);
-}
-.diag-toggle:hover { border-color: var(--accent); }
-.diag-strip.warn .diag-toggle { border-color: #d29922; }
-.diag-dot.ok { color: #3fb950; }
-.diag-dot.warn { color: #d29922; }
-.diag-body {
-  margin-top: 8px;
-  padding: 10px 12px;
-  background: var(--panel);
-  border: 1px solid var(--border);
-  border-radius: 6px;
+.token-panel {
   display: flex;
   flex-direction: column;
+  gap: 14px;
+}
+.token-summary {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(140px, 1fr));
+  gap: 12px;
+}
+.token-summary > div {
+  background: var(--panel-2);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 12px;
+}
+.token-status {
+  display: flex;
+  align-items: center;
   gap: 8px;
+  font-weight: 600;
+}
+.token-status.ok { color: #3fb950; }
+.token-status.warn { color: #d29922; }
+.token-status-dot { font-size: 0.9em; }
+.token-block {
+  border-top: 1px solid var(--border);
+  padding-top: 12px;
+}
+.token-block h3 {
+  margin: 0 0 8px;
+  font-size: 0.9rem;
 }
 .diag-row { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
 .diag-pill {
@@ -1055,6 +1176,15 @@ button:disabled { opacity: 0.5; cursor: not-allowed; }
   flex-direction: column;
   gap: 4px;
 }
+.org-manager-inline {
+  width: 100%;
+}
+.org-list.inline {
+  max-height: none;
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+  gap: 6px;
+}
 .org-row {
   display: flex;
   justify-content: space-between;
@@ -1229,18 +1359,28 @@ button:disabled { opacity: 0.5; cursor: not-allowed; }
   background: transparent;
   border: none;
   color: var(--muted);
-  font-size: 1rem;
   cursor: pointer;
-  padding: 4px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 20px;
+  height: 20px;
+  padding: 0;
   line-height: 1;
   opacity: 0;
   transition: opacity 0.2s, color 0.2s;
+}
+.card .pin-btn:focus-visible {
+  opacity: 1;
+  outline: 1px solid var(--accent);
+  outline-offset: 1px;
 }
 .card:hover .pin-btn {
   opacity: 1;
 }
 .card .pin-btn:hover {
-  color: var(--accent);
+  background: transparent;
+  color: #f0c239;
 }
 .card .pin-btn.active {
   opacity: 1;

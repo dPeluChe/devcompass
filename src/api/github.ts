@@ -138,6 +138,18 @@ async function fetchViewerReposPage(token: string, after: string | null): Promis
   return data.viewer.repositories
 }
 
+export async function fetchViewerReposSimple(token: string): Promise<Repo[]> {
+  const repos: Repo[] = []
+  let after: string | null = null
+  for (;;) {
+    const page = await fetchViewerReposPage(token, after)
+    repos.push(...page.nodes)
+    if (!page.pageInfo.hasNextPage) break
+    after = page.pageInfo.endCursor
+  }
+  return repos
+}
+
 async function fetchOrgReposPage(token: string, login: string, after: string | null): Promise<Page> {
   const data = await gql<{ organization: { repositories: Page } | null }>(
     token,

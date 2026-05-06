@@ -8,7 +8,9 @@ interface DbStats {
   tokenCount: number
 }
 
-export function SettingsTab() {
+type SettingsPanel = 'all' | 'storage' | 'pinned' | 'orgOrder'
+
+export function SettingsTab({ panel = 'all' }: { panel?: SettingsPanel }) {
   const [stats, setStats] = useState<DbStats | null>(null)
   const [pinned, setPinned] = useState<PinnedRepo[]>([])
   const [orgs, setOrgs] = useState<{ login: string; order: number }[]>([])
@@ -53,7 +55,7 @@ export function SettingsTab() {
 
   return (
     <div className="settings-tab">
-      <section>
+      {(panel === 'all' || panel === 'storage') && <section>
         <h2>Cache Storage</h2>
         <div className="stats-grid">
           <div className="stat">
@@ -77,9 +79,9 @@ export function SettingsTab() {
           <button onClick={handleClearCache}>Clear All Cache</button>
           <button onClick={handleClearOld}>Clear Stale Cache</button>
         </div>
-      </section>
+      </section>}
 
-      <section>
+      {(panel === 'all' || panel === 'pinned') && <section>
         <h2>Pinned Repos</h2>
         {pinned.length === 0 ? (
           <p className="muted">No pinned repos yet. Pin repos from the repo list.</p>
@@ -93,9 +95,9 @@ export function SettingsTab() {
             ))}
           </ul>
         )}
-      </section>
+      </section>}
 
-      <section>
+      {(panel === 'all' || panel === 'orgOrder') && <section>
         <h2>Org Order</h2>
         {orgs.length === 0 ? (
           <p className="muted">No orgs synced yet.</p>
@@ -109,7 +111,7 @@ export function SettingsTab() {
             ))}
           </ul>
         )}
-      </section>
+      </section>}
     </div>
   )
 }

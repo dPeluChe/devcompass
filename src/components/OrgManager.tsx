@@ -5,9 +5,10 @@ import { FadeIn, Button, Badge } from './ui'
 
 type Props = {
   orgs: Org[]
+  variant?: 'dropdown' | 'inline'
 }
 
-export function OrgManager({ orgs }: Props) {
+export function OrgManager({ orgs, variant = 'dropdown' }: Props) {
   const [isOpen, setIsOpen] = useState(false)
   const { orgs: config, setAllOrgs, toggleOrg, toggleOrgSync, getEnabledOrgs } = orgConfigStore()
   
@@ -25,6 +26,36 @@ export function OrgManager({ orgs }: Props) {
 
   const enabledCount = getEnabledOrgs().length
   const total = orgs.length
+  const rows = Object.values(config)
+  const enableAll = () => {
+    Object.keys(config).forEach(login => {
+      if (!config[login].enabled) toggleOrg(login)
+    })
+  }
+
+  if (variant === 'inline') {
+    return (
+      <div className="org-manager-inline">
+        <div className="org-manager-header">
+          <span className="muted">{enabledCount}/{total} enabled</span>
+          <Button size="sm" variant="ghost" onClick={enableAll}>
+            Enable all
+          </Button>
+        </div>
+
+        <div className="org-list inline">
+          {rows.map((org) => (
+            <OrgRow
+              key={org.login}
+              org={org}
+              onToggleEnabled={() => toggleOrg(org.login)}
+              onToggleSync={() => toggleOrgSync(org.login)}
+            />
+          ))}
+        </div>
+      </div>
+    )
+  }
 
   return (
     <div className="org-manager">
@@ -39,17 +70,13 @@ export function OrgManager({ orgs }: Props) {
           <div className="org-manager-dropdown">
             <div className="org-manager-header">
               <span className="muted">Select orgs to sync</span>
-              <Button size="sm" variant="ghost" onClick={() => {
-                Object.keys(config).forEach(login => {
-                  if (!config[login].enabled) toggleOrg(login)
-                })
-              }}>
+              <Button size="sm" variant="ghost" onClick={enableAll}>
                 Enable all
               </Button>
             </div>
             
             <div className="org-list">
-              {Object.values(config).map((org) => (
+              {rows.map((org) => (
                 <OrgRow 
                   key={org.login} 
                   org={org} 
