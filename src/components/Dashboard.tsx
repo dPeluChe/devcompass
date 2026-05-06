@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState, useCallback } from 'react'
 import { useQuery } from '@tanstack/react-query'
-import { fetchRateLimit, fetchTokenInfo, fetchUserOrgsRest, fetchViewer, fetchOrgReposSimple, fetchViewerReposSimple, type Repo, type TokenInfo, type Org } from '../api/github'
+import { fetchRateLimit, fetchTokenInfo, fetchUserOrgsRest, fetchViewer, fetchOrgReposSimple, fetchViewerReposSimple, type Repo, type RepoOpenPR, type TokenInfo, type Org } from '../api/github'
 import { RepoDetail } from './RepoDetail'
 import { PRInbox } from './PRInbox'
 import { OrgManager } from './OrgManager'
@@ -186,6 +186,7 @@ export function Dashboard({ token, onLogout }: Props) {
   const [selectedOwners, setSelectedOwners] = useState<string[]>([])
   const [activityWindow, setActivityWindow] = useState<number>(90)
   const [selected, setSelected] = useState<{ owner: string; name: string } | null>(null)
+  const [selectedPR, setSelectedPR] = useState<{ owner: string; name: string; number: number } | null>(null)
   const [pinned, setPinned] = useState<PinnedRepo[]>([])
   const [pinnedLoaded, setPinnedLoaded] = useState(false)
   const [visitSnapshot, setVisitSnapshot] = useState<RepoVisitSnapshot | null>(null)
@@ -368,16 +369,24 @@ export function Dashboard({ token, onLogout }: Props) {
                 onMarkSeen={markHomeSeen}
                 onOpenRepo={(repo) => {
                   setSelected({ owner: repo.owner.login, name: repo.name })
+                  setSelectedPR(null)
                   setView('repos')
                 }}
                 onOpenRepos={() => setView('repos')}
                 onOpenPRs={() => setView('prs')}
+                onOpenPR={(repo, pr) => {
+                  setSelectedPR({ owner: repo.owner.login, name: repo.name, number: pr.number })
+                  setSelected(null)
+                  setView('prs')
+                }}
               />
             )}
           </>
         )}
 
-        {view === 'prs' && data.viewer && <PRInbox token={token} viewer={data.viewer} />}
+        {view === 'prs' && data.viewer && (
+          <PRInbox token={token} viewer={data.viewer} initialSelected={selectedPR} />
+        )}
 
         {view === 'config' && (
           <ConfigView
@@ -528,13 +537,15 @@ function HomeView({
   onMarkSeen,
   onOpenRepo,
   onOpenRepos,
-  onOpenPRs
+  onOpenPRs,
+  onOpenPR
 }: {
   model: HomeModel
   onMarkSeen: () => void
   onOpenRepo: (repo: Repo) => void
   onOpenRepos: () => void
   onOpenPRs: () => void
+  onOpenPR: (repo: Repo, pr: RepoOpenPR) => void
 }) {
   return (
     <main className="home-view">
@@ -636,6 +647,7 @@ function HomeView({
                 title="Critical"
                 items={model.priority.critical}
                 onOpenRepo={onOpenRepo}
+                onOpenPR={onOpenPR}
               />
             )}
             {model.priority.reviewNeeded.length > 0 && (
@@ -643,6 +655,7 @@ function HomeView({
                 title="Review Debt"
                 items={model.priority.reviewNeeded}
                 onOpenRepo={onOpenRepo}
+                onOpenPR={onOpenPR}
               />
             )}
             {model.priority.stalePrs.length > 0 && (
@@ -650,6 +663,7 @@ function HomeView({
                 title="Stale PRs"
                 items={model.priority.stalePrs}
                 onOpenRepo={onOpenRepo}
+                onOpenPR={onOpenPR}
               />
             )}
             {model.priority.recentWork.length > 0 && (
@@ -657,6 +671,7 @@ function HomeView({
                 title="Recent Work"
                 items={model.priority.recentWork}
                 onOpenRepo={onOpenRepo}
+                onOpenPR={onOpenPR}
               />
             )}
             {model.priority.quietCount > 0 && (
@@ -698,11 +713,13 @@ function HomeView({
 function PriorityGroup({
   title,
   items,
-  onOpenRepo
+  onOpenRepo,
+  onOpenPR
 }: {
   title: string
   items: RepoAttention[]
   onOpenRepo: (repo: Repo) => void
+  onOpenPR: (repo: Repo, pr: RepoOpenPR) => void
 }) {
   const [expanded, setExpanded] = useState(false)
   const key = title.toLowerCase().replace(/\s+/g, '-')
@@ -713,7 +730,12 @@ function PriorityGroup({
       <h3>{title} <span>({items.length})</span></h3>
       <div className="attention-list">
         {visibleItems.map((item) => (
-          <RepoAttentionRow key={item.repo.id} item={item} onOpen={() => onOpenRepo(item.repo)} />
+          <RepoAttentionRow
+            key={item.repo.id}
+            item={item}
+            onOpen={() => onOpenRepo(item.repo)}
+            onOpenPR={(pr) => onOpenPR(item.repo, pr)}
+          />
         ))}
       </div>
       {items.length > 3 && (
@@ -725,10 +747,23 @@ function PriorityGroup({
   )
 }
 
-function RepoAttentionRow({ item, onOpen }: { item: RepoAttention; onOpen: () => void }) {
+function RepoAttentionRow({
+  item,
+  onOpen,
+  onOpenPR
+}: {
+  item: RepoAttention
+  onOpen: () => void
+  onOpenPR: (pr: RepoOpenPR) => void
+}) {
   const { repo, signal } = item
   return (
-    <button className={`attention-row signal-${signal.level}`} onClick={onOpen}>
+    <div className={`attention-row signal-${signal.level}`} onClick={onOpen} role="button" tabIndex={0} onKeyDown={(event) => {
+      if (event.key === 'Enter' || event.key === ' ') {
+        event.preventDefault()
+        onOpen()
+      }
+    }}>
       <span className={`status-dot status-${signal.level}`} />
       <span className="attention-main">
         <strong>{repo.nameWithOwner}</strong>
@@ -737,17 +772,17 @@ function RepoAttentionRow({ item, onOpen }: { item: RepoAttention; onOpen: () =>
             {criticalSummary(repo, signal)}
           </span>
         )}
-        <RepoPRList repo={repo} />
+        <RepoPRList repo={repo} onOpenPR={onOpenPR} />
       </span>
       <span className="attention-meta">
         <span className={`waiting-pill waiting-${signal.waitingOn.toLowerCase()}`}>{stateLabel(signal.waitingOn)}</span>
         <span title={repo.pushedAt}>{signal.activityLabel}</span>
       </span>
-    </button>
+    </div>
   )
 }
 
-function RepoPRList({ repo }: { repo: Repo }) {
+function RepoPRList({ repo, onOpenPR }: { repo: Repo; onOpenPR: (pr: RepoOpenPR) => void }) {
   if (repo.openPRs.totalCount === 0) return null
 
   const prs = repo.openPRs.nodes ?? []
@@ -759,10 +794,17 @@ function RepoPRList({ repo }: { repo: Repo }) {
   return (
     <span className="repo-pr-list">
       {prs.map((pr) => (
-        <span key={pr.id} className="repo-pr-item">
+        <button
+          key={pr.id}
+          className="repo-pr-item"
+          onClick={(event) => {
+            event.stopPropagation()
+            onOpenPR(pr)
+          }}
+        >
           <span className="repo-pr-number">#{pr.number}</span>
           <span className="repo-pr-title">{pr.isDraft ? 'Draft: ' : ''}{pr.title}</span>
-        </span>
+        </button>
       ))}
       {extraCount > 0 && <span className="repo-pr-more">+{extraCount} more</span>}
     </span>

@@ -511,6 +511,12 @@ button:disabled { opacity: 0.5; cursor: not-allowed; }
 }
 .attention-row {
   grid-template-columns: 10px minmax(0, 1fr) auto;
+  cursor: pointer;
+}
+.attention-row:focus-visible {
+  border-color: var(--accent);
+  outline: 2px solid rgba(88, 166, 255, 0.25);
+  outline-offset: 2px;
 }
 .attention-row.signal-critical {
   min-height: 60px;
@@ -585,9 +591,21 @@ button:disabled { opacity: 0.5; cursor: not-allowed; }
   grid-template-columns: auto minmax(0, 1fr);
   gap: 6px;
   align-items: center;
+  background: transparent;
+  border: 0;
+  border-radius: 4px;
   color: var(--muted);
   font-size: 0.78rem;
   min-width: 0;
+  padding: 1px 0;
+  text-align: left;
+}
+.repo-pr-item:hover {
+  background: transparent;
+}
+.repo-pr-item:hover .repo-pr-title {
+  color: var(--text);
+  text-decoration: underline;
 }
 .repo-pr-number {
   color: var(--accent);
