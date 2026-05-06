@@ -207,13 +207,19 @@ export function Dashboard({ token, onLogout }: Props) {
   const groups = useMemo(() => groupRepos(unpinnedFiltered, groupBy), [unpinnedFiltered, groupBy])
 
   const owners = useMemo(() => {
-    const counts = new Map<string, number>()
-    for (const r of data.repos) counts.set(r.owner.login, (counts.get(r.owner.login) ?? 0) + 1)
+    const totalCounts = new Map<string, number>()
+    const visibleCounts = new Map<string, number>()
+    for (const r of data.repos) totalCounts.set(r.owner.login, (totalCounts.get(r.owner.login) ?? 0) + 1)
+    for (const r of baseFiltered) visibleCounts.set(r.owner.login, (visibleCounts.get(r.owner.login) ?? 0) + 1)
     const orgLogins = data.orgs.length > 0 ? data.orgs.map((org) => org.login) : [...new Set(data.repos.map((r) => r.owner.login))]
     return orgLogins
-      .map((login) => [login, counts.get(login) ?? 0] as const)
-      .sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]))
-  }, [data.orgs, data.repos])
+      .map((login) => ({
+        login,
+        totalCount: totalCounts.get(login) ?? 0,
+        visibleCount: visibleCounts.get(login) ?? 0
+      }))
+      .sort((a, b) => b.totalCount - a.totalCount || a.login.localeCompare(b.login))
+  }, [baseFiltered, data.orgs, data.repos])
 
   async function handleTogglePinned(repo: Repo) {
     if (pinnedIds.has(repo.id)) {
@@ -225,6 +231,11 @@ export function Dashboard({ token, onLogout }: Props) {
   }
 
   function toggleOwner(login: string) {
+    const owner = owners.find((item) => item.login === login)
+    if (owner && owner.visibleCount === 0 && owner.totalCount > 0) {
+      setActivityWindow(0)
+      setSearch('')
+    }
     setSelectedOwners((current) => {
       if (current.includes(login)) return current.filter((item) => item !== login)
       return [...current, login]
@@ -323,19 +334,21 @@ export function Dashboard({ token, onLogout }: Props) {
                       <span className="org-label">All</span>
                       <span className="chip-count">{data.repos.length}</span>
                     </button>
-                    {owners.map(([login, count]) => {
+                    {owners.map(({ login, totalCount, visibleCount }) => {
                       const org = data.orgs.find(o => o.login === login)
                       const selected = selectedOwners.includes(login)
+                      const countLabel = visibleCount === totalCount ? `${totalCount}` : `${visibleCount}/${totalCount}`
                       return (
                         <button
                           key={login}
-                          className={`org-chip ${selected ? 'active' : ''} ${count === 0 ? 'empty' : ''}`}
+                          className={`org-chip ${selected ? 'active' : ''} ${visibleCount === 0 ? 'empty' : ''}`}
                           onClick={() => toggleOwner(login)}
                           aria-pressed={selected}
+                          title={`${login}: ${visibleCount} visible / ${totalCount} total`}
                         >
                           {org?.avatarUrl && <img src={org.avatarUrl} alt="" className="chip-avatar" />}
                           <span className="org-label">{login}</span>
-                          <span className="chip-count">{count}</span>
+                          <span className="chip-count">{countLabel}</span>
                         </button>
                       )
                     })}

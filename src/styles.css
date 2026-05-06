@@ -224,9 +224,9 @@ button:disabled { opacity: 0.5; cursor: not-allowed; }
 
 .controls {
   display: flex;
-  flex-direction: column;
   gap: 8px;
-  align-items: stretch;
+  align-items: center;
+  flex-wrap: wrap;
   margin-bottom: 16px;
 }
 .filter-row {
@@ -234,13 +234,21 @@ button:disabled { opacity: 0.5; cursor: not-allowed; }
   gap: 8px;
   align-items: center;
   flex-wrap: wrap;
+  flex: 0 1 auto;
 }
 .controls input[type='search'].compact-search {
-  flex: 0 0 340px;
+  flex: 0 0 300px;
   min-width: 220px;
   max-width: 100%;
 }
-.org-chips { display: flex; gap: 6px; flex-wrap: wrap; }
+.org-chips {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+  align-items: center;
+  flex: 1 1 520px;
+  min-width: 280px;
+}
 .search-row { display: flex; gap: 8px; }
 .search-row input { flex: 1; }
 .org-chip {
