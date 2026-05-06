@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState, useCallback } from 'react'
 import { useQuery } from '@tanstack/react-query'
-import { fetchRateLimit, fetchTokenInfo, fetchUserOrgsRest, fetchViewer, fetchOrgReposSimple, type Repo, type TokenInfo, type Org } from '../api/github'
+import { fetchRateLimit, fetchTokenInfo, fetchUserOrgsRest, fetchViewer, fetchOrgReposSimple, fetchViewerReposSimple, type Repo, type TokenInfo, type Org } from '../api/github'
 import { RepoDetail } from './RepoDetail'
 import { PRInbox } from './PRInbox'
 import { OrgManager } from './OrgManager'
@@ -65,7 +65,7 @@ function useViewerData(token: string) {
         merged.set(o.login, { login: o.login, avatarUrl: o.avatar_url, url: o.url })
       }
     }
-    const allOrgsList = [...merged.values()]
+    const allOrgsList = [{ login: v.login, avatarUrl: v.avatarUrl, url: v.url }, ...merged.values()]
     setOrgs(allOrgsList)
     
     const { setAllOrgs, getEnabledOrgs, getSyncingOrgs, orgNeedsSync, markOrgSynced } = orgConfigStore.getState()
@@ -85,8 +85,9 @@ function useViewerData(token: string) {
     const byId = new Map<string, Repo>()
     const errs: { source: string; message: string }[] = []
     const cachedByOrg = new Map<string, Repo[]>()
+    const sourcesToSync = [v.login, ...syncingOrgs.filter((login) => login !== v.login)]
 
-    await Promise.all(syncingOrgs.map(async (login) => {
+    await Promise.all(sourcesToSync.map(async (login) => {
       const cached = await getCachedRepos(login)
       cachedByOrg.set(login, cached)
       for (const r of cached) byId.set(r.id, r)
@@ -97,7 +98,7 @@ function useViewerData(token: string) {
       setLoadedFromCache(true)
     }
 
-    const orgsToFetch = syncingOrgs.filter((login) => {
+    const orgsToFetch = sourcesToSync.filter((login) => {
       const cached = cachedByOrg.get(login) ?? []
       return cached.length === 0 || orgNeedsSync(login)
     })
@@ -116,7 +117,7 @@ function useViewerData(token: string) {
       setProgressMsg(`${prefix} repos from @${login} (${current}/${total})`)
       
       try {
-        const orgRepos = await fetchOrgReposSimple(token, login)
+        const orgRepos = login === v.login ? await fetchViewerReposSimple(token) : await fetchOrgReposSimple(token, login)
         await cacheRepos(login, orgRepos)
         markOrgSynced(login)
         for (const r of orgRepos) byId.set(r.id, r)
@@ -368,16 +369,17 @@ export function Dashboard({ token, onLogout }: Props) {
                     {owners.map(({ login, totalCount, filteredCount }) => {
                       const org = data.orgs.find(o => o.login === login)
                       const selected = selectedOwners.includes(login)
+                      const label = login === data.viewer?.login ? 'Personal' : login
                       return (
                         <button
                           key={login}
                           className={`org-chip org-filter-chip ${selected ? 'active' : ''} ${filteredCount === 0 ? 'empty' : ''}`}
                           onClick={() => toggleOwner(login)}
                           aria-pressed={selected}
-                          title={`${login}: ${filteredCount} matching current filters / ${totalCount} total`}
+                          title={`${label} (${login}): ${filteredCount} matching current filters / ${totalCount} total`}
                         >
                           {org?.avatarUrl && <img src={org.avatarUrl} alt="" className="chip-avatar" />}
-                          <span className="org-label">{login}</span>
+                          <span className="org-label">{label}</span>
                           <span className="chip-count">{totalCount}</span>
                         </button>
                       )
