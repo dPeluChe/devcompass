@@ -169,10 +169,21 @@ export function Dashboard({ token, onLogout }: Props) {
   const [activityWindow, setActivityWindow] = useState<number>(90)
   const [selected, setSelected] = useState<{ owner: string; name: string } | null>(null)
   const [pinned, setPinned] = useState<PinnedRepo[]>([])
+  const [pinnedLoaded, setPinnedLoaded] = useState(false)
 
   useEffect(() => {
-    getPinnedRepos().then(setPinned).catch((e) => console.warn('Failed to load pinned repos:', e))
+    getPinnedRepos()
+      .then((items) => {
+        setPinned(items)
+        if (items.length > 0) setRepoScope('pinned')
+      })
+      .catch((e) => console.warn('Failed to load pinned repos:', e))
+      .finally(() => setPinnedLoaded(true))
   }, [])
+
+  useEffect(() => {
+    if (pinnedLoaded && pinned.length === 0 && repoScope === 'pinned') setRepoScope('all')
+  }, [pinned.length, pinnedLoaded, repoScope])
 
   const baseFiltered = useMemo(() => {
     const q = search.toLowerCase().trim()
@@ -337,11 +348,23 @@ export function Dashboard({ token, onLogout }: Props) {
                   <div className="org-chips">
                     <button
                       className={`org-chip ${selectedOwners.length === 0 ? 'active' : ''}`}
-                      onClick={() => setSelectedOwners([])}
+                      onClick={() => {
+                        setRepoScope('all')
+                        setSelectedOwners([])
+                      }}
                       title="Show every org"
                     >
                       <span className="org-label">All</span>
                       <span className="chip-count">{data.repos.length}</span>
+                    </button>
+                    <button
+                      className={`org-chip ${repoScope === 'pinned' ? 'active' : ''} ${pinned.length === 0 ? 'empty' : ''}`}
+                      onClick={() => pinned.length > 0 && setRepoScope(repoScope === 'pinned' ? 'all' : 'pinned')}
+                      disabled={pinned.length === 0}
+                      title={pinned.length > 0 ? 'Show pinned repos' : 'No pinned repos yet'}
+                    >
+                      <span className="org-label">Pinned</span>
+                      <span className="chip-count">{pinned.length}</span>
                     </button>
                     {owners.map(({ login, totalCount, visibleCount }) => {
                       const org = data.orgs.find(o => o.login === login)
@@ -363,14 +386,6 @@ export function Dashboard({ token, onLogout }: Props) {
                     })}
                   </div>
                   <div className="filter-row">
-                    <select
-                      className="scope-select"
-                      value={repoScope}
-                      onChange={(e) => setRepoScope(e.target.value as RepoScope)}
-                    >
-                      <option value="all">All repos</option>
-                      <option value="pinned">Pinned</option>
-                    </select>
                     <input
                       className="compact-search"
                       type="search"

@@ -238,16 +238,13 @@ button:disabled { opacity: 0.5; cursor: not-allowed; }
   min-width: 520px;
 }
 .controls input[type='search'].compact-search {
-  flex: 1 1 260px;
-  min-width: 180px;
+  flex: 0 1 240px;
+  min-width: 160px;
   max-width: 100%;
 }
 .filter-row select {
   flex: 0 0 auto;
   min-width: 118px;
-}
-.filter-row .scope-select {
-  min-width: 112px;
 }
 .filter-row label {
   display: inline-flex;
@@ -289,6 +286,9 @@ button:disabled { opacity: 0.5; cursor: not-allowed; }
 .chip-count { opacity: 0.6; font-size: 0.66rem; flex-shrink: 0; }
 .chip-avatar { width: 14px; height: 14px; border-radius: 50%; flex-shrink: 0; }
 .org-chip:hover { border-color: var(--accent); }
+.org-chip:disabled {
+  cursor: default;
+}
 .org-chip.empty {
   opacity: 0.58;
 }
