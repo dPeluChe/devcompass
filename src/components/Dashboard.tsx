@@ -229,15 +229,15 @@ export function Dashboard({ token, onLogout }: Props) {
 
   const owners = useMemo(() => {
     const totalCounts = new Map<string, number>()
-    const visibleCounts = new Map<string, number>()
+    const filteredCounts = new Map<string, number>()
     for (const r of data.repos) totalCounts.set(r.owner.login, (totalCounts.get(r.owner.login) ?? 0) + 1)
-    for (const r of baseFiltered) visibleCounts.set(r.owner.login, (visibleCounts.get(r.owner.login) ?? 0) + 1)
+    for (const r of baseFiltered) filteredCounts.set(r.owner.login, (filteredCounts.get(r.owner.login) ?? 0) + 1)
     const orgLogins = data.orgs.length > 0 ? data.orgs.map((org) => org.login) : [...new Set(data.repos.map((r) => r.owner.login))]
     return orgLogins
       .map((login) => ({
         login,
         totalCount: totalCounts.get(login) ?? 0,
-        visibleCount: visibleCounts.get(login) ?? 0
+        filteredCount: filteredCounts.get(login) ?? 0
       }))
       .sort((a, b) => b.totalCount - a.totalCount || a.login.localeCompare(b.login))
   }, [baseFiltered, data.orgs, data.repos])
@@ -253,7 +253,7 @@ export function Dashboard({ token, onLogout }: Props) {
 
   function toggleOwner(login: string) {
     const owner = owners.find((item) => item.login === login)
-    if (owner && owner.visibleCount === 0 && owner.totalCount > 0) {
+    if (owner && owner.filteredCount === 0 && owner.totalCount > 0) {
       setActivityWindow(0)
       setSearch('')
     }
@@ -365,21 +365,20 @@ export function Dashboard({ token, onLogout }: Props) {
                       <span className="org-label">Pinned</span>
                       <span className="chip-count">{pinned.length}</span>
                     </button>
-                    {owners.map(({ login, totalCount, visibleCount }) => {
+                    {owners.map(({ login, totalCount, filteredCount }) => {
                       const org = data.orgs.find(o => o.login === login)
                       const selected = selectedOwners.includes(login)
-                      const countLabel = visibleCount === totalCount ? `${totalCount}` : `${visibleCount}/${totalCount}`
                       return (
                         <button
                           key={login}
-                          className={`org-chip ${selected ? 'active' : ''} ${visibleCount === 0 ? 'empty' : ''}`}
+                          className={`org-chip ${selected ? 'active' : ''} ${filteredCount === 0 ? 'empty' : ''}`}
                           onClick={() => toggleOwner(login)}
                           aria-pressed={selected}
-                          title={`${login}: ${visibleCount} visible / ${totalCount} total`}
+                          title={`${login}: ${filteredCount} matching current filters / ${totalCount} total`}
                         >
                           {org?.avatarUrl && <img src={org.avatarUrl} alt="" className="chip-avatar" />}
                           <span className="org-label">{login}</span>
-                          <span className="chip-count">{countLabel}</span>
+                          <span className="chip-count">{totalCount}</span>
                         </button>
                       )
                     })}
