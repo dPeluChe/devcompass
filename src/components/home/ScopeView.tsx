@@ -184,7 +184,7 @@ function CompactRow({ repo, onClick }: { repo: Repo; onClick: () => void }) {
       <span className={`hs-dot ${dot}`} />
       <div className="hs-repo-cell">
         <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-          <OrgChip login={org} />
+          <OrgChip login={org} avatarUrl={repo.owner.avatarUrl} />
           <strong>{repoName}</strong>
           <span className="hs-muted-small">{org}</span>
         </div>
