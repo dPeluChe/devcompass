@@ -25,6 +25,7 @@ export interface CachedRepo {
       updatedAt: string
       isDraft: boolean
       author: { login: string; avatarUrl: string } | null
+      ciState?: string | null
     }[]
   }
   openIssues: { totalCount: number }
@@ -55,6 +56,15 @@ export interface PinnedRepo {
   pinnedAt: number
 }
 
+export interface SnoozedPR {
+  prId: string
+  untilTs: number
+  createdAt: number
+  /** Stored for diagnostics — UI never trusts this, it re-derives from current data. */
+  nameWithOwner?: string
+  number?: number
+}
+
 export interface UserPrefs {
   id: string
   key: string
@@ -68,16 +78,17 @@ class GHDatabase extends Dexie {
   prefs!: Table<UserPrefs, string>
   tokens!: Table<TokenMeta, string>
   pinnedRepos!: Table<PinnedRepo, string>
+  snoozedPRs!: Table<SnoozedPR, string>
 
   constructor() {
     super('ghviewer')
-    
+
     this.version(1).stores({
       repos: 'id, nameWithOwner, owner.login, pushedAt, cachedAt',
       orgs: 'login',
       prefs: 'key'
     })
-    
+
     this.version(2).stores({
       repos: 'id, nameWithOwner, owner.login, pushedAt, cachedAt',
       orgs: 'login, order',
@@ -88,6 +99,16 @@ class GHDatabase extends Dexie {
       tx.table('orgs').toCollection().modify(org => {
         org.order = 0
       })
+    })
+
+    this.version(3).stores({
+      repos: 'id, nameWithOwner, owner.login, pushedAt, cachedAt',
+      orgs: 'login, order',
+      prefs: 'key',
+      tokens: 'id',
+      pinnedRepos: 'repoId, pinnedAt',
+      // untilTs lets us cheaply prune expired rows; no upgrade needed since the table is new.
+      snoozedPRs: 'prId, untilTs'
     })
   }
 }
@@ -199,4 +220,29 @@ export async function getDbStats() {
     db.tokens.count()
   ])
   return { repoCount, orgCount, pinnedCount, tokenCount }
+}
+
+// ---------- snooze ----------
+
+export async function snoozePr(prId: string, untilTs: number, meta?: { nameWithOwner?: string; number?: number }) {
+  await db.snoozedPRs.put({
+    prId,
+    untilTs,
+    createdAt: Date.now(),
+    nameWithOwner: meta?.nameWithOwner,
+    number: meta?.number
+  })
+}
+
+export async function unsnoozePr(prId: string) {
+  await db.snoozedPRs.delete(prId)
+}
+
+/** Returns the set of currently-snoozed PR ids and prunes expired rows along the way. */
+export async function getActiveSnoozes(): Promise<Set<string>> {
+  const now = Date.now()
+  const expired = await db.snoozedPRs.where('untilTs').belowOrEqual(now).primaryKeys()
+  if (expired.length > 0) await db.snoozedPRs.bulkDelete(expired)
+  const live = await db.snoozedPRs.where('untilTs').above(now).primaryKeys()
+  return new Set(live)
 }

@@ -7,6 +7,7 @@ import { OrgManager } from './OrgManager'
 import { SettingsTab } from './SettingsTab'
 import { QuickSwitcher, type QSAction } from './QuickSwitcher'
 import { ShortcutsHelp } from './ShortcutsHelp'
+import { HomeShell } from './home/HomeShell'
 import { Skeleton, CardSkeleton, FadeIn, Pulse } from './ui'
 import { useGlobalShortcuts } from '../hooks/useGlobalShortcuts'
 import { orgConfigStore } from '../store/orgConfig'
@@ -468,11 +469,9 @@ export function Dashboard({ token, onLogout }: Props) {
 
             {!data.isLoading && (
               <span className="meta-summary">
-                {view === 'home'
-                  ? `${home.priority.critical.length} critical · ${home.summary.reviewDebtRepos} review debt · ${data.repos.length} repos`
-                  : view === 'repos'
-                    ? `${scopedFiltered.length}/${data.repos.length} repos`
-                    : `${data.repos.length} repos`} · {data.viewer?.organizations.nodes.length ?? 0} orgs
+                {view === 'repos'
+                  ? `${scopedFiltered.length}/${data.repos.length} repos`
+                  : `${data.repos.length} repos`} · {data.viewer?.organizations.nodes.length ?? 0} orgs
                 {data.loadedFromCache && data.isFetching ? ' · cache' : ''}
               </span>
             )}
@@ -488,33 +487,23 @@ export function Dashboard({ token, onLogout }: Props) {
         </header>
 
         {view === 'home' && (
-          <>
-            {(data.isLoading || data.progressMsg) ? (
-              <LoadingSkeleton progressMsg={data.progressMsg} />
-            ) : (
-              <HomeView
-                model={home}
-                onMarkSeen={markHomeSeen}
-                onOpenRepo={(repo) => {
-                  setSelected({ owner: repo.owner.login, name: repo.name })
-                  setSelectedPR(null)
-                  setView('repos')
-                }}
-                onOpenRepos={() => setView('repos')}
-                onOpenPRs={() => { setPrFilter(undefined); setView('prs') }}
-                onOpenCritical={() => openPRsWith('failing')}
-                onOpenReviewDebt={() => openPRsWith('review')}
-                onOpenStalePRs={() => openPRsWith('stale')}
-                onOpenQuiet={showQuietRepos}
-                onOpenPR={(repo, pr) => {
-                  setSelectedPR({ owner: repo.owner.login, name: repo.name, number: pr.number })
-                  setSelected(null)
-                  setPrFilter(undefined)
-                  setView('prs')
-                }}
-              />
-            )}
-          </>
+          (data.isLoading || data.progressMsg) ? (
+            <LoadingSkeleton progressMsg={data.progressMsg} />
+          ) : (
+            <HomeShell
+              token={token}
+              viewer={data.viewer}
+              repos={data.repos}
+              pinned={pinned}
+              onOpenRepo={(repo) => {
+                setSelected({ owner: repo.owner.login, name: repo.name })
+                setSelectedPR(null)
+                setView('repos')
+              }}
+              onGotoRepos={() => setView('repos')}
+              onLogout={onLogout}
+            />
+          )
         )}
 
         {view === 'prs' && data.viewer && (

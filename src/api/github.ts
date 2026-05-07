@@ -8,6 +8,8 @@ export type RepoOpenPR = {
   updatedAt: string
   isDraft: boolean
   author: { login: string; avatarUrl: string } | null
+  /** Last commit's status check rollup state — drives row-level "CI failing" chips on Home. */
+  ciState?: string | null
 }
 
 export type Repo = {
@@ -75,10 +77,32 @@ const REPO_FIELDS = `
       updatedAt
       isDraft
       author { login avatarUrl }
+      commits(last: 1) {
+        nodes { commit { statusCheckRollup { state } } }
+      }
     }
   }
   openIssues: issues(states: OPEN) { totalCount }
 `
+
+// Raw shape from GitHub before we flatten ciState onto each PR node.
+type RawRepoOpenPR = Omit<RepoOpenPR, 'ciState'> & {
+  commits: { nodes: { commit: { statusCheckRollup: { state: string } | null } }[] }
+}
+type RawRepo = Omit<Repo, 'openPRs'> & {
+  openPRs: { totalCount: number; nodes?: RawRepoOpenPR[] }
+}
+
+function flattenRepo(raw: RawRepo): Repo {
+  const nodes = raw.openPRs.nodes?.map((n) => {
+    const { commits, ...rest } = n
+    return {
+      ...rest,
+      ciState: commits?.nodes[0]?.commit.statusCheckRollup?.state ?? null
+    } satisfies RepoOpenPR
+  })
+  return { ...raw, openPRs: { totalCount: raw.openPRs.totalCount, nodes } }
+}
 
 async function gql<T>(token: string, query: string, variables: Record<string, unknown> = {}): Promise<T> {
   const MAX_RETRIES = 3
@@ -135,9 +159,10 @@ export async function fetchViewer(token: string): Promise<Viewer> {
 }
 
 type Page = { nodes: Repo[]; pageInfo: { hasNextPage: boolean; endCursor: string | null } }
+type RawPage = { nodes: RawRepo[]; pageInfo: { hasNextPage: boolean; endCursor: string | null } }
 
 async function fetchViewerReposPage(token: string, after: string | null): Promise<Page> {
-  const data = await gql<{ viewer: { repositories: Page } }>(
+  const data = await gql<{ viewer: { repositories: RawPage } }>(
     token,
     `
     query($after: String) {
@@ -156,7 +181,7 @@ async function fetchViewerReposPage(token: string, after: string | null): Promis
   `,
     { after }
   )
-  return data.viewer.repositories
+  return { ...data.viewer.repositories, nodes: data.viewer.repositories.nodes.map(flattenRepo) }
 }
 
 export async function fetchViewerReposSimple(token: string): Promise<Repo[]> {
@@ -172,7 +197,7 @@ export async function fetchViewerReposSimple(token: string): Promise<Repo[]> {
 }
 
 async function fetchOrgReposPage(token: string, login: string, after: string | null): Promise<Page> {
-  const data = await gql<{ organization: { repositories: Page } | null }>(
+  const data = await gql<{ organization: { repositories: RawPage } | null }>(
     token,
     `
     query($login: String!, $after: String) {
@@ -190,7 +215,9 @@ async function fetchOrgReposPage(token: string, login: string, after: string | n
   `,
     { login, after }
   )
-  return data.organization?.repositories ?? { nodes: [], pageInfo: { hasNextPage: false, endCursor: null } }
+  const raw = data.organization?.repositories
+  if (!raw) return { nodes: [], pageInfo: { hasNextPage: false, endCursor: null } }
+  return { ...raw, nodes: raw.nodes.map(flattenRepo) }
 }
 
 export async function fetchOrgReposSimple(token: string, login: string): Promise<Repo[]> {
