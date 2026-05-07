@@ -64,14 +64,13 @@ export function useNeedsMe(token: string, viewerLogin: string | undefined) {
       }
 
       for (const pr of reviewRequested) tag(pr, 'review-requested')
+      // Every open PR I authored shows up — it's work I own. CI failing and
+      // "changes requested" become additional reasons on top of my-pr so the
+      // chip set on the row tells the full story.
       for (const pr of authored) {
-        // Authored PRs aren't always urgent. We surface them only when the CI is
-        // broken or the reviewer asked for changes.
+        tag(pr, 'my-pr')
         if (isFailingCi(pr)) tag(pr, 'ci-failing')
         if (pr.reviewDecision === 'CHANGES_REQUESTED') tag(pr, 'changes')
-        // Always mark as my-pr if it ended up in any cohort below.
-        const existing = byId.get(pr.id)
-        if (existing && !existing.reasons.includes('my-pr')) existing.reasons.push('my-pr')
       }
       for (const pr of mentioned) tag(pr, 'mentioned')
       for (const pr of assigned) {
