@@ -176,6 +176,32 @@
 .hs-main-head .hs-h-count { color: var(--muted); font-size: 1em; font-weight: 500; }
 .hs-main-head .hs-h-meta { margin-left: auto; color: var(--muted); font-size: 0.85em; }
 
+.hs-mark-seen {
+  background: var(--panel);
+  border: 1px solid var(--border);
+  color: var(--text);
+  padding: 4px 12px;
+  border-radius: 6px;
+  font-size: 0.82em;
+  cursor: pointer;
+}
+.hs-mark-seen:hover { border-color: var(--accent); }
+
+.hs-since-kind {
+  display: inline-block;
+  padding: 1px 7px;
+  border-radius: 4px;
+  font-size: 0.95em;
+  font-weight: 500;
+  border: 1px solid var(--border);
+  color: var(--muted);
+  background: var(--panel-2);
+}
+.hs-since-kind.k-new-pr { color: var(--accent); border-color: rgba(88,166,255,0.4); background: rgba(88,166,255,0.08); }
+.hs-since-kind.k-ci-changed { color: var(--danger); border-color: rgba(248,81,73,0.4); background: rgba(248,81,73,0.08); }
+.hs-since-kind.k-merged-or-closed { color: #a371f7; border-color: rgba(163,113,247,0.3); background: transparent; }
+.hs-since-kind.k-commits { color: var(--muted); }
+
 .hs-filter-bar { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 12px; }
 .hs-filter-chip {
   background: var(--panel);
@@ -885,11 +911,62 @@
 .hs-row-compact .hs-repo-cell { display: flex; flex-direction: column; }
 .hs-row-compact .hs-repo-cell .hs-muted-small { color: var(--muted); font-size: 0.85em; }
 
+/* mobile drawer chrome — hidden on desktop */
+.hs-mobile-toggle, .hs-mobile-backdrop { display: none; }
+
 @media (max-width: 860px) {
   .hs-shell { grid-template-columns: 1fr; }
-  .hs-sidebar { display: none; }
   .hs-row-actions { opacity: 1; transform: none; }
   .hs-modal { width: 100vw; height: 100vh; border-radius: 0; }
   .hs-modal-body { grid-template-columns: 1fr; }
   .hs-modal-meta { border-right: none; border-bottom: 1px solid var(--border); }
+
+  .hs-mobile-toggle {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    position: fixed;
+    top: 8px;
+    left: 8px;
+    z-index: 60;
+    width: 36px;
+    height: 36px;
+    border-radius: 8px;
+    border: 1px solid var(--border);
+    background: var(--panel);
+    color: var(--text);
+    font-size: 18px;
+    cursor: pointer;
+  }
+  .hs-mobile-backdrop {
+    display: none;
+    position: fixed;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.55);
+    z-index: 70;
+  }
+  .hs-shell.mobile-open .hs-mobile-backdrop { display: block; }
+
+  /* Sidebar becomes a slide-in drawer */
+  .hs-sidebar {
+    position: fixed;
+    top: 0;
+    left: 0;
+    bottom: 0;
+    width: 260px;
+    height: 100vh;
+    z-index: 80;
+    transform: translateX(-100%);
+    transition: transform 0.22s cubic-bezier(.2,.7,.2,1);
+  }
+  .hs-shell.mobile-open .hs-sidebar { transform: translateX(0); }
+  /* Always show full labels in the mobile drawer regardless of desktop collapse state */
+  .hs-shell.mobile-open .hs-sidebar .hs-sidebar-item .hs-label,
+  .hs-shell.mobile-open .hs-sidebar .hs-sidebar-item .hs-count,
+  .hs-shell.mobile-open .hs-sidebar .hs-sidebar-group h4,
+  .hs-shell.mobile-open .hs-sidebar .hs-user-name,
+  .hs-shell.mobile-open .hs-sidebar .hs-user-caret { display: flex; }
+
+  /* Make space at the top of main content for the floating ≡ button */
+  .hs-main { padding-top: 52px; }
 }

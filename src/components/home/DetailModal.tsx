@@ -848,6 +848,21 @@ function ModalFooter({ item, canRerun, rerunBusy, onRerun, onSnooze }: {
   onRerun: () => void
   onSnooze: () => void
 }) {
+  const [copied, setCopied] = useState(false)
+
+  async function copyLink() {
+    // Prefer the GitHub URL because that's what people actually share.
+    const url = item.url || `${window.location.origin}${window.location.pathname}?pr=${item.org}/${item.repo}/${item.number}`
+    try {
+      await navigator.clipboard.writeText(url)
+      setCopied(true)
+      setTimeout(() => setCopied(false), 1800)
+    } catch {
+      // Clipboard API unavailable (insecure context, etc.) — fall back to prompt.
+      window.prompt('Copy this link:', url)
+    }
+  }
+
   return (
     <div className="hs-modal-footer">
       {canRerun && (
@@ -857,6 +872,9 @@ function ModalFooter({ item, canRerun, rerunBusy, onRerun, onSnooze }: {
       )}
       <button className="hs-modal-btn" onClick={onSnooze} title="Hide until tomorrow (s)">
         Snooze <kbd>s</kbd>
+      </button>
+      <button className="hs-modal-btn" onClick={copyLink} title="Copy GitHub URL to clipboard">
+        {copied ? '✓ Copied' : '⎘ Copy link'}
       </button>
       <a className="hs-modal-btn link" href={item.url} target="_blank" rel="noopener noreferrer">
         Open on GitHub ↗

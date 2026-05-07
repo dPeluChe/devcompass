@@ -67,6 +67,8 @@ export function dotForReasons(reasons: Reason[]): DotLevel {
   if (reasons.includes('review-requested') || reasons.includes('assigned')) return 'warn'
   if (reasons.includes('mentioned') || reasons.includes('new-pr')) return 'info'
   if (reasons.includes('merged')) return 'muted'
+  // A PR I authored with no urgent signal — green (mine, healthy).
+  if (reasons.includes('my-pr')) return 'ok'
   return 'info'
 }
 

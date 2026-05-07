@@ -1,8 +1,8 @@
 import { useEffect, useMemo, useRef, useState, useCallback } from 'react'
 import { useQuery } from '@tanstack/react-query'
-import { fetchRateLimit, fetchTokenInfo, fetchUserOrgsRest, fetchViewer, fetchOrgReposSimple, fetchViewerReposSimple, type Repo, type RepoOpenPR, type TokenInfo, type Org } from '../api/github'
+import { fetchRateLimit, fetchTokenInfo, fetchUserOrgsRest, fetchViewer, fetchOrgReposSimple, fetchViewerReposSimple, type Repo, type TokenInfo, type Org } from '../api/github'
 import { RepoDetail } from './RepoDetail'
-import { PRInbox, type InboxFilter } from './PRInbox'
+import { PRInbox } from './PRInbox'
 import { OrgManager } from './OrgManager'
 import { SettingsTab } from './SettingsTab'
 import { QuickSwitcher, type QSAction } from './QuickSwitcher'
@@ -11,7 +11,7 @@ import { HomeShell } from './home/HomeShell'
 import { Skeleton, CardSkeleton, FadeIn, Pulse } from './ui'
 import { useGlobalShortcuts } from '../hooks/useGlobalShortcuts'
 import { orgConfigStore } from '../store/orgConfig'
-import { cacheRepos, getCachedRepos, getPinnedRepos, getPref, pinRepo, savePref, unpinRepo, type PinnedRepo } from '../store/db'
+import { cacheRepos, getCachedRepos, getPinnedRepos, pinRepo, unpinRepo, type PinnedRepo } from '../store/db'
 import { FaPython, FaJs, FaJava, FaVuejs, FaReact, FaAngular, FaNode, FaDatabase, FaLock, FaCodeBranch, FaExclamationCircle, FaStar } from 'react-icons/fa'
 import { SiTypescript, SiGo, SiRust, SiMysql, SiMongodb } from 'react-icons/si'
 import { VscJson, VscSymbolMisc } from 'react-icons/vsc'
@@ -23,21 +23,6 @@ type View = 'home' | 'repos' | 'prs' | 'config'
 type GroupBy = 'none' | 'owner' | 'language' | 'activity'
 type RepoScope = 'all' | 'pinned'
 type IconType = typeof FaPython
-type RepoSignalLevel = 'critical' | 'attention' | 'active' | 'quiet'
-type WaitingOn = 'PR_OPEN' | 'TRIAGE' | 'ACTIVITY' | 'NONE'
-type HealthLabel = 'pr open' | 'active' | 'stale' | 'healthy' | 'quiet' | 'archived'
-type RepoSignal = {
-  level: RepoSignalLevel
-  label: string
-  reasons: string[]
-  primaryReasons: string[]
-  secondaryReasons: string[]
-  health: HealthLabel
-  waitingOn: WaitingOn
-  activityLabel: string
-  score: number
-}
-type RepoVisitSnapshot = Record<string, { pushedAt: string; openPRs: number; openIssues: number }>
 
 function useViewerData(token: string) {
   const [progressMsg, setProgressMsg] = useState('')
@@ -220,10 +205,8 @@ export function Dashboard({ token, onLogout }: Props) {
   const [selectedPR, setSelectedPR] = useState<{ owner: string; name: string; number: number } | null>(null)
   const [pinned, setPinned] = useState<PinnedRepo[]>([])
   const [pinnedLoaded, setPinnedLoaded] = useState(false)
-  const [visitSnapshot, setVisitSnapshot] = useState<RepoVisitSnapshot | null>(null)
   const [qsOpen, setQsOpen] = useState(false)
   const [helpOpen, setHelpOpen] = useState(false)
-  const [prFilter, setPrFilter] = useState<InboxFilter | undefined>(undefined)
   const repoSearchRef = useRef<HTMLInputElement>(null)
 
   useEffect(() => {
@@ -234,12 +217,6 @@ export function Dashboard({ token, onLogout }: Props) {
       })
       .catch((e) => console.warn('Failed to load pinned repos:', e))
       .finally(() => setPinnedLoaded(true))
-  }, [])
-
-  useEffect(() => {
-    getPref<RepoVisitSnapshot | null>('home.repoVisitSnapshot', null)
-      .then(setVisitSnapshot)
-      .catch((e) => console.warn('Failed to load visit snapshot:', e))
   }, [])
 
   useEffect(() => {
@@ -286,7 +263,6 @@ export function Dashboard({ token, onLogout }: Props) {
   }, [scopedFiltered, pinnedIds, repoScope])
 
   const groups = useMemo(() => groupRepos(unpinnedFiltered, groupBy), [unpinnedFiltered, groupBy])
-  const home = useMemo(() => buildHomeModel(data.repos, pinnedIds, pinnedOrder, visitSnapshot), [data.repos, pinnedIds, pinnedOrder, visitSnapshot])
 
   const owners = useMemo(() => {
     const totalCounts = new Map<string, number>()
@@ -333,32 +309,10 @@ export function Dashboard({ token, onLogout }: Props) {
     setHideForks(false)
   }
 
-  async function markHomeSeen() {
-    const snapshot = buildVisitSnapshot(data.repos)
-    await savePref('home.repoVisitSnapshot', snapshot)
-    setVisitSnapshot(snapshot)
-  }
-
   function gotoView(target: View) {
     setView(target)
     setSelected(null)
     if (target !== 'prs') setSelectedPR(null)
-  }
-
-  function openPRsWith(filter: InboxFilter) {
-    setPrFilter(filter)
-    setSelectedPR(null)
-    setView('prs')
-  }
-
-  function showQuietRepos() {
-    setView('repos')
-    setSelected(null)
-    setRepoScope('all')
-    setSelectedOwners([])
-    setActivityWindow(0)
-    setHideArchived(false)
-    setHideForks(false)
   }
 
   function handleQuickPick(action: QSAction) {
@@ -374,7 +328,6 @@ export function Dashboard({ token, onLogout }: Props) {
     }
     setSelectedPR({ owner: action.repo.owner.login, name: action.repo.name, number: action.pr.number })
     setSelected(null)
-    setPrFilter(undefined)
     setView('prs')
   }
 
@@ -507,7 +460,7 @@ export function Dashboard({ token, onLogout }: Props) {
         )}
 
         {view === 'prs' && data.viewer && (
-          <PRInbox token={token} viewer={data.viewer} initialSelected={selectedPR} initialFilter={prFilter} />
+          <PRInbox token={token} viewer={data.viewer} initialSelected={selectedPR} />
         )}
 
         {view === 'config' && (
@@ -673,328 +626,6 @@ function timeAgoShort(ms: number): string {
   if (h < 24) return `${h}h ago`
   const d = Math.floor(h / 24)
   return `${d}d ago`
-}
-
-function HomeView({
-  model,
-  onMarkSeen,
-  onOpenRepo,
-  onOpenRepos,
-  onOpenPRs,
-  onOpenPR,
-  onOpenCritical,
-  onOpenReviewDebt,
-  onOpenStalePRs,
-  onOpenQuiet
-}: {
-  model: HomeModel
-  onMarkSeen: () => void
-  onOpenRepo: (repo: Repo) => void
-  onOpenRepos: () => void
-  onOpenPRs: () => void
-  onOpenPR: (repo: Repo, pr: RepoOpenPR) => void
-  onOpenCritical: () => void
-  onOpenReviewDebt: () => void
-  onOpenStalePRs: () => void
-  onOpenQuiet: () => void
-}) {
-  return (
-    <main className="home-view">
-      <section className="home-summary">
-        <button className="home-stat attention" onClick={onOpenCritical} title="Show failing PRs">
-          <span className="stat-value">{model.summary.criticalRepos}</span>
-          <span className="stat-label">Critical</span>
-          <span className="stat-hint">Failing CI · open PRs</span>
-        </button>
-        <button className="home-stat warning" onClick={onOpenReviewDebt} title="Show PRs needing my review">
-          <span className="stat-value">{model.summary.reviewDebtRepos}</span>
-          <span className="stat-label">Review debt</span>
-          <span className="stat-hint">Awaiting my review</span>
-        </button>
-        <button className="home-stat stale" onClick={onOpenStalePRs} title="Show PRs idle for 14d+">
-          <span className="stat-value">{model.summary.stalePrRepos}</span>
-          <span className="stat-label">Stale PRs</span>
-          <span className="stat-hint">Idle for 14d+</span>
-        </button>
-        <button className="home-stat quiet" onClick={onOpenQuiet} title="Show all repos including archived">
-          <span className="stat-value">{model.summary.quietRepos}</span>
-          <span className="stat-label">Quiet hidden</span>
-          <span className="stat-hint">Show full repo list</span>
-        </button>
-      </section>
-
-      <section className="home-section since-section">
-        <div className="home-section-header">
-          <div>
-            <h2>Since Last Visit</h2>
-            <p className="muted">Local snapshot comparison. Nothing leaves this browser.</p>
-          </div>
-          <button className="mark-seen-btn" onClick={onMarkSeen}>Mark seen</button>
-        </div>
-        {model.sinceLastVisit.length === 1 && model.sinceLastVisit[0].key === 'baseline' ? (
-          <button className="since-baseline" onClick={onMarkSeen}>
-            <span className="status-dot status-quiet" />
-            <span>No baseline yet.</span>
-            <strong>Start tracking</strong>
-          </button>
-        ) : (
-          <div className="since-list">
-            {model.sinceLastVisit.length > 0 ? (
-            model.sinceLastVisit.map((event) => (
-              <button
-                key={event.key}
-                className={`since-item since-${event.level}`}
-                onClick={event.repo ? () => onOpenRepo(event.repo!) : event.target === 'prs' ? onOpenPRs : onOpenRepos}
-              >
-                <span className={`status-dot status-${event.level}`} />
-                <span>{event.text}</span>
-              </button>
-            ))
-            ) : (
-              <div className="since-empty">No new repo signals since the last saved snapshot.</div>
-            )}
-          </div>
-        )}
-      </section>
-
-      <section className="home-section pinned-center-section">
-        <div className="home-section-header">
-          <div>
-            <h2>Pinned Control Center</h2>
-            <p className="muted">{model.summary.pinnedRepos} pinned systems.</p>
-          </div>
-        </div>
-        <div className="pinned-control">
-          {model.pinnedRepos.length > 0 && (
-            <div className="pinned-control-head">
-              <span>Health</span>
-              <span>Repo</span>
-              <span>PR</span>
-              <span>Issues</span>
-              <span>Last</span>
-              <span>State</span>
-            </div>
-          )}
-          {model.pinnedRepos.map((repo) => (
-            <PinnedControlRow key={repo.id} repo={repo} onOpen={() => onOpenRepo(repo)} />
-          ))}
-          {model.pinnedRepos.length === 0 && <p className="muted empty">Pin active repos to make this home screen useful.</p>}
-        </div>
-      </section>
-
-      <section className="home-section">
-        <div className="home-section-header">
-          <div>
-            <h2>Needs Attention</h2>
-            <p className="muted">Prioritized by operational signals. Quiet repos stay out of the default Home.</p>
-          </div>
-        </div>
-        {model.priority.critical.length === 0 && model.priority.reviewNeeded.length === 0 && model.priority.stalePrs.length === 0 && model.priority.recentWork.length === 0 ? (
-          <p className="muted empty">No attention signals from the current repo data.</p>
-        ) : (
-          <div className="priority-groups">
-            {model.priority.critical.length > 0 && (
-              <PriorityGroup
-                title="Critical"
-                items={model.priority.critical}
-                onOpenRepo={onOpenRepo}
-                onOpenPR={onOpenPR}
-              />
-            )}
-            {model.priority.reviewNeeded.length > 0 && (
-              <PriorityGroup
-                title="Review Debt"
-                items={model.priority.reviewNeeded}
-                onOpenRepo={onOpenRepo}
-                onOpenPR={onOpenPR}
-              />
-            )}
-            {model.priority.stalePrs.length > 0 && (
-              <PriorityGroup
-                title="Stale PRs"
-                items={model.priority.stalePrs}
-                onOpenRepo={onOpenRepo}
-                onOpenPR={onOpenPR}
-              />
-            )}
-            {model.priority.recentWork.length > 0 && (
-              <PriorityGroup
-                title="Recent Work"
-                items={model.priority.recentWork}
-                onOpenRepo={onOpenRepo}
-                onOpenPR={onOpenPR}
-              />
-            )}
-            {model.priority.quietCount > 0 && (
-              <div className="quiet-summary">
-                {model.priority.quietCount} quiet repos hidden from Home.
-              </div>
-            )}
-          </div>
-        )}
-      </section>
-
-      <div className="home-columns">
-        <section className="home-section">
-          <h2>Active Work</h2>
-          <div className="compact-repo-list">
-            {model.activeWork.map((repo) => (
-              <CompactRepoRow key={repo.id} repo={repo} onOpen={() => onOpenRepo(repo)} />
-            ))}
-            {model.activeWork.length === 0 && <p className="muted empty">No repos pushed in the last 7 days.</p>}
-          </div>
-        </section>
-
-        <section className="home-section">
-          <h2>Operational Digest</h2>
-          <div className="digest-list">
-            {model.digest.map((item) => (
-              <button key={item.text} className={`digest-item digest-${item.level}`} onClick={item.target === 'prs' ? onOpenPRs : onOpenRepos}>
-                <span className={`status-dot status-${item.level}`} />
-                <span>{item.text}</span>
-              </button>
-            ))}
-          </div>
-        </section>
-      </div>
-    </main>
-  )
-}
-
-function PriorityGroup({
-  title,
-  items,
-  onOpenRepo,
-  onOpenPR
-}: {
-  title: string
-  items: RepoAttention[]
-  onOpenRepo: (repo: Repo) => void
-  onOpenPR: (repo: Repo, pr: RepoOpenPR) => void
-}) {
-  const [expanded, setExpanded] = useState(false)
-  const key = title.toLowerCase().replace(/\s+/g, '-')
-  const visibleItems = expanded ? items : items.slice(0, 3)
-  const hiddenCount = Math.max(0, items.length - visibleItems.length)
-  return (
-    <section className={`priority-group priority-${key}`}>
-      <h3>{title} <span>({items.length})</span></h3>
-      <div className="attention-list">
-        {visibleItems.map((item) => (
-          <RepoAttentionRow
-            key={item.repo.id}
-            item={item}
-            onOpen={() => onOpenRepo(item.repo)}
-            onOpenPR={(pr) => onOpenPR(item.repo, pr)}
-          />
-        ))}
-      </div>
-      {items.length > 3 && (
-        <button className="priority-more" onClick={() => setExpanded((value) => !value)}>
-          {expanded ? 'Show less' : `View ${hiddenCount} more...`}
-        </button>
-      )}
-    </section>
-  )
-}
-
-function RepoAttentionRow({
-  item,
-  onOpen,
-  onOpenPR
-}: {
-  item: RepoAttention
-  onOpen: () => void
-  onOpenPR: (pr: RepoOpenPR) => void
-}) {
-  const { repo, signal } = item
-  return (
-    <div className={`attention-row signal-${signal.level}`} onClick={onOpen} role="button" tabIndex={0} onKeyDown={(event) => {
-      if (event.key === 'Enter' || event.key === ' ') {
-        event.preventDefault()
-        onOpen()
-      }
-    }}>
-      <span className={`status-dot status-${signal.level}`} />
-      <span className="attention-main">
-        <strong>{repo.nameWithOwner}</strong>
-        {signal.level === 'critical' && (
-          <span className="critical-summary">
-            {criticalSummary(repo, signal)}
-          </span>
-        )}
-        <RepoPRList repo={repo} onOpenPR={onOpenPR} />
-      </span>
-      <span className="attention-meta">
-        <span className={`waiting-pill waiting-${signal.waitingOn.toLowerCase()}`}>{stateLabel(signal.waitingOn)}</span>
-        <span title={repo.pushedAt}>{signal.activityLabel}</span>
-      </span>
-    </div>
-  )
-}
-
-function RepoPRList({ repo, onOpenPR }: { repo: Repo; onOpenPR: (pr: RepoOpenPR) => void }) {
-  if (repo.openPRs.totalCount === 0) return null
-
-  const prs = repo.openPRs.nodes ?? []
-  if (prs.length === 0) {
-    return <span className="repo-pr-empty">{repo.openPRs.totalCount} open PR{repo.openPRs.totalCount > 1 ? 's' : ''}</span>
-  }
-
-  const extraCount = Math.max(0, repo.openPRs.totalCount - prs.length)
-  return (
-    <span className="repo-pr-list">
-      {prs.map((pr) => (
-        <button
-          key={pr.id}
-          className="repo-pr-item"
-          onClick={(event) => {
-            event.stopPropagation()
-            onOpenPR(pr)
-          }}
-        >
-          <span className="repo-pr-number">#{pr.number}</span>
-          <span className="repo-pr-title">{pr.isDraft ? 'Draft: ' : ''}{pr.title}</span>
-        </button>
-      ))}
-      {extraCount > 0 && <span className="repo-pr-more">+{extraCount} more</span>}
-    </span>
-  )
-}
-
-function CompactRepoRow({ repo, onOpen }: { repo: Repo; onOpen: () => void }) {
-  const signal = repoSignal(repo, false)
-  return (
-    <button className="compact-repo-row" onClick={onOpen}>
-      <span className={`status-dot status-${signal.level}`} />
-      <span className="compact-repo-main">
-        <strong>{repo.name}</strong>
-        <span className="muted">{repo.owner.login}</span>
-      </span>
-      <span className="compact-repo-meta">
-        {repo.primaryLanguage?.name && <span>{repo.primaryLanguage.name}</span>}
-        {repo.openPRs.totalCount > 0 && <span>{repo.openPRs.totalCount} PR</span>}
-        <span title={repo.pushedAt}>{signal.activityLabel}</span>
-      </span>
-    </button>
-  )
-}
-
-function PinnedControlRow({ repo, onOpen }: { repo: Repo; onOpen: () => void }) {
-  const signal = repoSignal(repo, true)
-  return (
-    <button className="pinned-control-row" onClick={onOpen}>
-      <span className={`op-status status-${signal.level}`}>{signal.health}</span>
-      <span className="pinned-name">
-        <strong>{repo.name}</strong>
-        <span className="muted">{repo.owner.login}</span>
-      </span>
-      <span>{repo.openPRs.totalCount || '-'}</span>
-      <span>{repo.openIssues.totalCount || '-'}</span>
-      <span title={repo.pushedAt}>{shortActivity(signal.activityLabel)}</span>
-      <span>{stateLabel(signal.waitingOn)}</span>
-    </button>
-  )
 }
 
 function LoadingSkeleton({ progressMsg }: { progressMsg?: string }) {
@@ -1332,300 +963,6 @@ function RepoCard({
   )
 }
 
-type HomeModel = {
-  summary: {
-    criticalRepos: number
-    reviewDebtRepos: number
-    stalePrRepos: number
-    pinnedRepos: number
-    quietRepos: number
-  }
-  priority: {
-    critical: RepoAttention[]
-    reviewNeeded: RepoAttention[]
-    stalePrs: RepoAttention[]
-    recentWork: RepoAttention[]
-    quietCount: number
-  }
-  sinceLastVisit: VisitEvent[]
-  activeWork: Repo[]
-  pinnedRepos: Repo[]
-  digest: DigestItem[]
-}
-
-type RepoAttention = {
-  repo: Repo
-  signal: RepoSignal
-}
-
-type DigestItem = {
-  level: RepoSignalLevel
-  target: 'repos' | 'prs'
-  text: string
-}
-
-type VisitEvent = {
-  key: string
-  level: RepoSignalLevel
-  target: 'repos' | 'prs'
-  text: string
-  repo?: Repo
-}
-
-function buildHomeModel(
-  repos: Repo[],
-  pinnedIds: Set<string>,
-  pinnedOrder: Map<string, number>,
-  visitSnapshot: RepoVisitSnapshot | null
-): HomeModel {
-  const visible = repos.filter((repo) => !repo.isArchived)
-  const activeCutoff = Date.now() - 7 * 86_400_000
-  const attention = visible
-    .map((repo) => ({ repo, signal: repoSignal(repo, pinnedIds.has(repo.id)) }))
-    .filter((item) => item.signal.score >= 20)
-    .sort((a, b) => b.signal.score - a.signal.score || new Date(b.repo.pushedAt).getTime() - new Date(a.repo.pushedAt).getTime())
-  const critical = attention.filter((item) => item.signal.level === 'critical')
-  const stalePrs = attention.filter((item) => item.repo.openPRs.totalCount > 0 && daysSince(item.repo.pushedAt) >= 14 && item.signal.level !== 'critical')
-  const reviewNeeded = attention.filter((item) => item.repo.openPRs.totalCount > 0 && daysSince(item.repo.pushedAt) < 14 && item.signal.level !== 'critical')
-  const recentWork = attention.filter((item) => item.repo.openPRs.totalCount === 0 && daysSince(item.repo.pushedAt) < 14 && item.signal.level !== 'critical')
-  const stalePinned = visible.filter((repo) => pinnedIds.has(repo.id) && daysSince(repo.pushedAt) > 14)
-  const prLoad = visible.filter((repo) => repo.openPRs.totalCount > 0)
-  const stalePrLoad = prLoad.filter((repo) => daysSince(repo.pushedAt) >= 14)
-  const issueLoad = visible.filter((repo) => repo.openIssues.totalCount > 0)
-  const activeRepos = visible
-    .filter((repo) => new Date(repo.pushedAt).getTime() >= activeCutoff)
-    .sort((a, b) => new Date(b.pushedAt).getTime() - new Date(a.pushedAt).getTime())
-  const digest = buildDigest(prLoad.length, issueLoad.length, stalePinned.length, activeRepos.length, visible.length - attention.length)
-
-  return {
-    summary: {
-      criticalRepos: critical.length,
-      reviewDebtRepos: prLoad.length,
-      stalePrRepos: stalePrLoad.length,
-      pinnedRepos: pinnedIds.size,
-      quietRepos: Math.max(0, visible.length - attention.length),
-    },
-    priority: {
-      critical: critical.slice(0, 5),
-      reviewNeeded: reviewNeeded.slice(0, 8),
-      stalePrs: stalePrs.slice(0, 8),
-      recentWork: recentWork.slice(0, 8),
-      quietCount: Math.max(0, visible.length - attention.length),
-    },
-    sinceLastVisit: buildVisitEvents(visible, visitSnapshot).slice(0, 8),
-    activeWork: activeRepos.slice(0, 8),
-    pinnedRepos: visible
-      .filter((repo) => pinnedIds.has(repo.id))
-      .sort((a, b) => (pinnedOrder.get(a.id) ?? 0) - (pinnedOrder.get(b.id) ?? 0))
-      .slice(0, 8),
-    digest,
-  }
-}
-
-function buildVisitSnapshot(repos: Repo[]): RepoVisitSnapshot {
-  const snapshot: RepoVisitSnapshot = {}
-  for (const repo of repos) {
-    snapshot[repo.id] = {
-      pushedAt: repo.pushedAt,
-      openPRs: repo.openPRs.totalCount,
-      openIssues: repo.openIssues.totalCount,
-    }
-  }
-  return snapshot
-}
-
-function buildVisitEvents(repos: Repo[], snapshot: RepoVisitSnapshot | null): VisitEvent[] {
-  if (!snapshot) {
-    return [{
-      key: 'baseline',
-      level: 'quiet',
-      target: 'repos',
-      text: 'No baseline yet. Mark seen to start tracking changes.',
-    }]
-  }
-
-  const events: VisitEvent[] = []
-  for (const repo of repos) {
-    const prev = snapshot[repo.id]
-    if (!prev) {
-      events.push({
-        key: `${repo.id}:new`,
-        level: 'active',
-        target: 'repos',
-        text: `New repo visible: ${repo.nameWithOwner}`,
-        repo,
-      })
-      continue
-    }
-
-    const prDelta = repo.openPRs.totalCount - prev.openPRs
-    if (prDelta > 0) {
-      events.push({
-        key: `${repo.id}:prs`,
-        level: 'critical',
-        target: 'prs',
-        text: `${prDelta} new PR${prDelta > 1 ? 's' : ''} in ${repo.nameWithOwner}`,
-        repo,
-      })
-    }
-
-    const issueDelta = repo.openIssues.totalCount - prev.openIssues
-    if (issueDelta > 0) {
-      events.push({
-        key: `${repo.id}:issues`,
-        level: 'attention',
-        target: 'repos',
-        text: `${issueDelta} new issue${issueDelta > 1 ? 's' : ''} in ${repo.nameWithOwner}`,
-        repo,
-      })
-    }
-
-    if (new Date(repo.pushedAt).getTime() > new Date(prev.pushedAt).getTime()) {
-      events.push({
-        key: `${repo.id}:push`,
-        level: 'active',
-        target: 'repos',
-        text: `New commit activity in ${repo.nameWithOwner}`,
-        repo,
-      })
-    }
-  }
-
-  return events.sort((a, b) => eventWeight(b) - eventWeight(a))
-}
-
-function eventWeight(event: VisitEvent): number {
-  if (event.level === 'critical') return 3
-  if (event.level === 'attention') return 2
-  if (event.level === 'active') return 1
-  return 0
-}
-
-function buildDigest(openPRRepos: number, issueRepos: number, stalePinned: number, activeRepos: number, quietRepos: number): DigestItem[] {
-  const items: DigestItem[] = []
-  if (openPRRepos > 0) items.push({ level: 'critical', target: 'prs', text: `${openPRRepos} repos need review` })
-  if (stalePinned > 0) items.push({ level: 'attention', target: 'repos', text: `${stalePinned} pinned stale` })
-  if (issueRepos > 0) items.push({ level: 'attention', target: 'repos', text: `${issueRepos} repos need triage` })
-  if (activeRepos > 0) items.push({ level: 'active', target: 'repos', text: `${activeRepos} repos active 7d` })
-  if (quietRepos > 0) items.push({ level: 'quiet', target: 'repos', text: `${quietRepos} quiet repos hidden` })
-  return items.length > 0 ? items : [{ level: 'quiet', target: 'repos', text: 'No operational changes detected' }]
-}
-
-function repoSignal(repo: Repo, pinned: boolean): RepoSignal {
-  const primaryReasons: string[] = []
-  const secondaryReasons: string[] = []
-  let score = 0
-  const daysSincePush = daysSince(repo.pushedAt)
-  let waitingOn: WaitingOn = 'NONE'
-  let health: HealthLabel = 'quiet'
-
-  if (pinned) {
-    score += 20
-    secondaryReasons.push('pinned')
-  }
-  if (repo.openPRs.totalCount > 0) {
-    score += 40 + Math.min(repo.openPRs.totalCount, 5) * 4
-    primaryReasons.push(`${repo.openPRs.totalCount} PR open`)
-    waitingOn = 'PR_OPEN'
-    health = 'pr open'
-  }
-  if (repo.openIssues.totalCount > 0) {
-    score += Math.min(repo.openIssues.totalCount, 10)
-    const reason = `${repo.openIssues.totalCount} issue${repo.openIssues.totalCount > 1 ? 's' : ''}`
-    if (repo.openPRs.totalCount === 0) {
-      primaryReasons.push(reason)
-      waitingOn = 'TRIAGE'
-    } else {
-      secondaryReasons.push(reason)
-    }
-  }
-
-  if (daysSincePush <= 7) {
-    score += 10
-    secondaryReasons.push('recent commit')
-    if (health === 'quiet') health = 'active'
-  } else if (pinned && daysSincePush > 14) {
-    score += 18
-    primaryReasons.push(`stale pinned ${Math.floor(daysSincePush)}d`)
-    if (waitingOn === 'NONE') waitingOn = 'ACTIVITY'
-    if (health === 'quiet') health = 'stale'
-  }
-
-  if (repo.isFork) secondaryReasons.push('fork')
-  if (repo.isArchived) return buildSignal('quiet', 'archived', ['archived'], [], 'archived', 'NONE', repo.pushedAt, 0)
-
-  if (score >= 60) return buildSignal('critical', 'critical', primaryReasons, secondaryReasons, health, waitingOn, repo.pushedAt, score)
-  if (score >= 25) return buildSignal('attention', 'attention', primaryReasons, secondaryReasons, health, waitingOn, repo.pushedAt, score)
-  if (daysSincePush <= 7) return buildSignal('active', 'active', primaryReasons, secondaryReasons.length ? secondaryReasons : ['recent commit'], health, waitingOn, repo.pushedAt, 10)
-  const quietHealth: HealthLabel = daysSincePush > 90 ? 'stale' : 'healthy'
-  return buildSignal('quiet', 'quiet', primaryReasons, secondaryReasons.length ? secondaryReasons : ['no immediate signal'], quietHealth, waitingOn, repo.pushedAt, score)
-}
-
-function buildSignal(
-  level: RepoSignalLevel,
-  label: string,
-  primaryReasons: string[],
-  secondaryReasons: string[],
-  health: HealthLabel,
-  waitingOn: WaitingOn,
-  pushedAt: string,
-  score: number
-): RepoSignal {
-  const safePrimary = primaryReasons.length ? primaryReasons : secondaryReasons.slice(0, 1)
-  const safeSecondary = primaryReasons.length ? secondaryReasons : secondaryReasons.slice(1)
-  return {
-    level,
-    label,
-    primaryReasons: safePrimary,
-    secondaryReasons: safeSecondary,
-    reasons: [...safePrimary, ...safeSecondary],
-    health,
-    waitingOn,
-    activityLabel: activityLabel(pushedAt),
-    score,
-  }
-}
-
-function daysSince(iso: string): number {
-  return (Date.now() - new Date(iso).getTime()) / 86_400_000
-}
-
-function idleAge(iso: string): string {
-  const days = Math.floor(daysSince(iso))
-  if (days <= 0) return timeAgo(iso)
-  if (days < 30) return `${days}d`
-  const months = Math.floor(days / 30)
-  if (months < 12) return `${months}mo`
-  return `${Math.floor(days / 365)}y`
-}
-
-function activityLabel(iso: string): string {
-  const days = daysSince(iso)
-  if (days < 7) return `last commit ${timeAgo(iso)}`
-  if (days < 14) return `last commit ${Math.floor(days)}d`
-  return `stale ${idleAge(iso)}`
-}
-
-function shortActivity(label: string): string {
-  return label.replace('last commit ', '').replace('stale ', '')
-}
-
-function criticalSummary(repo: Repo, signal: RepoSignal): string {
-  const parts = []
-  if (repo.openPRs.totalCount > 0) parts.push(`${repo.openPRs.totalCount} PR${repo.openPRs.totalCount > 1 ? 's' : ''} open`)
-  if (repo.openIssues.totalCount > 0) parts.push(`${repo.openIssues.totalCount} issue${repo.openIssues.totalCount > 1 ? 's' : ''}`)
-  parts.push(signal.activityLabel)
-  if (signal.waitingOn !== 'NONE') parts.push(stateLabel(signal.waitingOn))
-  return parts.join(' · ')
-}
-
-function stateLabel(state: WaitingOn): string {
-  if (state === 'PR_OPEN') return 'PR OPEN'
-  if (state === 'TRIAGE') return 'TRIAGE'
-  if (state === 'ACTIVITY') return 'ACTIVITY'
-  return '-'
-}
-
 function groupRepos(repos: Repo[], by: GroupBy): Array<[string, Repo[]]> {
   if (by === 'none') return [['', repos]]
   const map = new Map<string, Repo[]>()
@@ -1647,17 +984,4 @@ function keyFor(r: Repo, by: GroupBy): string {
   if (days < 90) return 'Last 3 months'
   if (days < 365) return 'Last year'
   return 'Over a year'
-}
-
-function timeAgo(iso: string): string {
-  const ms = Date.now() - new Date(iso).getTime()
-  const min = Math.floor(ms / 60_000)
-  if (min < 60) return `${min}m`
-  const hr = Math.floor(min / 60)
-  if (hr < 24) return `${hr}h`
-  const day = Math.floor(hr / 24)
-  if (day < 30) return `${day}d`
-  const mo = Math.floor(day / 30)
-  if (mo < 12) return `${mo}mo`
-  return `${Math.floor(day / 365)}y`
 }
