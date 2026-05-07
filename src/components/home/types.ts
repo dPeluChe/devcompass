@@ -31,6 +31,8 @@ export type DotLevel = 'critical' | 'warn' | 'info' | 'ok' | 'muted'
 export type AttentionItem = {
   id: string
   org: string
+  /** Real avatar URL of the repo owner from the GitHub API. Falls back to a generated chip if missing. */
+  orgAvatarUrl?: string
   repo: string
   nameWithOwner: string
   number: number

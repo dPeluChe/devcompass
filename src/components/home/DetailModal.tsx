@@ -1,13 +1,25 @@
-import { useEffect, useMemo, useState, type ReactNode } from 'react'
-import { useQuery } from '@tanstack/react-query'
-import { FaAlignLeft, FaFileCode, FaComments } from 'react-icons/fa'
-import { fetchPullRequestDetail, type PRDetail, type CheckContext, type Review } from '../../api/github'
+import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import { FaAlignLeft, FaFileCode, FaComments, FaCheckCircle } from 'react-icons/fa'
+import {
+  addIssueComment,
+  fetchJobLogs,
+  fetchPullRequestDetail,
+  fetchWorkflowRunJobs,
+  rerunFailedJobs,
+  submitReview,
+  type CheckContext,
+  type PRDetail,
+  type Review,
+  type ReviewEvent,
+  type WorkflowJob
+} from '../../api/github'
 import { queryKeys } from '../../store/queries'
 import { SanitizedMarkdown } from '../SanitizedMarkdown'
 import { OrgChip } from './OrgChip'
 import type { AttentionItem } from './types'
 
-type TabKey = 'description' | 'changes' | 'comments'
+type TabKey = 'description' | 'changes' | 'comments' | 'checks'
 
 type Props = {
   token: string
@@ -16,24 +28,24 @@ type Props = {
   onSnooze: (item: AttentionItem) => void
 }
 
+type StatusMsg = { kind: 'ok' | 'err'; text: string } | null
+
 export function DetailModal({ token, item, onClose, onSnooze }: Props) {
   const open = !!item
   const [tab, setTab] = useState<TabKey>('description')
+  const [body, setBody] = useState('')
+  const [status, setStatus] = useState<StatusMsg>(null)
+  const composerRef = useRef<HTMLTextAreaElement>(null)
+  const queryClient = useQueryClient()
 
   // Reset to description whenever a new item opens.
   useEffect(() => {
-    if (item) setTab('description')
-  }, [item?.id])
-
-  // Esc to close
-  useEffect(() => {
-    if (!open) return
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') onClose()
+    if (item) {
+      setTab('description')
+      setBody('')
+      setStatus(null)
     }
-    window.addEventListener('keydown', onKey)
-    return () => window.removeEventListener('keydown', onKey)
-  }, [open, onClose])
+  }, [item?.id])
 
   // Lock background scroll while modal is open
   useEffect(() => {
@@ -50,6 +62,112 @@ export function DetailModal({ token, item, onClose, onSnooze }: Props) {
     staleTime: 60 * 1000
   })
 
+  const detail = detailQuery.data
+
+  function invalidatePr() {
+    if (!item) return
+    queryClient.invalidateQueries({ queryKey: queryKeys.pr(item.org, item.repo, item.number) })
+  }
+
+  // ---- Mutations ----
+  const reviewMutation = useMutation({
+    mutationFn: (input: { event: ReviewEvent; body?: string }) =>
+      submitReview(token, item!.org, item!.repo, item!.number, input.event, input.body),
+    onSuccess: (_data, input) => {
+      const label = input.event === 'APPROVE' ? 'Approved' :
+                    input.event === 'REQUEST_CHANGES' ? 'Changes requested' : 'Comment posted'
+      setStatus({ kind: 'ok', text: label })
+      setBody('')
+      invalidatePr()
+    },
+    onError: (err: Error) => setStatus({ kind: 'err', text: err.message })
+  })
+  const commentMutation = useMutation({
+    mutationFn: (input: { body: string }) =>
+      addIssueComment(token, item!.org, item!.repo, item!.number, input.body),
+    onSuccess: () => {
+      setStatus({ kind: 'ok', text: 'Comment posted' })
+      setBody('')
+      invalidatePr()
+    },
+    onError: (err: Error) => setStatus({ kind: 'err', text: err.message })
+  })
+  const rerunMutation = useMutation({
+    mutationFn: (input: { runIds: number[] }) =>
+      Promise.all(input.runIds.map((id) => rerunFailedJobs(token, item!.org, item!.repo, id))).then(() => undefined),
+    onSuccess: () => setStatus({ kind: 'ok', text: 'Re-run requested' }),
+    onError: (err: Error) => setStatus({ kind: 'err', text: err.message })
+  })
+
+  const isBusy = reviewMutation.isPending || commentMutation.isPending || rerunMutation.isPending
+
+  // Auto-clear status after 4s.
+  useEffect(() => {
+    if (!status) return
+    const t = setTimeout(() => setStatus(null), 4000)
+    return () => clearTimeout(t)
+  }, [status])
+
+  // ---- Action handlers (kept for both buttons & shortcuts) ----
+  const focusComposer = () => {
+    setTab('comments')
+    queueMicrotask(() => composerRef.current?.focus())
+  }
+  const submitComment = () => {
+    if (!body.trim()) { focusComposer(); setStatus({ kind: 'err', text: 'Comment body required' }); return }
+    commentMutation.mutate({ body: body.trim() })
+  }
+  const submitApprove = () => {
+    reviewMutation.mutate({ event: 'APPROVE', body: body.trim() || undefined })
+  }
+  const submitRequestChanges = () => {
+    if (!body.trim()) { focusComposer(); setStatus({ kind: 'err', text: 'Body required for request changes' }); return }
+    reviewMutation.mutate({ event: 'REQUEST_CHANGES', body: body.trim() })
+  }
+
+  // Find unique workflow run IDs from failing checks for the re-run button.
+  const failingRunIds = useMemo(() => {
+    if (!detail) return [] as number[]
+    const ids = new Set<number>()
+    for (const c of detail.checks) {
+      if (c.__typename !== 'CheckRun') continue
+      if (c.conclusion !== 'FAILURE' && c.conclusion !== 'TIMED_OUT' && c.conclusion !== 'CANCELLED') continue
+      const id = c.checkSuite?.workflowRun?.databaseId
+      if (id) ids.add(id)
+    }
+    return [...ids]
+  }, [detail])
+
+  const canRerun = failingRunIds.length > 0
+  const submitRerun = () => {
+    if (!canRerun) return
+    rerunMutation.mutate({ runIds: failingRunIds })
+  }
+
+  // ---- Keyboard shortcuts (modal-scoped) ----
+  useEffect(() => {
+    if (!open) return
+    const onKey = (e: KeyboardEvent) => {
+      // Esc always closes
+      if (e.key === 'Escape') { onClose(); return }
+      // Skip when typing in composer / inputs / contentEditable
+      const t = e.target as HTMLElement | null
+      if (t && (t.tagName === 'TEXTAREA' || t.tagName === 'INPUT' || t.isContentEditable)) return
+      if (e.metaKey || e.ctrlKey || e.altKey) return
+
+      // 'a' approve
+      if (e.key === 'a') { e.preventDefault(); submitApprove(); return }
+      // Shift+R request changes
+      if (e.key === 'R') { e.preventDefault(); submitRequestChanges(); return }
+      // 'c' focus composer
+      if (e.key === 'c') { e.preventDefault(); focusComposer(); return }
+      // 's' snooze + close
+      if (e.key === 's' && item) { e.preventDefault(); onSnooze(item); onClose(); return }
+    }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [open, item, body, detail])
+
   return (
     <div className={`hs-modal-shell ${open ? 'hs-modal-open' : ''}`}>
       <div className="hs-modal-backdrop" onClick={onClose} />
@@ -64,14 +182,34 @@ export function DetailModal({ token, item, onClose, onSnooze }: Props) {
           <>
             <ModalHead item={item} onClose={onClose} />
             <ModalBody
+              token={token}
               item={item}
-              detail={detailQuery.data}
+              detail={detail}
               loading={detailQuery.isLoading}
               error={detailQuery.error}
               tab={tab}
               onTabChange={setTab}
+              composerRef={composerRef}
+              body={body}
+              onBodyChange={setBody}
+              status={status}
+              busy={isBusy}
+              busyKind={
+                reviewMutation.isPending ? (reviewMutation.variables?.event ?? null) :
+                commentMutation.isPending ? 'COMMENT-ISSUE' :
+                null
+              }
+              onSubmitComment={submitComment}
+              onSubmitApprove={submitApprove}
+              onSubmitRequestChanges={submitRequestChanges}
             />
-            <ModalFooter item={item} onSnooze={() => { onSnooze(item); onClose() }} />
+            <ModalFooter
+              item={item}
+              canRerun={canRerun}
+              rerunBusy={rerunMutation.isPending}
+              onRerun={submitRerun}
+              onSnooze={() => { onSnooze(item); onClose() }}
+            />
           </>
         )}
       </div>
@@ -84,7 +222,7 @@ function ModalHead({ item, onClose }: { item: AttentionItem; onClose: () => void
     <div className="hs-modal-head">
       <div className="hs-modal-head-main">
         <div className="hs-modal-head-bc">
-          <OrgChip login={item.org} />
+          <OrgChip login={item.org} avatarUrl={item.orgAvatarUrl} />
           <span>{item.org}</span>
           <span className="hs-sep">/</span>
           <span className="hs-repo-name">{item.repo}</span>
@@ -104,18 +242,30 @@ function ModalHead({ item, onClose }: { item: AttentionItem; onClose: () => void
   )
 }
 
-function ModalBody({
-  item, detail, loading, error, tab, onTabChange
-}: {
+function ModalBody(props: {
+  token: string
   item: AttentionItem
   detail: PRDetail | undefined
   loading: boolean
   error: Error | null
   tab: TabKey
   onTabChange: (t: TabKey) => void
+  composerRef: React.RefObject<HTMLTextAreaElement | null>
+  body: string
+  onBodyChange: (s: string) => void
+  status: StatusMsg
+  busy: boolean
+  busyKind: ReviewEvent | 'COMMENT-ISSUE' | null
+  onSubmitComment: () => void
+  onSubmitApprove: () => void
+  onSubmitRequestChanges: () => void
 }) {
+  const { token, item, detail, loading, error, tab, onTabChange, composerRef, body, onBodyChange,
+          status, busy, busyKind, onSubmitComment, onSubmitApprove, onSubmitRequestChanges } = props
+
   const filesCount = detail?.changedFiles ?? 0
   const conv = useMemo(() => buildConversation(detail), [detail])
+  const checksCount = detail?.checks.length ?? 0
 
   return (
     <div className="hs-modal-body">
@@ -174,11 +324,12 @@ function ModalBody({
         <div className="hs-modal-tabs" role="tablist">
           <TabButton active={tab === 'description'} onClick={() => onTabChange('description')} icon={<FaAlignLeft />} label="Description" />
           <TabButton active={tab === 'changes'} onClick={() => onTabChange('changes')} icon={<FaFileCode />} label="Changes" count={filesCount || undefined} />
+          <TabButton active={tab === 'checks'} onClick={() => onTabChange('checks')} icon={<FaCheckCircle />} label="Checks" count={checksCount || undefined} />
           <TabButton active={tab === 'comments'} onClick={() => onTabChange('comments')} icon={<FaComments />} label="Comments" count={conv.length || undefined} />
         </div>
 
         {error && (
-          <div style={{ color: 'var(--danger)', padding: '12px 0' }}>
+          <div className="hs-status hs-status-err">
             Failed to load PR: {error.message}
           </div>
         )}
@@ -197,14 +348,101 @@ function ModalBody({
             ) : <span className="hs-muted-text">No file changes available.</span>
         )}
 
+        {tab === 'checks' && (
+          loading ? <Skeleton lines={5} /> :
+            detail?.checks && detail.checks.length > 0 ? (
+              <ChecksList token={token} owner={item.org} repo={item.repo} checks={detail.checks} />
+            ) : <span className="hs-muted-text">No checks for this PR.</span>
+        )}
+
         {tab === 'comments' && (
-          loading ? <Skeleton lines={6} /> :
-            conv.length > 0 ? (
-              <ConversationList items={conv} />
-            ) : <span className="hs-muted-text">No comments or reviews yet.</span>
+          <>
+            {loading ? <Skeleton lines={6} /> :
+              conv.length > 0 ? (
+                <ConversationList items={conv} />
+              ) : <span className="hs-muted-text">No comments or reviews yet.</span>}
+
+            <Composer
+              composerRef={composerRef}
+              body={body}
+              onBodyChange={onBodyChange}
+              status={status}
+              busy={busy}
+              busyKind={busyKind}
+              onSubmitComment={onSubmitComment}
+              onSubmitApprove={onSubmitApprove}
+              onSubmitRequestChanges={onSubmitRequestChanges}
+            />
+          </>
         )}
       </div>
     </div>
+  )
+}
+
+function Composer({
+  composerRef, body, onBodyChange, status, busy, busyKind,
+  onSubmitComment, onSubmitApprove, onSubmitRequestChanges
+}: {
+  composerRef: React.RefObject<HTMLTextAreaElement | null>
+  body: string
+  onBodyChange: (s: string) => void
+  status: StatusMsg
+  busy: boolean
+  busyKind: ReviewEvent | 'COMMENT-ISSUE' | null
+  onSubmitComment: () => void
+  onSubmitApprove: () => void
+  onSubmitRequestChanges: () => void
+}) {
+  return (
+    <section className="hs-composer">
+      <h4>Add a comment or review</h4>
+      <textarea
+        ref={composerRef}
+        className="hs-composer-textarea"
+        placeholder="Markdown supported. Press c to focus, ⌘↵ to submit a comment."
+        value={body}
+        onChange={(e) => onBodyChange(e.target.value)}
+        onKeyDown={(e) => {
+          if ((e.metaKey || e.ctrlKey) && e.key === 'Enter') {
+            e.preventDefault()
+            onSubmitComment()
+          }
+        }}
+        disabled={busy}
+      />
+      <div className="hs-composer-actions">
+        <button
+          className="hs-modal-btn primary"
+          onClick={onSubmitComment}
+          disabled={busy || !body.trim()}
+          title="Comment (⌘↵)"
+        >
+          {busyKind === 'COMMENT-ISSUE' ? 'Posting…' : <>💬 Comment</>}
+        </button>
+        <button
+          className="hs-modal-btn ok"
+          onClick={onSubmitApprove}
+          disabled={busy}
+          title="Approve (a)"
+        >
+          {busyKind === 'APPROVE' ? 'Approving…' : <>✓ Approve <kbd>a</kbd></>}
+        </button>
+        <button
+          className="hs-modal-btn danger"
+          onClick={onSubmitRequestChanges}
+          disabled={busy || !body.trim()}
+          title="Request changes (Shift+R)"
+        >
+          {busyKind === 'REQUEST_CHANGES' ? 'Submitting…' : <>✗ Request changes <kbd>⇧R</kbd></>}
+        </button>
+        {status && (
+          <span className={`hs-status-inline ${status.kind === 'ok' ? 'ok' : 'err'}`}>
+            {status.text}
+          </span>
+        )}
+      </div>
+    </section>
   )
 }
 
@@ -242,6 +480,198 @@ function FilesList({ nodes, total }: { nodes: PRDetail['files']['nodes']; total:
       )}
     </div>
   )
+}
+
+type CheckRow = {
+  name: string
+  workflow?: string
+  state: 'ok' | 'fail' | 'pending' | 'neutral' | 'skipped'
+  detailLabel: string
+  detailUrl: string | null
+  /** Workflow run id — only for CheckRun-from-Actions; lets us match the job and fetch the log. */
+  workflowRunId?: number
+}
+
+function normalizeCheck(c: CheckContext): CheckRow {
+  if (c.__typename === 'CheckRun') {
+    const status = c.status
+    const conclusion = c.conclusion
+    let state: CheckRow['state'] = 'neutral'
+    let detailLabel = conclusion ?? status ?? 'unknown'
+    if (conclusion === 'SUCCESS') { state = 'ok'; detailLabel = 'passed' }
+    else if (conclusion === 'FAILURE' || conclusion === 'TIMED_OUT' || conclusion === 'CANCELLED') { state = 'fail'; detailLabel = conclusion.toLowerCase() }
+    else if (conclusion === 'SKIPPED' || conclusion === 'NEUTRAL') { state = 'skipped'; detailLabel = conclusion.toLowerCase() }
+    else if (status === 'IN_PROGRESS' || status === 'QUEUED' || status === 'PENDING' || status === 'WAITING' || status === 'REQUESTED' || conclusion === null) {
+      state = 'pending'
+      detailLabel = status === 'IN_PROGRESS' ? 'running' : status?.toLowerCase() ?? 'pending'
+    }
+    return {
+      name: c.name,
+      workflow: c.checkSuite?.workflowRun?.workflow.name,
+      state,
+      detailLabel,
+      detailUrl: c.detailsUrl,
+      workflowRunId: c.checkSuite?.workflowRun?.databaseId ?? undefined
+    }
+  }
+  // StatusContext
+  const s = c.state
+  let state: CheckRow['state'] = 'neutral'
+  if (s === 'SUCCESS') state = 'ok'
+  else if (s === 'FAILURE' || s === 'ERROR') state = 'fail'
+  else if (s === 'PENDING' || s === 'EXPECTED') state = 'pending'
+  return {
+    name: c.context,
+    workflow: undefined,
+    state,
+    detailLabel: s.toLowerCase(),
+    detailUrl: c.targetUrl
+  }
+}
+
+function ChecksList({ token, owner, repo, checks }: { token: string; owner: string; repo: string; checks: CheckContext[] }) {
+  const rows = useMemo(() => {
+    const order: Record<CheckRow['state'], number> = { fail: 0, pending: 1, neutral: 2, skipped: 3, ok: 4 }
+    return checks
+      .map(normalizeCheck)
+      .sort((a, b) => order[a.state] - order[b.state] || a.name.localeCompare(b.name))
+  }, [checks])
+
+  const counts = useMemo(() => {
+    const c = { ok: 0, fail: 0, pending: 0, other: 0 }
+    for (const r of rows) {
+      if (r.state === 'ok') c.ok++
+      else if (r.state === 'fail') c.fail++
+      else if (r.state === 'pending') c.pending++
+      else c.other++
+    }
+    return c
+  }, [rows])
+
+  return (
+    <div className="hs-checks-tab">
+      <div className="hs-checks-summary">
+        {counts.fail > 0 && <span className="hs-checks-pill fail">✕ {counts.fail} failing</span>}
+        {counts.pending > 0 && <span className="hs-checks-pill pending">⋯ {counts.pending} pending</span>}
+        {counts.ok > 0 && <span className="hs-checks-pill ok">✓ {counts.ok} passed</span>}
+        {counts.other > 0 && <span className="hs-checks-pill neutral">⊘ {counts.other} skipped/neutral</span>}
+      </div>
+      <div className="hs-checks-list">
+        {rows.map((r, i) => (
+          <CheckItem key={i} row={r} token={token} owner={owner} repo={repo} />
+        ))}
+      </div>
+    </div>
+  )
+}
+
+const MAX_LOG_LINES = 500
+
+function CheckItem({ row, token, owner, repo }: { row: CheckRow; token: string; owner: string; repo: string }) {
+  const [expanded, setExpanded] = useState(false)
+  const [log, setLog] = useState<string | null>(null)
+  const [loading, setLoading] = useState(false)
+  const [err, setErr] = useState<string | null>(null)
+  const [matchedJob, setMatchedJob] = useState<WorkflowJob | null>(null)
+
+  // Only Actions-driven CheckRuns can yield logs (need workflow run id + matching job).
+  const supportsLog = !!row.workflowRunId
+
+  async function loadLog() {
+    if (!row.workflowRunId) return
+    setLoading(true)
+    setErr(null)
+    try {
+      const jobs = await fetchWorkflowRunJobs(token, owner, repo, row.workflowRunId)
+      const job = jobs.find((j) => j.name === row.name) ?? jobs[0]
+      if (!job) {
+        setErr('No matching job found in this workflow run.')
+        return
+      }
+      setMatchedJob(job)
+      const text = await fetchJobLogs(token, owner, repo, job.id)
+      const lines = text.split('\n')
+      const trimmed = lines.length > MAX_LOG_LINES
+        ? lines.slice(-MAX_LOG_LINES).join('\n')
+        : text
+      setLog(trimmed)
+    } catch (e) {
+      setErr(e instanceof Error ? e.message : String(e))
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  function toggle() {
+    if (!expanded && log === null && supportsLog) {
+      loadLog()
+    }
+    setExpanded((v) => !v)
+  }
+
+  const totalLines = log?.split('\n').length ?? 0
+
+  return (
+    <div className={`hs-check-item state-${row.state} ${expanded ? 'expanded' : ''}`}>
+      <button className="hs-check-row-btn" onClick={toggle} disabled={!supportsLog && !row.detailUrl}>
+        <span className="hs-check-icon">{checkIcon(row.state)}</span>
+        <div className="hs-check-body">
+          <div className="hs-check-line">
+            <span className="hs-check-namebig">{row.name}</span>
+            {row.workflow && <span className="hs-check-workflow">{row.workflow}</span>}
+          </div>
+          <div className="hs-check-detail">{row.detailLabel}</div>
+        </div>
+        {supportsLog ? (
+          <span className="hs-check-log-btn">{expanded ? 'Hide log' : 'Show log'} {expanded ? '▴' : '▾'}</span>
+        ) : row.detailUrl ? (
+          <a
+            className="hs-check-log"
+            href={row.detailUrl}
+            target="_blank"
+            rel="noopener noreferrer"
+            onClick={(e) => e.stopPropagation()}
+          >View log →</a>
+        ) : null}
+      </button>
+      {expanded && supportsLog && (
+        <div className="hs-check-log-panel">
+          {loading && <Skeleton lines={5} />}
+          {err && (
+            <div className="hs-status hs-status-err">
+              {err}
+              {row.detailUrl && (
+                <> · <a href={row.detailUrl} target="_blank" rel="noopener noreferrer">Open on GitHub →</a></>
+              )}
+            </div>
+          )}
+          {log != null && (
+            <>
+              <div className="hs-log-meta">
+                {matchedJob ? (
+                  <span>
+                    Job <strong>{matchedJob.name}</strong> · {totalLines} lines{' '}
+                    {matchedJob.html_url && (
+                      <a href={matchedJob.html_url} target="_blank" rel="noopener noreferrer">Open full log on GitHub →</a>
+                    )}
+                  </span>
+                ) : null}
+              </div>
+              <pre className="hs-log-pre">{log}</pre>
+            </>
+          )}
+        </div>
+      )}
+    </div>
+  )
+}
+
+function checkIcon(state: CheckRow['state']): string {
+  if (state === 'ok') return '✓'
+  if (state === 'fail') return '✕'
+  if (state === 'pending') return '⋯'
+  if (state === 'skipped') return '⊘'
+  return '○'
 }
 
 function changeTypeIcon(t: string): string {
@@ -357,7 +787,7 @@ function Reviewers({ detail }: { detail: PRDetail }) {
   return (
     <>
       {reviews.map((rv, i) => {
-        const stateClass = rv.state === 'APPROVED' ? 'approved' :
+        const stateClassName = rv.state === 'APPROVED' ? 'approved' :
                            rv.state === 'CHANGES_REQUESTED' ? 'changes' : 'requested'
         const label = rv.state === 'APPROVED' ? 'approved' :
                       rv.state === 'CHANGES_REQUESTED' ? 'changes' : rv.state.toLowerCase()
@@ -365,7 +795,7 @@ function Reviewers({ detail }: { detail: PRDetail }) {
           <div className="hs-meta-row" key={`r-${i}`}>
             {rv.author && <img src={rv.author.avatarUrl} alt="" />}
             <span>{rv.author?.login}</span>
-            <span className={`hs-meta-state ${stateClass}`}>{label}</span>
+            <span className={`hs-meta-state ${stateClassName}`}>{label}</span>
           </div>
         )
       })}
@@ -411,10 +841,21 @@ function Skeleton({ lines = 1, width = '100%' }: { lines?: number; width?: strin
   )
 }
 
-function ModalFooter({ item, onSnooze }: { item: AttentionItem; onSnooze: () => void }) {
+function ModalFooter({ item, canRerun, rerunBusy, onRerun, onSnooze }: {
+  item: AttentionItem
+  canRerun: boolean
+  rerunBusy: boolean
+  onRerun: () => void
+  onSnooze: () => void
+}) {
   return (
     <div className="hs-modal-footer">
-      <button className="hs-modal-btn" onClick={onSnooze} title="Hide until tomorrow">
+      {canRerun && (
+        <button className="hs-modal-btn" onClick={onRerun} disabled={rerunBusy} title="Re-run failing jobs in the relevant workflow runs">
+          {rerunBusy ? 'Requesting…' : '↻ Re-run failing'}
+        </button>
+      )}
+      <button className="hs-modal-btn" onClick={onSnooze} title="Hide until tomorrow (s)">
         Snooze <kbd>s</kbd>
       </button>
       <a className="hs-modal-btn link" href={item.url} target="_blank" rel="noopener noreferrer">

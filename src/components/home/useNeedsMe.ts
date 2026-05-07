@@ -47,6 +47,7 @@ export function useNeedsMe(token: string, viewerLogin: string | undefined) {
         byId.set(pr.id, {
           id: pr.id,
           org,
+          orgAvatarUrl: pr.repository.owner?.avatarUrl,
           repo,
           nameWithOwner: pr.repository.nameWithOwner,
           number: pr.number,

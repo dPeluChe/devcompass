@@ -1,3 +1,5 @@
+import { useState } from 'react'
+
 const ORG_COLORS: Record<string, string> = {
   Iteristech: '#5e8b65',
   dPeluChe: '#a371f7',
@@ -23,9 +25,35 @@ function initials(login: string): string {
   return login.replace(/[^a-zA-Z0-9]/g, '').slice(0, 2)
 }
 
-type Props = { login: string; title?: string; onClick?: () => void; size?: number }
+type Props = {
+  login: string
+  /** GitHub avatar URL — when present we render the real image, otherwise we fall back to a colored chip with initials. */
+  avatarUrl?: string
+  title?: string
+  onClick?: () => void
+  size?: number
+}
 
-export function OrgChip({ login, title, onClick, size = 18 }: Props) {
+export function OrgChip({ login, avatarUrl, title, onClick, size = 18 }: Props) {
+  // Real avatar can fail to load (network, deleted account, missing scope). Track that
+  // and fall back to the initials chip rather than showing a broken image.
+  const [imgFailed, setImgFailed] = useState(false)
+  const showImage = avatarUrl && !imgFailed
+
+  if (showImage) {
+    return (
+      <img
+        src={avatarUrl}
+        alt={login}
+        title={title ?? `Filter by ${login}`}
+        className="org-avatar org-avatar-img"
+        style={{ width: size, height: size }}
+        onClick={onClick}
+        onError={() => setImgFailed(true)}
+      />
+    )
+  }
+
   return (
     <span
       className="org-avatar"

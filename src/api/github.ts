@@ -342,7 +342,12 @@ export type PullRequest = {
   createdAt: string
   updatedAt: string
   author: { login: string; avatarUrl: string } | null
-  repository: { nameWithOwner: string; url: string; isPrivate: boolean }
+  repository: {
+    nameWithOwner: string
+    url: string
+    isPrivate: boolean
+    owner: { login: string; avatarUrl: string }
+  }
   labels: { nodes: { name: string; color: string }[] }
   reviewDecision: 'APPROVED' | 'CHANGES_REQUESTED' | 'REVIEW_REQUIRED' | null
   comments: { totalCount: number }
@@ -374,7 +379,12 @@ export async function searchPRs(token: string, query: string, first = 50): Promi
             createdAt
             updatedAt
             author { login avatarUrl }
-            repository { nameWithOwner url isPrivate }
+            repository {
+              nameWithOwner
+              url
+              isPrivate
+              owner { login avatarUrl }
+            }
             labels(first: 8) { nodes { name color } }
             reviewDecision
             comments { totalCount }
@@ -428,7 +438,7 @@ export type CheckContext =
       conclusion: string | null
       status: string
       detailsUrl: string | null
-      checkSuite: { workflowRun: { workflow: { name: string } } | null } | null
+      checkSuite: { workflowRun: { databaseId: number | null; workflow: { name: string } } | null } | null
     }
   | { __typename: 'StatusContext'; context: string; state: string; targetUrl: string | null }
 
@@ -550,7 +560,7 @@ export async function fetchPullRequestDetail(
                       __typename
                       ... on CheckRun {
                         name conclusion status detailsUrl
-                        checkSuite { workflowRun { workflow { name } } }
+                        checkSuite { workflowRun { databaseId workflow { name } } }
                       }
                       ... on StatusContext {
                         context state targetUrl
@@ -574,6 +584,97 @@ export async function fetchPullRequestDetail(
     ciState: rollup?.state ?? null,
     checks: rollup?.contexts.nodes ?? []
   }
+}
+
+// ---------- Mutations (REST) ----------
+
+/**
+ * Calls the GitHub REST API. Throws with the response message on non-2xx so the
+ * caller can show it inline. Centralizes auth + content-type + body handling so
+ * the action helpers below stay one-liners.
+ */
+async function rest(token: string, method: string, path: string, body?: unknown): Promise<unknown> {
+  const res = await fetch(`https://api.github.com${path}`, {
+    method,
+    headers: {
+      Authorization: `Bearer ${token}`,
+      Accept: 'application/vnd.github+json',
+      'Content-Type': 'application/json',
+      'X-GitHub-Api-Version': '2022-11-28'
+    },
+    body: body == null ? undefined : JSON.stringify(body)
+  })
+  if (!res.ok) {
+    let detail = ''
+    try {
+      const j = await res.json()
+      detail = (j && (j.message ?? j.error)) ? `: ${j.message ?? j.error}` : ''
+    } catch {
+      detail = `: ${await res.text().catch(() => '')}`
+    }
+    throw new Error(`GitHub ${res.status}${detail}`)
+  }
+  if (res.status === 204) return null
+  return res.json().catch(() => null)
+}
+
+export type ReviewEvent = 'APPROVE' | 'REQUEST_CHANGES' | 'COMMENT'
+
+/** Submits a PR review. body is required for REQUEST_CHANGES and COMMENT. */
+export async function submitReview(
+  token: string,
+  owner: string,
+  name: string,
+  number: number,
+  event: ReviewEvent,
+  body?: string
+): Promise<void> {
+  await rest(token, 'POST', `/repos/${owner}/${name}/pulls/${number}/reviews`, {
+    event,
+    body: body ?? ''
+  })
+}
+
+/** Posts an issue-level comment on the PR (the same endpoint used by GitHub's "Comment" button). */
+export async function addIssueComment(token: string, owner: string, name: string, number: number, body: string): Promise<void> {
+  await rest(token, 'POST', `/repos/${owner}/${name}/issues/${number}/comments`, { body })
+}
+
+/** Re-runs only the failed jobs of a workflow run. Cheaper than re-running everything. */
+export async function rerunFailedJobs(token: string, owner: string, name: string, runId: number): Promise<void> {
+  await rest(token, 'POST', `/repos/${owner}/${name}/actions/runs/${runId}/rerun-failed-jobs`)
+}
+
+export type WorkflowJob = {
+  id: number
+  name: string
+  status: 'queued' | 'in_progress' | 'completed' | 'waiting'
+  conclusion: 'success' | 'failure' | 'cancelled' | 'skipped' | 'timed_out' | 'action_required' | null
+  html_url: string
+  started_at: string | null
+  completed_at: string | null
+}
+
+/** Lists jobs in a workflow run. Used to map a CheckRun.name to a job_id so we can fetch its logs. */
+export async function fetchWorkflowRunJobs(token: string, owner: string, name: string, runId: number): Promise<WorkflowJob[]> {
+  const data = await rest(token, 'GET', `/repos/${owner}/${name}/actions/runs/${runId}/jobs?per_page=100`) as { jobs: WorkflowJob[] }
+  return data.jobs ?? []
+}
+
+/**
+ * Returns the raw log text for a job. The endpoint 302s to a short-lived presigned
+ * URL — we let the browser follow it transparently. Logs can be huge (megabytes),
+ * so callers should truncate before rendering.
+ */
+export async function fetchJobLogs(token: string, owner: string, name: string, jobId: number): Promise<string> {
+  const res = await fetch(`https://api.github.com/repos/${owner}/${name}/actions/jobs/${jobId}/logs`, {
+    headers: {
+      Authorization: `Bearer ${token}`,
+      Accept: 'application/vnd.github+json'
+    }
+  })
+  if (!res.ok) throw new Error(`GitHub ${res.status} fetching logs`)
+  return res.text()
 }
 
 /**

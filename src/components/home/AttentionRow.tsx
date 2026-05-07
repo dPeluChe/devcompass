@@ -116,7 +116,7 @@ export function AttentionRow(props: Props) {
       <span className={`hs-dot ${item.dot}`} />
       <div className="hs-row-main">
         <div className="hs-row-title">
-          <OrgChip login={item.org} />
+          <OrgChip login={item.org} avatarUrl={item.orgAvatarUrl} />
           <span className="hs-org-name">{item.org}</span>
           <span className="hs-sep">/</span>
           <span className="hs-repo-name">{item.repo}</span>
