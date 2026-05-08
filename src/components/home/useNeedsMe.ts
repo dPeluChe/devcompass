@@ -83,15 +83,12 @@ export function useNeedsMe(token: string, viewerLogin: string | undefined) {
       // Compute dot color from final reason set.
       for (const item of byId.values()) item.dot = dotForReasons(item.reasons)
 
-      const items = [...byId.values()].sort((a, b) => {
-        // Critical first, then by recency.
-        const dotRank = (d: AttentionItem['dot']) => (d === 'critical' ? 0 : d === 'warn' ? 1 : d === 'info' ? 2 : 3)
-        const r = dotRank(a.dot) - dotRank(b.dot)
-        if (r !== 0) return r
-        return new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime()
-      })
-
-      return items
+      // Strict reverse-chronological by updatedAt: the row's "9h"/"6mo" badge
+      // matches the position. Severity is communicated by the dot color and the
+      // reason chips, not by the order.
+      return [...byId.values()].sort(
+        (a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime()
+      )
     }
   })
 }

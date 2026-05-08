@@ -22,6 +22,18 @@ const voidElements = new Set([
   'track',
   'wbr',
 ])
+// HTML disallows whitespace text nodes as direct children of these elements.
+// React hydration trips on it; the DOM parser inserts spaces from indented
+// markdown tables. We strip whitespace-only text children here.
+const noTextChildren = new Set([
+  'table',
+  'thead',
+  'tbody',
+  'tfoot',
+  'tr',
+  'colgroup',
+  'select',
+])
 const booleanAttributes = new Set(['checked', 'disabled', 'selected', 'readonly', 'multiple'])
 
 export function SanitizedMarkdown({ html }: Props) {
@@ -70,6 +82,9 @@ function nodeToReact(node: ChildNode, key: number | string): ReactNode {
   if (tag === 'input' && props.checked !== undefined) props.readOnly = true
   if (voidElements.has(tag)) return createElement(tag, props)
 
-  const children = Array.from(el.childNodes).map((child, index) => nodeToReact(child, index))
+  let children = Array.from(el.childNodes).map((child, index) => nodeToReact(child, index))
+  if (noTextChildren.has(tag)) {
+    children = children.filter((c) => !(typeof c === 'string' && /^\s*$/.test(c)))
+  }
   return createElement(tag || Fragment, props, children)
 }
