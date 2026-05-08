@@ -155,6 +155,7 @@ export function HomeShell({ token, viewer, repos, pinned, onOpenRepo, onGotoRepo
 
       <DetailModal
         token={token}
+        viewerLogin={viewer?.login}
         item={openItem}
         onClose={() => selectItem(null)}
         onSnooze={handleSnooze}

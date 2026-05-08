@@ -442,6 +442,21 @@ export type CheckContext =
     }
   | { __typename: 'StatusContext'; context: string; state: string; targetUrl: string | null }
 
+export type PRCommit = {
+  oid: string
+  abbreviatedOid: string
+  url: string
+  messageHeadline: string
+  messageBody: string
+  committedDate: string
+  authoredDate: string
+  author: {
+    name: string | null
+    email: string | null
+    user: { login: string; avatarUrl: string } | null
+  } | null
+}
+
 export type PRDetail = {
   number: number
   title: string
@@ -451,6 +466,8 @@ export type PRDetail = {
   bodyHTML: string
   mergeable: 'MERGEABLE' | 'CONFLICTING' | 'UNKNOWN'
   mergeStateStatus: string
+  reviewDecision: 'APPROVED' | 'CHANGES_REQUESTED' | 'REVIEW_REQUIRED' | null
+  viewerCanUpdate: boolean
   createdAt: string
   updatedAt: string
   author: { login: string; avatarUrl: string; url: string } | null
@@ -462,6 +479,7 @@ export type PRDetail = {
   repository: { nameWithOwner: string; url: string }
   labels: { nodes: { name: string; color: string }[] }
   assignees: { nodes: { login: string; avatarUrl: string }[] }
+  commits: { totalCount: number; nodes: PRCommit[] }
   reviewRequests: {
     nodes: {
       requestedReviewer:
@@ -485,10 +503,11 @@ export async function fetchPullRequestDetail(
 ): Promise<PRDetail> {
   const data = await gql<{
     repository: {
-      pullRequest: Omit<PRDetail, 'ciState' | 'checks'> & {
+      pullRequest: Omit<PRDetail, 'ciState' | 'checks' | 'commits'> & {
         commits: {
+          totalCount: number
           nodes: {
-            commit: {
+            commit: PRCommit & {
               statusCheckRollup: {
                 state: string
                 contexts: { nodes: CheckContext[] }
@@ -512,6 +531,8 @@ export async function fetchPullRequestDetail(
           bodyHTML
           mergeable
           mergeStateStatus
+          reviewDecision
+          viewerCanUpdate
           createdAt
           updatedAt
           author { login avatarUrl url }
@@ -550,9 +571,22 @@ export async function fetchPullRequestDetail(
           files(first: 100) {
             nodes { path additions deletions changeType }
           }
-          commits(last: 1) {
+          commits(last: 100) {
+            totalCount
             nodes {
               commit {
+                oid
+                abbreviatedOid
+                url
+                messageHeadline
+                messageBody
+                committedDate
+                authoredDate
+                author {
+                  name
+                  email
+                  user { login avatarUrl }
+                }
                 statusCheckRollup {
                   state
                   contexts(first: 30) {
@@ -578,9 +612,18 @@ export async function fetchPullRequestDetail(
     { owner, name, number }
   )
   const pr = data.repository.pullRequest
-  const rollup = pr.commits.nodes[0]?.commit.statusCheckRollup ?? null
+  // PullRequest.commits with `last: N` returns ancestor → descendant order, so
+  // the HEAD (most recent) is the last node. The status rollup lives there.
+  const head = pr.commits.nodes[pr.commits.nodes.length - 1]?.commit
+  const rollup = head?.statusCheckRollup ?? null
+  // Strip statusCheckRollup off each commit before exposing as PRCommit.
+  const commitNodes: PRCommit[] = pr.commits.nodes.map((n) => {
+    const { statusCheckRollup: _, ...rest } = n.commit
+    return rest
+  })
   return {
     ...pr,
+    commits: { totalCount: pr.commits.totalCount, nodes: commitNodes },
     ciState: rollup?.state ?? null,
     checks: rollup?.contexts.nodes ?? []
   }
@@ -643,6 +686,27 @@ export async function addIssueComment(token: string, owner: string, name: string
 /** Re-runs only the failed jobs of a workflow run. Cheaper than re-running everything. */
 export async function rerunFailedJobs(token: string, owner: string, name: string, runId: number): Promise<void> {
   await rest(token, 'POST', `/repos/${owner}/${name}/actions/runs/${runId}/rerun-failed-jobs`)
+}
+
+export type MergeMethod = 'merge' | 'squash' | 'rebase'
+
+/**
+ * Merges a pull request using the chosen method. GitHub returns 405 if the PR
+ * isn't mergeable yet (failing checks, missing approval, conflicts). Caller
+ * should surface the error message inline.
+ */
+export async function mergePullRequest(
+  token: string,
+  owner: string,
+  name: string,
+  number: number,
+  method: MergeMethod,
+  options?: { commit_title?: string; commit_message?: string; sha?: string }
+): Promise<void> {
+  await rest(token, 'PUT', `/repos/${owner}/${name}/pulls/${number}/merge`, {
+    merge_method: method,
+    ...(options ?? {})
+  })
 }
 
 export type WorkflowJob = {

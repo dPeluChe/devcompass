@@ -1,14 +1,17 @@
 import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { FaAlignLeft, FaFileCode, FaComments, FaCheckCircle } from 'react-icons/fa'
+import { FaAlignLeft, FaFileCode, FaComments, FaCheckCircle, FaCodeBranch, FaInfoCircle } from 'react-icons/fa'
 import {
   addIssueComment,
   fetchJobLogs,
   fetchPullRequestDetail,
   fetchWorkflowRunJobs,
+  mergePullRequest,
   rerunFailedJobs,
   submitReview,
   type CheckContext,
+  type MergeMethod,
+  type PRCommit,
   type PRDetail,
   type Review,
   type ReviewEvent,
@@ -19,10 +22,12 @@ import { SanitizedMarkdown } from '../SanitizedMarkdown'
 import { OrgChip } from './OrgChip'
 import type { AttentionItem } from './types'
 
-type TabKey = 'description' | 'changes' | 'comments' | 'checks'
+type TabKey = 'summary' | 'description' | 'commits' | 'changes' | 'checks' | 'comments'
 
 type Props = {
   token: string
+  /** Used to detect "you authored this" so we can hide review actions GitHub would reject (422). */
+  viewerLogin?: string
   item: AttentionItem | null
   onClose: () => void
   onSnooze: (item: AttentionItem) => void
@@ -30,18 +35,18 @@ type Props = {
 
 type StatusMsg = { kind: 'ok' | 'err'; text: string } | null
 
-export function DetailModal({ token, item, onClose, onSnooze }: Props) {
+export function DetailModal({ token, viewerLogin, item, onClose, onSnooze }: Props) {
   const open = !!item
-  const [tab, setTab] = useState<TabKey>('description')
+  const [tab, setTab] = useState<TabKey>('summary')
   const [body, setBody] = useState('')
   const [status, setStatus] = useState<StatusMsg>(null)
   const composerRef = useRef<HTMLTextAreaElement>(null)
   const queryClient = useQueryClient()
 
-  // Reset to description whenever a new item opens.
+  // Reset to summary whenever a new item opens.
   useEffect(() => {
     if (item) {
-      setTab('description')
+      setTab('summary')
       setBody('')
       setStatus(null)
     }
@@ -63,6 +68,16 @@ export function DetailModal({ token, item, onClose, onSnooze }: Props) {
   })
 
   const detail = detailQuery.data
+
+  // GitHub 422s any review you submit on a PR you authored. Detecting this up
+  // front lets the UI hide / disable those actions instead of letting the
+  // error surface mid-click.
+  const isOwnPR = useMemo(() => {
+    if (!viewerLogin) return false
+    if (item?.reasons.includes('my-pr')) return true
+    if (detail?.author?.login === viewerLogin) return true
+    return false
+  }, [viewerLogin, item, detail])
 
   function invalidatePr() {
     if (!item) return
@@ -98,8 +113,17 @@ export function DetailModal({ token, item, onClose, onSnooze }: Props) {
     onSuccess: () => setStatus({ kind: 'ok', text: 'Re-run requested' }),
     onError: (err: Error) => setStatus({ kind: 'err', text: err.message })
   })
+  const mergeMutation = useMutation({
+    mutationFn: (input: { method: MergeMethod }) =>
+      mergePullRequest(token, item!.org, item!.repo, item!.number, input.method),
+    onSuccess: (_data, input) => {
+      setStatus({ kind: 'ok', text: `Merged via ${input.method}` })
+      invalidatePr()
+    },
+    onError: (err: Error) => setStatus({ kind: 'err', text: err.message })
+  })
 
-  const isBusy = reviewMutation.isPending || commentMutation.isPending || rerunMutation.isPending
+  const isBusy = reviewMutation.isPending || commentMutation.isPending || rerunMutation.isPending || mergeMutation.isPending
 
   // Auto-clear status after 4s.
   useEffect(() => {
@@ -118,9 +142,11 @@ export function DetailModal({ token, item, onClose, onSnooze }: Props) {
     commentMutation.mutate({ body: body.trim() })
   }
   const submitApprove = () => {
+    if (isOwnPR) { setStatus({ kind: 'err', text: "You can't review your own PR" }); return }
     reviewMutation.mutate({ event: 'APPROVE', body: body.trim() || undefined })
   }
   const submitRequestChanges = () => {
+    if (isOwnPR) { setStatus({ kind: 'err', text: "You can't review your own PR" }); return }
     if (!body.trim()) { focusComposer(); setStatus({ kind: 'err', text: 'Body required for request changes' }); return }
     reviewMutation.mutate({ event: 'REQUEST_CHANGES', body: body.trim() })
   }
@@ -180,7 +206,7 @@ export function DetailModal({ token, item, onClose, onSnooze }: Props) {
       >
         {item && (
           <>
-            <ModalHead item={item} onClose={onClose} />
+            <ModalHead item={item} detail={detail} onClose={onClose} />
             <ModalBody
               token={token}
               item={item}
@@ -202,12 +228,18 @@ export function DetailModal({ token, item, onClose, onSnooze }: Props) {
               onSubmitComment={submitComment}
               onSubmitApprove={submitApprove}
               onSubmitRequestChanges={submitRequestChanges}
+              isOwnPR={isOwnPR}
             />
             <ModalFooter
-              item={item}
+              detail={detail}
+              isOwnPR={isOwnPR}
               canRerun={canRerun}
               rerunBusy={rerunMutation.isPending}
               onRerun={submitRerun}
+              onApprove={submitApprove}
+              approveBusy={reviewMutation.isPending && reviewMutation.variables?.event === 'APPROVE'}
+              onMerge={(method) => mergeMutation.mutate({ method })}
+              mergeBusy={mergeMutation.isPending}
               onSnooze={() => { onSnooze(item); onClose() }}
             />
           </>
@@ -217,27 +249,98 @@ export function DetailModal({ token, item, onClose, onSnooze }: Props) {
   )
 }
 
-function ModalHead({ item, onClose }: { item: AttentionItem; onClose: () => void }) {
+function ModalHead({ item, detail, onClose }: { item: AttentionItem; detail: PRDetail | undefined; onClose: () => void }) {
   return (
-    <div className="hs-modal-head">
-      <div className="hs-modal-head-main">
-        <div className="hs-modal-head-bc">
-          <OrgChip login={item.org} avatarUrl={item.orgAvatarUrl} />
-          <span>{item.org}</span>
-          <span className="hs-sep">/</span>
-          <span className="hs-repo-name">{item.repo}</span>
-        </div>
-        <h2>
+    <header className="hs-modal-head">
+      <div className="hs-modal-head-top">
+        <h2 className="hs-modal-title-row">
+          <span className="hs-title-bc">
+            <OrgChip login={item.org} avatarUrl={item.orgAvatarUrl} />
+            <span className="hs-org-name">{item.org}</span>
+            <span className="hs-sep">/</span>
+            <span className="hs-repo-name">{item.repo}</span>
+          </span>
+          <span className="hs-title-sep">·</span>
           <span className="hs-pr-num">#{item.number}</span>
-          {item.isDraft ? 'Draft: ' : ''}{item.title}
-        </h2>
-        <div className="hs-modal-head-meta">
+          <span className="hs-title-text">
+            {item.isDraft ? 'Draft: ' : ''}{item.title}
+          </span>
           {item.reasons.map((r) => (
             <span key={r} className={`hs-reason r-${r}`}>{r.replace(/-/g, ' ')}</span>
           ))}
-        </div>
+        </h2>
+        <button className="hs-modal-close" title="Close (esc)" onClick={onClose}>×</button>
       </div>
-      <button className="hs-modal-close" title="Close (esc)" onClick={onClose}>×</button>
+      {detail && <HeaderMeta detail={detail} item={item} />}
+    </header>
+  )
+}
+
+function HeaderMeta({ detail, item }: { detail: PRDetail; item: AttentionItem }) {
+  const reviewers = useMemo(() => buildReviewers(detail), [detail])
+  return (
+    <div className="hs-head-meta-row">
+      {detail.author && (
+        <span className="hs-people-chip">
+          <img src={detail.author.avatarUrl} alt="" />
+          <span>@{detail.author.login}</span>
+        </span>
+      )}
+      <span className="hs-head-sep">·</span>
+      <span className="hs-head-branch" title={`${detail.headRefName} → ${detail.baseRefName}`}>
+        <FaCodeBranch className="hs-branch-icon" />
+        <code>{detail.headRefName}</code>
+        <span className="hs-branch-arrow">→</span>
+        <code>{detail.baseRefName}</code>
+      </span>
+      {reviewers.length > 0 && (
+        <>
+          <span className="hs-head-sep">·</span>
+          {reviewers.map((r) => (
+            <span key={r.login} className={`hs-people-chip state-${r.state}`} title={`${r.login} — ${reviewerStateLabel(r.state)}`}>
+              <img src={r.avatarUrl} alt="" />
+              <span>{r.state === 'team' ? r.login : `@${r.login}`}</span>
+              <span className="hs-people-state">{reviewerStateLabel(r.state)}</span>
+            </span>
+          ))}
+        </>
+      )}
+      {detail.labels.nodes.length > 0 && (
+        <>
+          <span className="hs-head-sep">·</span>
+          {detail.labels.nodes.slice(0, 5).map((l) => (
+            <span key={l.name} className="hs-label-chip">{l.name}</span>
+          ))}
+          {detail.labels.nodes.length > 5 && (
+            <span className="hs-muted-text" style={{ fontSize: '0.78em' }}>+{detail.labels.nodes.length - 5}</span>
+          )}
+        </>
+      )}
+      <LinkActions item={item} />
+    </div>
+  )
+}
+
+function LinkActions({ item }: { item: AttentionItem }) {
+  const [copied, setCopied] = useState(false)
+  async function copyLink() {
+    const url = item.url || `${window.location.origin}${window.location.pathname}?pr=${item.org}/${item.repo}/${item.number}`
+    try {
+      await navigator.clipboard.writeText(url)
+      setCopied(true)
+      setTimeout(() => setCopied(false), 1800)
+    } catch {
+      window.prompt('Copy this link:', url)
+    }
+  }
+  return (
+    <div className="hs-head-link-actions">
+      <button className="hs-modal-btn" onClick={copyLink} title="Copy GitHub URL">
+        {copied ? '✓ Copied' : '⎘ Copy link'}
+      </button>
+      <a className="hs-modal-btn link" href={item.url} target="_blank" rel="noopener noreferrer">
+        Open on GitHub ↗
+      </a>
     </div>
   )
 }
@@ -259,70 +362,23 @@ function ModalBody(props: {
   onSubmitComment: () => void
   onSubmitApprove: () => void
   onSubmitRequestChanges: () => void
+  isOwnPR: boolean
 }) {
   const { token, item, detail, loading, error, tab, onTabChange, composerRef, body, onBodyChange,
-          status, busy, busyKind, onSubmitComment, onSubmitApprove, onSubmitRequestChanges } = props
+          status, busy, busyKind, onSubmitComment, onSubmitApprove, onSubmitRequestChanges, isOwnPR } = props
 
   const filesCount = detail?.changedFiles ?? 0
   const conv = useMemo(() => buildConversation(detail), [detail])
   const checksCount = detail?.checks.length ?? 0
+  const commitsCount = detail?.commits.totalCount ?? 0
 
   return (
     <div className="hs-modal-body">
-      <aside className="hs-modal-meta">
-        <MetaSection title="Author">
-          {detail?.author ? (
-            <div className="hs-meta-row">
-              <img src={detail.author.avatarUrl} alt="" />
-              <span>@{detail.author.login}</span>
-            </div>
-          ) : item.author ? (
-            <div className="hs-meta-row">
-              <img src={item.author.avatarUrl} alt="" />
-              <span>@{item.author.login}</span>
-            </div>
-          ) : (
-            <span className="hs-muted-text">unknown</span>
-          )}
-        </MetaSection>
-
-        <MetaSection title="Branch">
-          {detail ? (
-            <div className="hs-branch">{detail.headRefName} → {detail.baseRefName}</div>
-          ) : <Skeleton width="80%" />}
-        </MetaSection>
-
-        <MetaSection title="Reviewers">
-          {detail ? <Reviewers detail={detail} /> : <Skeleton lines={2} />}
-        </MetaSection>
-
-        <MetaSection title="Checks">
-          {loading ? <Skeleton lines={3} /> :
-            detail?.checks && detail.checks.length > 0 ? <Checks checks={detail.checks} /> :
-            <span className="hs-muted-text">no checks</span>}
-        </MetaSection>
-
-        <MetaSection title="Diff">
-          {detail ? (
-            <>
-              <div><span style={{ color: '#3fb950' }}>+{detail.additions}</span> / <span style={{ color: 'var(--danger)' }}>−{detail.deletions}</span></div>
-              <div style={{ fontSize: '0.85em', color: 'var(--muted)' }}>{detail.changedFiles} files</div>
-            </>
-          ) : <Skeleton width="60%" />}
-        </MetaSection>
-
-        {detail?.labels.nodes && detail.labels.nodes.length > 0 && (
-          <MetaSection title="Labels">
-            {detail.labels.nodes.map((l) => (
-              <span key={l.name} className="hs-label-chip">{l.name}</span>
-            ))}
-          </MetaSection>
-        )}
-      </aside>
-
       <div className="hs-modal-content">
         <div className="hs-modal-tabs" role="tablist">
+          <TabButton active={tab === 'summary'} onClick={() => onTabChange('summary')} icon={<FaInfoCircle />} label="Summary" />
           <TabButton active={tab === 'description'} onClick={() => onTabChange('description')} icon={<FaAlignLeft />} label="Description" />
+          <TabButton active={tab === 'commits'} onClick={() => onTabChange('commits')} icon={<FaCodeBranch />} label="Commits" count={commitsCount || undefined} />
           <TabButton active={tab === 'changes'} onClick={() => onTabChange('changes')} icon={<FaFileCode />} label="Changes" count={filesCount || undefined} />
           <TabButton active={tab === 'checks'} onClick={() => onTabChange('checks')} icon={<FaCheckCircle />} label="Checks" count={checksCount || undefined} />
           <TabButton active={tab === 'comments'} onClick={() => onTabChange('comments')} icon={<FaComments />} label="Comments" count={conv.length || undefined} />
@@ -334,11 +390,31 @@ function ModalBody(props: {
           </div>
         )}
 
+        {tab === 'summary' && (
+          loading ? <Skeleton lines={6} /> :
+            detail ? (
+              <SummaryTab
+                detail={detail}
+                onReadFull={() => onTabChange('description')}
+                onOpenCommits={() => onTabChange('commits')}
+                onOpenChecks={() => onTabChange('checks')}
+                onOpenComments={() => onTabChange('comments')}
+              />
+            ) : <span className="hs-muted-text">No data.</span>
+        )}
+
         {tab === 'description' && (
           loading ? <Skeleton lines={4} /> :
             detail?.bodyHTML ? (
               <div className="hs-description-html"><SanitizedMarkdown html={detail.bodyHTML} /></div>
             ) : <span className="hs-muted-text">No description provided.</span>
+        )}
+
+        {tab === 'commits' && (
+          loading ? <Skeleton lines={5} /> :
+            detail?.commits.nodes && detail.commits.nodes.length > 0 ? (
+              <CommitsList nodes={detail.commits.nodes} totalCount={detail.commits.totalCount} />
+            ) : <span className="hs-muted-text">No commits.</span>
         )}
 
         {tab === 'changes' && (
@@ -372,6 +448,7 @@ function ModalBody(props: {
               onSubmitComment={onSubmitComment}
               onSubmitApprove={onSubmitApprove}
               onSubmitRequestChanges={onSubmitRequestChanges}
+              isOwnPR={isOwnPR}
             />
           </>
         )}
@@ -382,7 +459,7 @@ function ModalBody(props: {
 
 function Composer({
   composerRef, body, onBodyChange, status, busy, busyKind,
-  onSubmitComment, onSubmitApprove, onSubmitRequestChanges
+  onSubmitComment, onSubmitApprove, onSubmitRequestChanges, isOwnPR
 }: {
   composerRef: React.RefObject<HTMLTextAreaElement | null>
   body: string
@@ -393,7 +470,9 @@ function Composer({
   onSubmitComment: () => void
   onSubmitApprove: () => void
   onSubmitRequestChanges: () => void
+  isOwnPR: boolean
 }) {
+  const reviewBlockedTitle = isOwnPR ? 'You can\'t review your own PR' : undefined
   return (
     <section className="hs-composer">
       <h4>Add a comment or review</h4>
@@ -420,22 +499,31 @@ function Composer({
         >
           {busyKind === 'COMMENT-ISSUE' ? 'Posting…' : <>💬 Comment</>}
         </button>
-        <button
-          className="hs-modal-btn ok"
-          onClick={onSubmitApprove}
-          disabled={busy}
-          title="Approve (a)"
-        >
-          {busyKind === 'APPROVE' ? 'Approving…' : <>✓ Approve <kbd>a</kbd></>}
-        </button>
-        <button
-          className="hs-modal-btn danger"
-          onClick={onSubmitRequestChanges}
-          disabled={busy || !body.trim()}
-          title="Request changes (Shift+R)"
-        >
-          {busyKind === 'REQUEST_CHANGES' ? 'Submitting…' : <>✗ Request changes <kbd>⇧R</kbd></>}
-        </button>
+        {!isOwnPR && (
+          <>
+            <button
+              className="hs-modal-btn ok"
+              onClick={onSubmitApprove}
+              disabled={busy}
+              title="Approve (a)"
+            >
+              {busyKind === 'APPROVE' ? 'Approving…' : <>✓ Approve <kbd>a</kbd></>}
+            </button>
+            <button
+              className="hs-modal-btn danger"
+              onClick={onSubmitRequestChanges}
+              disabled={busy || !body.trim()}
+              title="Request changes (Shift+R)"
+            >
+              {busyKind === 'REQUEST_CHANGES' ? 'Submitting…' : <>✗ Request changes <kbd>⇧R</kbd></>}
+            </button>
+          </>
+        )}
+        {isOwnPR && (
+          <span className="hs-status-inline" title={reviewBlockedTitle}>
+            Your own PR — comment here, merge from the footer.
+          </span>
+        )}
         {status && (
           <span className={`hs-status-inline ${status.kind === 'ok' ? 'ok' : 'err'}`}>
             {status.text}
@@ -681,6 +769,43 @@ function changeTypeIcon(t: string): string {
   return 'M'
 }
 
+function CommitsList({ nodes, totalCount }: { nodes: PRCommit[]; totalCount: number }) {
+  // GraphQL returns oldest → newest within the slice. Reverse so HEAD is at the
+  // top — what people expect when scanning recent work.
+  const ordered = useMemo(() => [...nodes].reverse(), [nodes])
+  const truncated = totalCount > nodes.length
+  return (
+    <div className="hs-commits-list">
+      {ordered.map((c) => (
+        <article className="hs-commit" key={c.oid}>
+          {c.author?.user?.avatarUrl ? (
+            <img className="hs-commit-avatar" src={c.author.user.avatarUrl} alt="" />
+          ) : (
+            <span className="hs-commit-avatar hs-commit-avatar-fallback">·</span>
+          )}
+          <div className="hs-commit-main">
+            <div className="hs-commit-headline">{c.messageHeadline || '(no message)'}</div>
+            <div className="hs-commit-meta">
+              <span className="hs-commit-author">
+                {c.author?.user?.login ? `@${c.author.user.login}` : c.author?.name ?? 'unknown'}
+              </span>
+              <span className="hs-commit-time" title={c.committedDate}>{relativeTime(c.committedDate)}</span>
+            </div>
+          </div>
+          <a className="hs-commit-sha" href={c.url} target="_blank" rel="noopener noreferrer" title="Open commit on GitHub">
+            {c.abbreviatedOid}
+          </a>
+        </article>
+      ))}
+      {truncated && (
+        <div className="hs-muted-text" style={{ padding: '6px 8px', fontSize: '0.85em' }}>
+          Showing the latest {nodes.length} of {totalCount} commits.
+        </div>
+      )}
+    </div>
+  )
+}
+
 type ConvItem = {
   kind: 'review' | 'comment'
   state?: Review['state']
@@ -775,6 +900,333 @@ function MetaSection({ title, children }: { title: string; children: React.React
   )
 }
 
+function SummaryTab({
+  detail, onReadFull, onOpenCommits, onOpenChecks, onOpenComments
+}: {
+  detail: PRDetail
+  onReadFull: () => void
+  onOpenCommits: () => void
+  onOpenChecks: () => void
+  onOpenComments: () => void
+}) {
+  // detail.commits.nodes is PRCommit[] after the fetch flattening — no .commit access.
+  const head = detail.commits.nodes[detail.commits.nodes.length - 1]
+  const bodyExcerpt = useMemo(() => {
+    if (!detail.bodyHTML) return ''
+    // Strip HTML tags + collapse whitespace, then take first ~280 chars.
+    const text = detail.bodyHTML.replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim()
+    return text.length > 280 ? text.slice(0, 280) + '…' : text
+  }, [detail.bodyHTML])
+  const checksLine = mergeChecksLine(detail)
+  const conv = useMemo(() => buildConversation(detail), [detail])
+  const latest = conv[conv.length - 1]
+  const latestExcerpt = useMemo(() => {
+    if (!latest?.bodyHTML) return ''
+    const text = latest.bodyHTML.replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim()
+    return text.length > 240 ? text.slice(0, 240) + '…' : text
+  }, [latest])
+
+  return (
+    <div className="hs-summary">
+      {/* 1. Description */}
+      {bodyExcerpt && (
+        <section className="hs-summary-desc">
+          <h5>Description</h5>
+          <p>{bodyExcerpt}</p>
+          <button className="hs-summary-readmore" onClick={onReadFull}>Read full description →</button>
+        </section>
+      )}
+
+      {/* 2. Last commit / Diff / CI */}
+      <div className="hs-summary-grid">
+        {head && (
+          <a className="hs-summary-card" href={head.url} target="_blank" rel="noopener noreferrer" title="Open commit on GitHub">
+            <h5>Last commit</h5>
+            <div className="hs-summary-commit-line">{head.messageHeadline || '(no message)'}</div>
+            <div className="hs-summary-sub">
+              <code>{head.abbreviatedOid}</code> · {head.author?.user?.login ? `@${head.author.user.login}` : head.author?.name ?? 'unknown'} · {relativeTime(head.committedDate)}
+            </div>
+          </a>
+        )}
+
+        <button className="hs-summary-card" onClick={onOpenCommits} title="Open commits tab">
+          <h5>Diff</h5>
+          <div className="hs-summary-big">
+            <span style={{ color: '#3fb950' }}>+{detail.additions}</span>{' '}
+            <span style={{ color: 'var(--muted)' }}>/</span>{' '}
+            <span style={{ color: 'var(--danger)' }}>−{detail.deletions}</span>
+          </div>
+          <div className="hs-summary-sub">
+            {detail.changedFiles} files · {detail.commits.totalCount} commits
+          </div>
+        </button>
+
+        <button className="hs-summary-card" onClick={onOpenChecks} title="Open checks tab">
+          <h5>CI</h5>
+          <div className={`hs-summary-big state-${checksLine.kind}`}>
+            {checksLine.kind === 'ok' ? '✓' : checksLine.kind === 'fail' ? '✕' : '⋯'} {checksLine.title}
+          </div>
+          {checksLine.detail && <div className="hs-summary-sub">{checksLine.detail}</div>}
+        </button>
+      </div>
+
+      {/* 3. Latest comment */}
+      {latest && (
+        <section className="hs-summary-latest">
+          <div className="hs-summary-latest-head">
+            <h5>Latest comment</h5>
+            <button className="hs-summary-readmore" onClick={onOpenComments}>View all {conv.length} →</button>
+          </div>
+          <div className="hs-summary-latest-row">
+            {latest.author?.avatarUrl ? (
+              <img className="hs-conv-avatar" src={latest.author.avatarUrl} alt="" />
+            ) : (
+              <span className="hs-conv-avatar hs-conv-avatar-fallback">·</span>
+            )}
+            <div className="hs-summary-latest-body">
+              <div className="hs-conv-head">
+                <strong>@{latest.author?.login ?? 'ghost'}</strong>
+                {latest.kind === 'review' && latest.state && (
+                  <span className={`hs-conv-state ${stateClass(latest.state)}`}>{stateLabel(latest.state)}</span>
+                )}
+                {latest.kind === 'comment' && <span className="hs-conv-state">commented</span>}
+                <span className="hs-conv-time">{relativeTime(latest.time)}</span>
+              </div>
+              {latestExcerpt ? (
+                <p className="hs-summary-latest-text">{latestExcerpt}</p>
+              ) : (
+                <span className="hs-muted-text">— no body —</span>
+              )}
+            </div>
+          </div>
+        </section>
+      )}
+
+      {/* Closed/merged banner — for OPEN PRs the merge action lives in the modal footer. */}
+      {detail.state !== 'OPEN' && (
+        <div className={`hs-summary-state-banner state-${detail.state.toLowerCase()}`}>
+          {detail.state === 'MERGED' ? '✓ Merged' : '✕ Closed'} · {detail.headRefName} → {detail.baseRefName}
+        </div>
+      )}
+    </div>
+  )
+}
+
+type ReviewerEntry = {
+  login: string
+  avatarUrl: string
+  state: 'approved' | 'changes' | 'requested' | 'commented' | 'team'
+}
+
+function buildReviewers(detail: PRDetail): ReviewerEntry[] {
+  // Latest review per author (people who already responded), plus people still
+  // on the request list (haven't responded yet). Latest review wins for state.
+  const byAuthor = new Map<string, ReviewerEntry>()
+  for (const r of detail.reviews.nodes) {
+    if (!r.author || r.state === 'PENDING') continue
+    const state =
+      r.state === 'APPROVED' ? 'approved' :
+      r.state === 'CHANGES_REQUESTED' ? 'changes' :
+      r.state === 'COMMENTED' ? 'commented' : 'requested'
+    byAuthor.set(r.author.login, { login: r.author.login, avatarUrl: r.author.avatarUrl, state })
+  }
+  for (const rr of detail.reviewRequests.nodes) {
+    const r = rr.requestedReviewer
+    if (!r) continue
+    if (r.__typename === 'User') {
+      if (!byAuthor.has(r.login)) {
+        byAuthor.set(r.login, { login: r.login, avatarUrl: r.avatarUrl, state: 'requested' })
+      }
+    } else {
+      // Team — skip if already represented.
+      const key = `team:${r.name}`
+      if (!byAuthor.has(key)) {
+        byAuthor.set(key, { login: r.name, avatarUrl: r.avatarUrl, state: 'team' })
+      }
+    }
+  }
+  const order: Record<ReviewerEntry['state'], number> = { changes: 0, requested: 1, commented: 2, team: 3, approved: 4 }
+  return [...byAuthor.values()].sort((a, b) => order[a.state] - order[b.state] || a.login.localeCompare(b.login))
+}
+
+function PeopleRow({ detail }: { detail: PRDetail }) {
+  const reviewers = useMemo(() => buildReviewers(detail), [detail])
+  const author = detail.author
+  return (
+    <section className="hs-summary-people">
+      <div className="hs-people-side">
+        <span className="hs-people-label">Opened by</span>
+        {author ? (
+          <span className="hs-people-chip">
+            <img src={author.avatarUrl} alt="" />
+            <span>@{author.login}</span>
+          </span>
+        ) : (
+          <span className="hs-muted-text">unknown</span>
+        )}
+      </div>
+      {reviewers.length > 0 && (
+        <>
+          <span className="hs-people-arrow">→</span>
+          <div className="hs-people-side">
+            <span className="hs-people-label">Review</span>
+            <div className="hs-people-reviewers">
+              {reviewers.map((r) => (
+                <span key={r.login} className={`hs-people-chip state-${r.state}`} title={`${r.login} — ${reviewerStateLabel(r.state)}`}>
+                  <img src={r.avatarUrl} alt="" />
+                  <span>{r.state === 'team' ? r.login : `@${r.login}`}</span>
+                  <span className="hs-people-state">{reviewerStateLabel(r.state)}</span>
+                </span>
+              ))}
+            </div>
+          </div>
+        </>
+      )}
+    </section>
+  )
+}
+
+function reviewerStateLabel(s: ReviewerEntry['state']): string {
+  if (s === 'approved') return 'approved'
+  if (s === 'changes') return 'changes'
+  if (s === 'requested') return 'requested'
+  if (s === 'commented') return 'commented'
+  return 'team'
+}
+
+const MERGE_METHOD_KEY = 'home.mergeMethod'
+const METHOD_LABELS: Record<MergeMethod, string> = {
+  squash: 'Squash and merge',
+  merge: 'Create a merge commit',
+  rebase: 'Rebase and merge'
+}
+
+function MergeBox({ detail, onMerge, busy, compact = false }: { detail: PRDetail; onMerge: (m: MergeMethod) => void; busy: boolean; compact?: boolean }) {
+  const [method, setMethod] = useState<MergeMethod>(() => {
+    try {
+      const saved = localStorage.getItem(MERGE_METHOD_KEY) as MergeMethod | null
+      if (saved === 'squash' || saved === 'merge' || saved === 'rebase') return saved
+    } catch { /* ignore */ }
+    return 'squash'
+  })
+  const [open, setOpen] = useState(false)
+
+  function pick(m: MergeMethod) {
+    setMethod(m)
+    setOpen(false)
+    try { localStorage.setItem(MERGE_METHOD_KEY, m) } catch { /* ignore */ }
+  }
+
+  const reviewState = mergeReviewLine(detail)
+  const checksState = mergeChecksLine(detail)
+  const conflictState = mergeConflictLine(detail)
+  const allGreen = reviewState.kind === 'ok' && checksState.kind !== 'fail' && conflictState.kind === 'ok'
+  const canMerge = detail.mergeable === 'MERGEABLE' && detail.state === 'OPEN' && !detail.isDraft
+
+  return (
+    <div className={`hs-mergebox ${compact ? 'compact' : 'hs-meta-section'}`}>
+      {!compact && <h5>Merge</h5>}
+      <ul className="hs-merge-status">
+        <MergeRow {...reviewState} />
+        <MergeRow {...checksState} />
+        <MergeRow {...conflictState} />
+      </ul>
+
+      <div className={`hs-merge-action ${allGreen ? 'green' : ''}`}>
+        <button
+          className="hs-merge-btn primary"
+          onClick={() => onMerge(method)}
+          disabled={!canMerge || busy}
+          title={canMerge ? `Merge with method: ${method}` : 'Not mergeable yet'}
+        >
+          {busy ? 'Merging…' : METHOD_LABELS[method]}
+        </button>
+        <button
+          className="hs-merge-method-toggle"
+          onClick={() => setOpen((v) => !v)}
+          aria-haspopup="menu"
+          aria-expanded={open}
+          title="Choose merge method"
+        >▾</button>
+        {open && (
+          <div className="hs-merge-menu" role="menu">
+            {(['squash', 'merge', 'rebase'] as const).map((m) => (
+              <button
+                key={m}
+                className={`hs-merge-menu-item ${m === method ? 'active' : ''}`}
+                onClick={() => pick(m)}
+              >
+                {METHOD_LABELS[m]}
+                {m === method && <span className="hs-merge-menu-check">✓</span>}
+              </button>
+            ))}
+          </div>
+        )}
+      </div>
+      {detail.isDraft && (
+        <div className="hs-merge-note">PR is in draft — mark ready to merge.</div>
+      )}
+    </div>
+  )
+}
+
+type MergeStatus = { kind: 'ok' | 'fail' | 'pending'; title: string; detail?: string }
+
+function MergeRow({ kind, title, detail }: MergeStatus) {
+  const icon = kind === 'ok' ? '✓' : kind === 'fail' ? '✕' : '⋯'
+  return (
+    <li className={`hs-merge-row state-${kind}`}>
+      <span className="hs-merge-row-icon">{icon}</span>
+      <span className="hs-merge-row-body">
+        <span className="hs-merge-row-title">{title}</span>
+        {detail && <span className="hs-merge-row-detail">{detail}</span>}
+      </span>
+    </li>
+  )
+}
+
+function mergeReviewLine(d: PRDetail): MergeStatus {
+  const decision = d.reviewDecision
+  if (decision === 'APPROVED') return { kind: 'ok', title: 'Review approved' }
+  if (decision === 'CHANGES_REQUESTED') return { kind: 'fail', title: 'Changes requested', detail: 'A reviewer asked for changes.' }
+  if (decision === 'REVIEW_REQUIRED') {
+    const requested = d.reviewRequests.nodes.length
+    return { kind: 'pending', title: 'Review required', detail: requested > 0 ? `${requested} reviewer${requested === 1 ? '' : 's'} pending` : 'A review is required before merging.' }
+  }
+  // null → either review not enforced, or no decision yet
+  const requested = d.reviewRequests.nodes.length
+  if (requested > 0) return { kind: 'pending', title: 'Review pending', detail: `${requested} reviewer${requested === 1 ? '' : 's'} requested` }
+  return { kind: 'ok', title: 'Review not required' }
+}
+
+function mergeChecksLine(d: PRDetail): MergeStatus {
+  const checks = d.checks
+  if (checks.length === 0) return { kind: 'ok', title: 'No checks configured' }
+  let ok = 0
+  let fail = 0
+  let pending = 0
+  for (const c of checks) {
+    if (c.__typename === 'CheckRun') {
+      if (c.conclusion === 'SUCCESS' || c.conclusion === 'NEUTRAL' || c.conclusion === 'SKIPPED') ok++
+      else if (c.conclusion === 'FAILURE' || c.conclusion === 'TIMED_OUT' || c.conclusion === 'CANCELLED' || c.conclusion === 'ACTION_REQUIRED') fail++
+      else pending++
+    } else {
+      if (c.state === 'SUCCESS') ok++
+      else if (c.state === 'FAILURE' || c.state === 'ERROR') fail++
+      else pending++
+    }
+  }
+  if (fail > 0) return { kind: 'fail', title: `${fail} failing check${fail === 1 ? '' : 's'}`, detail: `${ok} passed, ${pending} pending` }
+  if (pending > 0) return { kind: 'pending', title: `${pending} check${pending === 1 ? '' : 's'} running`, detail: `${ok} passed` }
+  return { kind: 'ok', title: 'All checks passed', detail: `${ok} successful` }
+}
+
+function mergeConflictLine(d: PRDetail): MergeStatus {
+  if (d.mergeable === 'CONFLICTING') return { kind: 'fail', title: 'Conflicts with base branch', detail: 'Resolve in GitHub or via local merge.' }
+  if (d.mergeable === 'UNKNOWN') return { kind: 'pending', title: 'Mergeability checking…' }
+  return { kind: 'ok', title: 'No conflicts with base branch' }
+}
+
 function Reviewers({ detail }: { detail: PRDetail }) {
   const requested = detail.reviewRequests.nodes
     .map((rr) => rr.requestedReviewer)
@@ -841,44 +1293,114 @@ function Skeleton({ lines = 1, width = '100%' }: { lines?: number; width?: strin
   )
 }
 
-function ModalFooter({ item, canRerun, rerunBusy, onRerun, onSnooze }: {
-  item: AttentionItem
+function ModalFooter({
+  detail, isOwnPR, canRerun, rerunBusy, onRerun,
+  onApprove, approveBusy, onMerge, mergeBusy, onSnooze
+}: {
+  detail: PRDetail | undefined
+  isOwnPR: boolean
   canRerun: boolean
   rerunBusy: boolean
   onRerun: () => void
+  onApprove: () => void
+  approveBusy: boolean
+  onMerge: (method: MergeMethod) => void
+  mergeBusy: boolean
   onSnooze: () => void
 }) {
-  const [copied, setCopied] = useState(false)
-
-  async function copyLink() {
-    // Prefer the GitHub URL because that's what people actually share.
-    const url = item.url || `${window.location.origin}${window.location.pathname}?pr=${item.org}/${item.repo}/${item.number}`
-    try {
-      await navigator.clipboard.writeText(url)
-      setCopied(true)
-      setTimeout(() => setCopied(false), 1800)
-    } catch {
-      // Clipboard API unavailable (insecure context, etc.) — fall back to prompt.
-      window.prompt('Copy this link:', url)
-    }
-  }
+  // Approve appears as a quick action when the PR is open and not yet approved.
+  // GitHub rejects approving your own PR (422), so we hide the button entirely.
+  const canApprove = detail?.state === 'OPEN' && detail.reviewDecision !== 'APPROVED' && !isOwnPR
+  const isOpen = detail?.state === 'OPEN' && !detail.isDraft
+  const canMerge = detail?.mergeable === 'MERGEABLE' && isOpen
 
   return (
     <div className="hs-modal-footer">
-      {canRerun && (
-        <button className="hs-modal-btn" onClick={onRerun} disabled={rerunBusy} title="Re-run failing jobs in the relevant workflow runs">
-          {rerunBusy ? 'Requesting…' : '↻ Re-run failing'}
+      <div className="hs-modal-footer-actions">
+        {canApprove && (
+          <button className="hs-modal-btn ok" onClick={onApprove} disabled={approveBusy} title="Approve PR (a)">
+            {approveBusy ? 'Approving…' : '✓ Approve'} <kbd>a</kbd>
+          </button>
+        )}
+        {canRerun && (
+          <button className="hs-modal-btn" onClick={onRerun} disabled={rerunBusy} title="Re-run failing jobs">
+            {rerunBusy ? 'Requesting…' : '↻ Re-run failing'}
+          </button>
+        )}
+        {detail?.state === 'OPEN' && (
+          <FooterMergeButton detail={detail} canMerge={canMerge} isOwnPR={isOwnPR} onMerge={onMerge} busy={mergeBusy} />
+        )}
+      </div>
+      <div className="hs-modal-footer-utility">
+        <button className="hs-modal-btn" onClick={onSnooze} title="Hide until tomorrow (s)">
+          Snooze <kbd>s</kbd>
         </button>
+      </div>
+    </div>
+  )
+}
+
+function FooterMergeButton({ detail, canMerge, isOwnPR, onMerge, busy }: {
+  detail: PRDetail
+  canMerge: boolean
+  isOwnPR: boolean
+  onMerge: (method: MergeMethod) => void
+  busy: boolean
+}) {
+  const [method, setMethod] = useState<MergeMethod>(() => {
+    try {
+      const saved = localStorage.getItem(MERGE_METHOD_KEY) as MergeMethod | null
+      if (saved === 'squash' || saved === 'merge' || saved === 'rebase') return saved
+    } catch { /* ignore */ }
+    return 'squash'
+  })
+  const [open, setOpen] = useState(false)
+  function pick(m: MergeMethod) {
+    setMethod(m)
+    setOpen(false)
+    try { localStorage.setItem(MERGE_METHOD_KEY, m) } catch { /* ignore */ }
+  }
+  // Own PRs don't need review approval to be ready — the green styling kicks
+  // in based on CI + mergeability alone for the solo-dev workflow.
+  const reviewOk = detail.reviewDecision === 'APPROVED' || isOwnPR
+  const checksOk =
+    detail.checks.length === 0 ||
+    detail.checks.every((c) => {
+      if (c.__typename === 'CheckRun') return c.conclusion === 'SUCCESS' || c.conclusion === 'NEUTRAL' || c.conclusion === 'SKIPPED'
+      return c.state === 'SUCCESS'
+    })
+  const allGreen = canMerge && reviewOk && checksOk
+  return (
+    <div className={`hs-merge-action ${allGreen ? 'green' : ''}`}>
+      <button
+        className="hs-merge-btn primary"
+        onClick={() => onMerge(method)}
+        disabled={!canMerge || busy}
+        title={canMerge ? `Merge with method: ${method}` : 'Not mergeable yet'}
+      >
+        {busy ? 'Merging…' : METHOD_LABELS[method]}
+      </button>
+      <button
+        className="hs-merge-method-toggle"
+        onClick={() => setOpen((v) => !v)}
+        aria-haspopup="menu"
+        aria-expanded={open}
+        title="Choose merge method"
+      >▾</button>
+      {open && (
+        <div className="hs-merge-menu" role="menu">
+          {(['squash', 'merge', 'rebase'] as const).map((m) => (
+            <button
+              key={m}
+              className={`hs-merge-menu-item ${m === method ? 'active' : ''}`}
+              onClick={() => pick(m)}
+            >
+              {METHOD_LABELS[m]}
+              {m === method && <span className="hs-merge-menu-check">✓</span>}
+            </button>
+          ))}
+        </div>
       )}
-      <button className="hs-modal-btn" onClick={onSnooze} title="Hide until tomorrow (s)">
-        Snooze <kbd>s</kbd>
-      </button>
-      <button className="hs-modal-btn" onClick={copyLink} title="Copy GitHub URL to clipboard">
-        {copied ? '✓ Copied' : '⎘ Copy link'}
-      </button>
-      <a className="hs-modal-btn link" href={item.url} target="_blank" rel="noopener noreferrer">
-        Open on GitHub ↗
-      </a>
     </div>
   )
 }
