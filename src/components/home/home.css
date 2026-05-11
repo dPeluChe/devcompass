@@ -1376,22 +1376,11 @@
 /* ----- Repos / org grid controls (inside .hs-main) ----- */
 .hs-grid-controls {
   display: flex;
-  gap: 10px;
+  gap: 14px;
   align-items: center;
   flex-wrap: wrap;
   padding: 0 18px 14px;
 }
-.hs-grid-search {
-  flex: 1 1 280px;
-  min-width: 220px;
-  padding: 7px 10px;
-  background: var(--bg);
-  border: 1px solid var(--border);
-  border-radius: 6px;
-  color: var(--text);
-  font: inherit;
-}
-.hs-grid-search:focus { outline: none; border-color: var(--accent); }
 .hs-grid-controls label {
   display: inline-flex;
   align-items: center;
@@ -1403,6 +1392,51 @@
 .hs-grid {
   padding: 0 18px 24px;
 }
+
+/* Org filter chips above the grid. Mirror the visual weight of the sidebar items
+   so the user reads the row as "the orgs in this view" rather than as a search bar. */
+.hs-org-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  padding: 0 18px 12px;
+}
+.hs-org-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: 28px;
+  padding: 0 10px;
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  color: var(--muted);
+  font: inherit;
+  font-size: 0.82em;
+  line-height: 1;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: border-color .12s, color .12s, background .12s;
+}
+.hs-org-chip:hover { border-color: var(--accent); color: var(--text); }
+.hs-org-chip.active {
+  background: rgba(88, 166, 255, 0.14);
+  border-color: var(--accent);
+  color: var(--text);
+}
+.hs-org-chip-avatar {
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  flex-shrink: 0;
+  object-fit: cover;
+}
+.hs-org-chip-avatar-fallback {
+  background: var(--panel-2);
+}
+.hs-org-chip-label { font-weight: 500; }
+.hs-org-chip-count { opacity: 0.6; font-size: 0.92em; }
+.hs-org-chip.active .hs-org-chip-count { color: var(--accent); opacity: 1; }
 
 /* skeleton */
 .hs-skeleton-bar {

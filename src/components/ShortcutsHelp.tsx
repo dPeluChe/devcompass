@@ -2,7 +2,7 @@ type Props = { open: boolean; onClose: () => void }
 
 const ROWS: { keys: string[]; label: string }[] = [
   { keys: ['⌘', 'K'], label: 'Quick switcher' },
-  { keys: ['/'], label: 'Focus search' },
+  { keys: ['/'], label: 'Open quick switcher' },
   { keys: ['g', 'h'], label: 'Go to Home' },
   { keys: ['g', 'r'], label: 'Go to Repos' },
   { keys: ['g', 'c'], label: 'Go to Config' },

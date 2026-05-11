@@ -244,16 +244,9 @@ export function Dashboard({ token, onLogout }: Props) {
     onGoHome: () => gotoView('home'),
     onGoRepos: () => gotoView('repos'),
     onGoConfig: () => gotoView('config'),
-    onFocusSearch: () => {
-      // Search lives inside the repo scope's main panel now. Drop the user there;
-      // the search input has its own autoFocus path on mount.
-      setView('repos')
-      queueMicrotask(() => {
-        const input = document.querySelector<HTMLInputElement>('.hs-grid-search')
-        input?.focus()
-        input?.select()
-      })
-    },
+    // The repo grid no longer has its own search input — chips replaced it.
+    // "/" now opens the QuickSwitcher, which is the cross-app search anyway.
+    onFocusSearch: () => { setHelpOpen(false); setQsOpen(true) },
     onEscape: () => {
       if (qsOpen) setQsOpen(false)
       else if (helpOpen) setHelpOpen(false)
