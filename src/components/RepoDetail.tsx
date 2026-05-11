@@ -1,5 +1,7 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useState, type ReactNode } from 'react'
 import { fetchRepoDetail, type RepoDetail as RepoDetailT } from '../api/github'
+import { OrgChip } from './home/OrgChip'
+import { FaCodeBranch, FaExclamationCircle, FaLock, FaLockOpen, FaStar, FaTag, FaCheck, FaExclamation } from 'react-icons/fa'
 
 type Props = {
   token: string
@@ -8,15 +10,18 @@ type Props = {
   onClose: () => void
 }
 
+type Tab = 'overview' | 'commits' | 'prs' | 'issues' | 'releases'
+
 export function RepoDetail({ token, owner, name, onClose }: Props) {
   const [data, setData] = useState<RepoDetailT | null>(null)
   const [error, setError] = useState<string | null>(null)
-  const [showRaw, setShowRaw] = useState(false)
+  const [tab, setTab] = useState<Tab>('overview')
 
   useEffect(() => {
     let cancelled = false
     setData(null)
     setError(null)
+    setTab('overview')
     ;(async () => {
       try {
         const d = await fetchRepoDetail(token, owner, name)
@@ -25,200 +30,337 @@ export function RepoDetail({ token, owner, name, onClose }: Props) {
         if (!cancelled) setError(e instanceof Error ? e.message : String(e))
       }
     })()
-    return () => {
-      cancelled = true
-    }
+    return () => { cancelled = true }
   }, [token, owner, name])
 
   return (
-    <aside className="detail">
-      <header>
-        <div>
-          <h2>{owner}/{name}</h2>
-          {data && (
-            <a href={data.url} target="_blank" rel="noreferrer" className="muted">
-              {data.url}
-            </a>
-          )}
-        </div>
-        <button onClick={onClose} aria-label="Cerrar">✕</button>
-      </header>
+    <aside className="rd">
+      <RdHeader owner={owner} name={name} data={data} onClose={onClose} />
 
-      {error && <pre className="error-inline">{error}</pre>}
-      {!data && !error && <p className="muted">Loading…</p>}
+      {error && <pre className="error-inline rd-error">{error}</pre>}
+      {!data && !error && <RdLoading />}
 
       {data && (
-        <div className="detail-body">
-          <Section title="Resumen">
-<KV k="Description" v={data.description ?? '—'} />
-            <KV k="Visibility" v={data.isPrivate ? 'Private' : 'Public'} />
-            <KV k="Size" v={data.diskUsage != null ? `${(data.diskUsage / 1024).toFixed(1)} MB` : '—'} />
-            <KV k="Stars / Forks / Watchers" v={`★ ${data.stargazerCount} · ⑂ ${data.forkCount} · 👁 ${data.watchers.totalCount}`} />
-            <KV k="Default branch" v={data.defaultBranchRef?.name ?? '—'} />
-            <KV k="Creado" v={fmtDate(data.createdAt)} />
-            <KV k="Último push" v={fmtDate(data.pushedAt)} />
-          </Section>
-
-          {data.repositoryTopics.nodes.length > 0 && (
-            <Section title="Topics">
-              <div className="topics">
-                {data.repositoryTopics.nodes.map((t) => (
-                  <span key={t.topic.name} className="topic">{t.topic.name}</span>
-                ))}
-              </div>
-            </Section>
-          )}
-
-          {data.languages.edges.length > 0 && (
-            <Section title="Lenguajes">
-              <div className="lang-bar">
-                {data.languages.edges.map((e) => (
-                  <span
-                    key={e.node.name}
-                    className="lang-seg"
-                    title={`${e.node.name} · ${((e.size / data.languages.totalSize) * 100).toFixed(1)}%`}
-                    style={{
-                      width: `${(e.size / data.languages.totalSize) * 100}%`,
-                      background: e.node.color ?? '#888'
-                    }}
-                  />
-                ))}
-              </div>
-              <ul className="lang-list">
-                {data.languages.edges.map((e) => (
-                  <li key={e.node.name}>
-                    <span className="dot" style={{ background: e.node.color ?? '#888' }} />
-                    {e.node.name} <span className="muted">{((e.size / data.languages.totalSize) * 100).toFixed(1)}%</span>
-                  </li>
-                ))}
-              </ul>
-            </Section>
-          )}
-
-          <Section title={`Últimos commits (${branchCommitsTotal(data) ?? 0})`}>
-            {branchCommits(data).length === 0 ? (
-              <p className="muted">No visible commits.</p>
-            ) : (
-              <ul className="commits">
-                {branchCommits(data).map((c) => (
-                  <li key={c.oid}>
-                    <a href={c.url} target="_blank" rel="noreferrer">
-                      <code>{c.oid.slice(0, 7)}</code>
-                    </a>{' '}
-                    {c.messageHeadline}
-                    <div className="muted">
-                      {c.author?.user?.login ?? c.author?.name ?? '—'} · {fmtDate(c.committedDate)}
-                    </div>
-                  </li>
-                ))}
-              </ul>
-            )}
-            {statusCheck(data) && (
-              <p className="muted">
-                CI status: <strong>{statusCheck(data)}</strong>
-              </p>
-            )}
-          </Section>
-
-          <Section title={`PRs abiertos (${data.pullRequests.totalCount})`}>
-            {data.pullRequests.nodes.length === 0 ? (
-              <p className="muted">No open PRs.</p>
-            ) : (
-              <ul className="items">
-                {data.pullRequests.nodes.map((pr) => (
-                  <li key={pr.number}>
-                    <a href={pr.url} target="_blank" rel="noreferrer">
-                      #{pr.number} {pr.title}
-                    </a>
-                    {pr.isDraft && <span className="badge">draft</span>}
-                    <div className="muted">
-                      {pr.author?.login ?? '—'} · actualizado {fmtDate(pr.updatedAt)}
-                    </div>
-                  </li>
-                ))}
-              </ul>
-            )}
-          </Section>
-
-          <Section title={`Issues abiertos (${data.issues.totalCount})`}>
-            {data.issues.nodes.length === 0 ? (
-              <p className="muted">No open issues.</p>
-            ) : (
-              <ul className="items">
-                {data.issues.nodes.map((it) => (
-                  <li key={it.number}>
-                    <a href={it.url} target="_blank" rel="noreferrer">
-                      #{it.number} {it.title}
-                    </a>
-                    <div className="labels">
-                      {it.labels.nodes.map((l) => (
-                        <span
-                          key={l.name}
-                          className="label"
-                          style={{ background: `#${l.color}33`, borderColor: `#${l.color}` }}
-                        >
-                          {l.name}
-                        </span>
-                      ))}
-                    </div>
-                    <div className="muted">
-                      {it.author?.login ?? '—'} · actualizado {fmtDate(it.updatedAt)}
-                    </div>
-                  </li>
-                ))}
-              </ul>
-            )}
-          </Section>
-
-          <Section title={`Releases (${data.releases.totalCount})`}>
-            {data.releases.nodes.length === 0 ? (
-              <p className="muted">No releases.</p>
-            ) : (
-              <ul className="items">
-                {data.releases.nodes.map((r) => (
-                  <li key={r.tagName}>
-                    <a href={r.url} target="_blank" rel="noreferrer">
-                      {r.name ?? r.tagName}
-                    </a>
-                    {r.isPrerelease && <span className="badge">pre</span>}
-                    <div className="muted">{r.publishedAt ? fmtDate(r.publishedAt) : 'sin publicar'}</div>
-                  </li>
-                ))}
-              </ul>
-            )}
-          </Section>
-
-          <Section title="Personas">
-            <KV k="Mentionable users" v={data.mentionableUsers.totalCount} />
-          </Section>
-
-          <Section title="Datos crudos (debug)">
-            <button onClick={() => setShowRaw((s) => !s)}>{showRaw ? 'Ocultar' : 'Ver'} JSON completo</button>
-            {showRaw && <pre className="raw">{JSON.stringify(data, null, 2)}</pre>}
-          </Section>
-        </div>
+        <>
+          <RdTabs
+            tab={tab}
+            onChange={setTab}
+            commitCount={branchCommitsTotal(data) ?? 0}
+            prCount={data.pullRequests.totalCount}
+            issueCount={data.issues.totalCount}
+            releaseCount={data.releases.totalCount}
+          />
+          <div className="rd-body">
+            {tab === 'overview' && <OverviewTab data={data} />}
+            {tab === 'commits' && <CommitsTab data={data} />}
+            {tab === 'prs' && <PRsTab data={data} />}
+            {tab === 'issues' && <IssuesTab data={data} />}
+            {tab === 'releases' && <ReleasesTab data={data} />}
+          </div>
+        </>
       )}
     </aside>
   )
 }
 
-function Section({ title, children }: { title: string; children: React.ReactNode }) {
+/* ============================== Header ============================== */
+
+function RdHeader({ owner, name, data, onClose }: { owner: string; name: string; data: RepoDetailT | null; onClose: () => void }) {
+  const ci = data ? statusCheck(data) : null
   return (
-    <section className="detail-section">
-      <h3>{title}</h3>
+    <header className="rd-head">
+      <div className="rd-head-main">
+        <div className="rd-head-id">
+          <OrgChip login={owner} avatarUrl={data?.owner.avatarUrl} size={28} />
+          <div className="rd-head-titles">
+            <h1 className="rd-title">
+              <a className="muted" href={data?.owner.url ?? `https://github.com/${owner}`} target="_blank" rel="noreferrer">{owner}</a>
+              <span className="rd-sep">/</span>
+              <span>{name}</span>
+            </h1>
+            {data?.description && <p className="rd-desc">{data.description}</p>}
+          </div>
+        </div>
+        <div className="rd-head-actions">
+          {data && (
+            <a className="rd-btn" href={data.url} target="_blank" rel="noreferrer" title="Open in GitHub">
+              Open in GitHub ↗
+            </a>
+          )}
+          <button className="rd-btn rd-btn-icon" onClick={onClose} aria-label="Close">✕</button>
+        </div>
+      </div>
+
+      {data && (
+        <div className="rd-head-meta">
+          <span className="rd-pill" title={data.isPrivate ? 'Private repo' : 'Public repo'}>
+            {data.isPrivate ? <FaLock size={9} /> : <FaLockOpen size={9} />}
+            {data.isPrivate ? 'Private' : 'Public'}
+          </span>
+          {data.isArchived && (
+            <span className="rd-pill rd-pill-warn" title="Archived"><FaExclamationCircle size={9} /> Archived</span>
+          )}
+          {data.isFork && (
+            <span className="rd-pill" title="Forked"><FaCodeBranch size={9} /> Fork</span>
+          )}
+          {data.primaryLanguage && (
+            <span className="rd-pill" title={`Primary language: ${data.primaryLanguage.name}`}>
+              <span className="rd-lang-dot" style={{ background: data.primaryLanguage.color ?? '#888' }} />
+              {data.primaryLanguage.name}
+            </span>
+          )}
+          {ci && (
+            <span className={`rd-pill rd-pill-ci ${ciClass(ci)}`} title={`Default branch CI: ${ci}`}>
+              {ci === 'SUCCESS' ? <FaCheck size={9} /> : <FaExclamation size={9} />}
+              CI {ci.toLowerCase()}
+            </span>
+          )}
+          <span className="rd-stat" title="Stars"><FaStar size={10} /> {data.stargazerCount}</span>
+          <span className="rd-stat" title="Forks"><FaCodeBranch size={10} /> {data.forkCount}</span>
+          <span className="rd-stat" title="Last push">pushed {shortAgo(data.pushedAt)}</span>
+        </div>
+      )}
+
+      {data && data.repositoryTopics.nodes.length > 0 && (
+        <div className="rd-topics">
+          {data.repositoryTopics.nodes.map((t) => (
+            <span key={t.topic.name} className="rd-topic">{t.topic.name}</span>
+          ))}
+        </div>
+      )}
+    </header>
+  )
+}
+
+function ciClass(state: string): string {
+  if (state === 'SUCCESS') return 'ok'
+  if (state === 'FAILURE' || state === 'ERROR') return 'fail'
+  return 'pending'
+}
+
+/* ============================== Tabs ============================== */
+
+function RdTabs({
+  tab, onChange, commitCount, prCount, issueCount, releaseCount
+}: {
+  tab: Tab
+  onChange: (t: Tab) => void
+  commitCount: number
+  prCount: number
+  issueCount: number
+  releaseCount: number
+}) {
+  return (
+    <nav className="rd-tabs" aria-label="Repo sections">
+      <TabButton active={tab === 'overview'} onClick={() => onChange('overview')} label="Overview" />
+      <TabButton active={tab === 'commits'} onClick={() => onChange('commits')} label="Commits" count={commitCount} />
+      <TabButton active={tab === 'prs'} onClick={() => onChange('prs')} label="Pull requests" count={prCount} />
+      <TabButton active={tab === 'issues'} onClick={() => onChange('issues')} label="Issues" count={issueCount} />
+      <TabButton active={tab === 'releases'} onClick={() => onChange('releases')} label="Releases" count={releaseCount} />
+    </nav>
+  )
+}
+
+function TabButton({ active, onClick, label, count }: { active: boolean; onClick: () => void; label: string; count?: number }) {
+  return (
+    <button
+      type="button"
+      className={`rd-tab ${active ? 'active' : ''}`}
+      onClick={onClick}
+      aria-pressed={active}
+    >
+      <span>{label}</span>
+      {count !== undefined && <span className="rd-tab-count">{count}</span>}
+    </button>
+  )
+}
+
+/* ============================== Overview ============================== */
+
+function OverviewTab({ data }: { data: RepoDetailT }) {
+  return (
+    <div className="rd-grid">
+      <Surface title="Summary">
+        <KV k="Default branch" v={data.defaultBranchRef?.name ?? '—'} />
+        <KV k="Size on disk" v={data.diskUsage != null ? `${(data.diskUsage / 1024).toFixed(1)} MB` : '—'} />
+        <KV k="License" v={data.licenseInfo?.name ?? '—'} />
+        {data.homepageUrl && <KV k="Homepage" v={<a href={data.homepageUrl} target="_blank" rel="noreferrer">{data.homepageUrl}</a>} />}
+        <KV k="Created" v={fmtDate(data.createdAt)} />
+        <KV k="Last push" v={fmtDate(data.pushedAt)} />
+        <KV k="Last updated" v={fmtDate(data.updatedAt)} />
+      </Surface>
+
+      <Surface title="Engagement">
+        <KV k={<><FaStar size={10} /> Stars</>} v={data.stargazerCount} />
+        <KV k={<><FaCodeBranch size={10} /> Forks</>} v={data.forkCount} />
+        <KV k="Watchers" v={data.watchers.totalCount} />
+        <KV k="Mentionable users" v={data.mentionableUsers.totalCount} />
+      </Surface>
+
+      {data.languages.edges.length > 0 && (
+        <Surface title="Languages" wide>
+          <div className="rd-lang-bar">
+            {data.languages.edges.map((e) => (
+              <span
+                key={e.node.name}
+                className="rd-lang-seg"
+                title={`${e.node.name} · ${pct(e.size, data.languages.totalSize)}`}
+                style={{ width: pct(e.size, data.languages.totalSize), background: e.node.color ?? '#888' }}
+              />
+            ))}
+          </div>
+          <ul className="rd-lang-list">
+            {data.languages.edges.map((e) => (
+              <li key={e.node.name}>
+                <span className="rd-lang-dot" style={{ background: e.node.color ?? '#888' }} />
+                <span>{e.node.name}</span>
+                <span className="muted">{pct(e.size, data.languages.totalSize)}</span>
+              </li>
+            ))}
+          </ul>
+        </Surface>
+      )}
+    </div>
+  )
+}
+
+function pct(size: number, total: number): string {
+  return `${((size / total) * 100).toFixed(1)}%`
+}
+
+/* ============================== Lists ============================== */
+
+function CommitsTab({ data }: { data: RepoDetailT }) {
+  const commits = branchCommits(data)
+  if (commits.length === 0) return <EmptyState label="No visible commits on the default branch." />
+  return (
+    <section className="hs-surface rd-list">
+      {commits.map((c) => (
+        <a key={c.oid} className="rd-row" href={c.url} target="_blank" rel="noreferrer">
+          <code className="rd-sha">{c.oid.slice(0, 7)}</code>
+          <div className="rd-row-main">
+            <div className="rd-row-title">{c.messageHeadline}</div>
+            <div className="rd-row-meta muted">
+              {c.author?.user?.login ?? c.author?.name ?? 'unknown'} · {shortAgo(c.committedDate)}
+            </div>
+          </div>
+        </a>
+      ))}
+    </section>
+  )
+}
+
+function PRsTab({ data }: { data: RepoDetailT }) {
+  if (data.pullRequests.nodes.length === 0) return <EmptyState label="No open pull requests." />
+  return (
+    <section className="hs-surface rd-list">
+      {data.pullRequests.nodes.map((pr) => (
+        <a key={pr.number} className="rd-row" href={pr.url} target="_blank" rel="noreferrer">
+          <span className="rd-pr-num">#{pr.number}</span>
+          <div className="rd-row-main">
+            <div className="rd-row-title">
+              {pr.isDraft && <span className="rd-tag">draft</span>}
+              {pr.title}
+            </div>
+            <div className="rd-row-meta muted">
+              {pr.author?.login ?? 'unknown'} · updated {shortAgo(pr.updatedAt)}
+            </div>
+          </div>
+        </a>
+      ))}
+    </section>
+  )
+}
+
+function IssuesTab({ data }: { data: RepoDetailT }) {
+  if (data.issues.nodes.length === 0) return <EmptyState label="No open issues." />
+  return (
+    <section className="hs-surface rd-list">
+      {data.issues.nodes.map((it) => (
+        <a key={it.number} className="rd-row" href={it.url} target="_blank" rel="noreferrer">
+          <span className="rd-pr-num">#{it.number}</span>
+          <div className="rd-row-main">
+            <div className="rd-row-title">{it.title}</div>
+            <div className="rd-row-meta muted">
+              {it.labels.nodes.length > 0 && (
+                <span className="rd-labels">
+                  {it.labels.nodes.map((l) => (
+                    <span
+                      key={l.name}
+                      className="rd-label"
+                      style={{ background: `#${l.color}26`, borderColor: `#${l.color}` }}
+                    >
+                      {l.name}
+                    </span>
+                  ))}
+                </span>
+              )}
+              <span>{it.author?.login ?? 'unknown'} · updated {shortAgo(it.updatedAt)}</span>
+            </div>
+          </div>
+        </a>
+      ))}
+    </section>
+  )
+}
+
+function ReleasesTab({ data }: { data: RepoDetailT }) {
+  if (data.releases.nodes.length === 0) return <EmptyState label="No releases." />
+  return (
+    <section className="hs-surface rd-list">
+      {data.releases.nodes.map((r) => (
+        <a key={r.tagName} className="rd-row" href={r.url} target="_blank" rel="noreferrer">
+          <span className="rd-row-icon"><FaTag size={11} /></span>
+          <div className="rd-row-main">
+            <div className="rd-row-title">
+              {r.name ?? r.tagName}
+              {r.isPrerelease && <span className="rd-tag">pre-release</span>}
+            </div>
+            <div className="rd-row-meta muted">
+              {r.tagName} · {r.publishedAt ? `published ${shortAgo(r.publishedAt)}` : 'unpublished'}
+            </div>
+          </div>
+        </a>
+      ))}
+    </section>
+  )
+}
+
+/* ============================== Pieces ============================== */
+
+function Surface({ title, children, wide = false }: { title: string; children: ReactNode; wide?: boolean }) {
+  return (
+    <section className={`hs-surface rd-surface ${wide ? 'rd-surface-wide' : ''}`}>
+      <h3 className="rd-surface-title">{title}</h3>
       {children}
     </section>
   )
 }
 
-function KV({ k, v }: { k: string; v: React.ReactNode }) {
+function KV({ k, v }: { k: ReactNode; v: ReactNode }) {
   return (
-    <div className="kv">
-      <span className="muted">{k}</span>
-      <span>{v}</span>
+    <div className="rd-kv">
+      <span className="rd-kv-key muted">{k}</span>
+      <span className="rd-kv-val">{v}</span>
     </div>
   )
 }
+
+function EmptyState({ label }: { label: string }) {
+  return <div className="hs-empty"><strong>{label}</strong></div>
+}
+
+function RdLoading() {
+  return (
+    <div className="rd-loading" aria-busy="true" aria-live="polite">
+      <div className="hs-skeleton-bar" style={{ width: '60%' }} />
+      <div className="hs-skeleton-bar" style={{ width: '40%' }} />
+      <div className="hs-skeleton-bar" style={{ width: '90%' }} />
+    </div>
+  )
+}
+
+/* ============================== Helpers ============================== */
 
 function branchCommits(d: RepoDetailT) {
   const t = d.defaultBranchRef?.target
@@ -245,6 +387,19 @@ function statusCheck(d: RepoDetailT): string | null {
 }
 
 function fmtDate(iso: string): string {
-  const d = new Date(iso)
-  return d.toLocaleString()
+  return new Date(iso).toLocaleString()
+}
+
+function shortAgo(iso: string): string {
+  const ms = Date.now() - new Date(iso).getTime()
+  const min = Math.floor(ms / 60_000)
+  if (min < 1) return 'just now'
+  if (min < 60) return `${min}m ago`
+  const hr = Math.floor(min / 60)
+  if (hr < 24) return `${hr}h ago`
+  const day = Math.floor(hr / 24)
+  if (day < 30) return `${day}d ago`
+  const mo = Math.floor(day / 30)
+  if (mo < 12) return `${mo}mo ago`
+  return `${Math.floor(day / 365)}y ago`
 }
