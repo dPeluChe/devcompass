@@ -8,6 +8,7 @@ import { SettingsTab } from './SettingsTab'
 import { QuickSwitcher, type QSAction } from './QuickSwitcher'
 import { ShortcutsHelp } from './ShortcutsHelp'
 import { HomeShell } from './home/HomeShell'
+import { HomeSkeleton } from './home/HomeSkeleton'
 import { Skeleton, CardSkeleton, FadeIn, Pulse } from './ui'
 import { useGlobalShortcuts } from '../hooks/useGlobalShortcuts'
 import { orgConfigStore } from '../store/orgConfig'
@@ -441,7 +442,7 @@ export function Dashboard({ token, onLogout }: Props) {
 
         {view === 'home' && (
           (data.isLoading || data.progressMsg) ? (
-            <LoadingSkeleton progressMsg={data.progressMsg} />
+            <HomeSkeleton progressMsg={data.progressMsg} />
           ) : (
             <HomeShell
               token={token}
