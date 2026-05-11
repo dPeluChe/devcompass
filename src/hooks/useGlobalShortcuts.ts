@@ -5,7 +5,6 @@ export type ShortcutHandlers = {
   onHelp: () => void
   onGoHome: () => void
   onGoRepos: () => void
-  onGoPRs: () => void
   onGoConfig: () => void
   onFocusSearch: () => void
   onEscape?: () => void
@@ -61,7 +60,7 @@ export function useGlobalShortcuts(handlers: ShortcutHandlers) {
         return
       }
 
-      // "g" leader, then "h"/"r"/"p"/"c"
+      // "g" leader, then "h"/"r"/"c"
       if (e.key === 'g') {
         gLeaderAt = Date.now()
         return
@@ -70,7 +69,6 @@ export function useGlobalShortcuts(handlers: ShortcutHandlers) {
         gLeaderAt = 0
         if (e.key === 'h') { e.preventDefault(); h.onGoHome(); return }
         if (e.key === 'r') { e.preventDefault(); h.onGoRepos(); return }
-        if (e.key === 'p') { e.preventDefault(); h.onGoPRs(); return }
         if (e.key === 'c') { e.preventDefault(); h.onGoConfig(); return }
       }
     }

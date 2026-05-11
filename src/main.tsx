@@ -6,7 +6,6 @@ import { useParams } from 'react-router-dom'
 import { queryClient } from './store/queries'
 import { App } from './App'
 import { RepoDetail } from './components/RepoDetail'
-import { PRDetail } from './components/PRDetail'
 import { TokenSetup } from './components/TokenSetup'
 import { auth } from './store/auth'
 import './styles.css'
@@ -38,11 +37,14 @@ function RepoPage() {
   return <RepoDetail token={token} owner={params.owner} name={params.name} onClose={() => window.history.back()} />
 }
 
-function PRPage() {
-  const token = auth.get()
+/**
+ * Legacy `/prs/owner/name/123` deep links — the standalone PR page is gone.
+ * Redirect to `/?pr=owner/name/123` so HomeShell pops its DetailModal on mount.
+ */
+function PRRedirect() {
   const params = useParams()
-  if (!token || !params.owner || !params.name || !params.number) return null
-  return <PRDetail token={token} owner={params.owner} name={params.name} number={parseInt(params.number, 10)} />
+  if (!params.owner || !params.name || !params.number) return <Navigate to="/" replace />
+  return <Navigate to={`/?pr=${params.owner}/${params.name}/${params.number}`} replace />
 }
 
 createRoot(document.getElementById('root')!).render(
@@ -60,7 +62,7 @@ createRoot(document.getElementById('root')!).render(
             }
           >
             <Route path="repos/:owner/:name" element={<RepoPage />} />
-            <Route path="prs/:owner/:name/:number" element={<PRPage />} />
+            <Route path="prs/:owner/:name/:number" element={<PRRedirect />} />
           </Route>
         </Routes>
       </BrowserRouter>

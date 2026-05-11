@@ -2,7 +2,7 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import type { Repo, RepoOpenPR } from '../api/github'
 
 export type QSAction =
-  | { kind: 'view'; view: 'home' | 'repos' | 'prs' | 'config' }
+  | { kind: 'view'; view: 'home' | 'repos' | 'config' }
   | { kind: 'repo'; repo: Repo }
   | { kind: 'pr'; repo: Repo; pr: RepoOpenPR }
 
@@ -22,10 +22,9 @@ type Props = {
   repos: Repo[]
 }
 
-const VIEWS: { view: 'home' | 'repos' | 'prs' | 'config'; label: string; hint: string }[] = [
+const VIEWS: { view: 'home' | 'repos' | 'config'; label: string; hint: string }[] = [
   { view: 'home', label: 'Home', hint: 'g h' },
   { view: 'repos', label: 'Repos', hint: 'g r' },
-  { view: 'prs', label: 'PRs', hint: 'g p' },
   { view: 'config', label: 'Config', hint: 'g c' }
 ]
 
