@@ -34,20 +34,18 @@ All GitHub access lives here — GraphQL via `https://api.github.com/graphql` pl
 - `fetchTokenInfo()` hits REST `/user` specifically to read `X-OAuth-Scopes` and `X-GitHub-SSO` response headers. GraphQL can't expose these, and SSO authorization gaps are the most common reason orgs appear missing.
 - The `REPO_FIELDS` GraphQL fragment is shared between viewer and org queries; keep them aligned when adding fields.
 
-### State layers (4 of them, intentionally separate)
+### State layers
 
 The codebase splits state by lifetime/scope. When adding state, pick the right layer:
 
 | Layer | File | Purpose |
 |---|---|---|
 | Auth token | `src/store/auth.ts` | `localStorage` only. `auth.set/get/clear`. Sanitizes to printable ASCII before storing — pasted tokens often pick up NBSP/zero-width chars that break `fetch` headers. |
-| Server cache | `src/store/queries.ts` | TanStack Query client + `queryKeys` registry. 5min `staleTime`, 1 retry, refetch on focus/reconnect. |
-| In-memory detail cache | `src/store/cache.ts` | Zustand maps for repo/PR detail responses. `partialize: () => ({})` — **does not persist**, just dedupes within a session. |
-| UI / filters | `src/store/app.ts` | Persisted Zustand store under `ghviewer-storage`. View, search, filter row, saved filters, recent repos/PRs. |
+| Server cache | `src/store/queries.ts` | TanStack Query client + `queryKeys` registry. 5min `staleTime`, 1 retry, refetch on focus/reconnect. Components call `useQuery` directly with these keys; there is no per-resource hook wrapper. |
 | Org config | `src/store/orgConfig.ts` | Persisted Zustand store under `ghviewer-org-config`. Per-org `enabled` / `syncEnabled` / `lastSyncedAt`. `orgNeedsSync()` triggers a re-sync after 1h. |
 | Persistent data | `src/store/db.ts` | Dexie/IndexedDB at name `ghviewer`. Tables: `repos`, `orgs`, `prefs`, `tokens`, `pinnedRepos`. Schema is versioned — v2 added `tokens`, `pinnedRepos`, `orgs.order`. **Bump the version and write an upgrade in `db.ts` when changing schema.** |
 
-Hooks in `src/hooks/` (`useRepos`, `usePRs`, `useRepo`) wrap TanStack Query and are the consumer-facing API for components.
+Only `useGlobalShortcuts` lives in `src/hooks/`. Domain hooks (`useNeedsMe`, `useSinceLastVisit`) live next to their feature in `src/components/home/`.
 
 ### Local-first hydration pattern
 

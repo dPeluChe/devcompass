@@ -8,6 +8,7 @@ import { SettingsTab } from './SettingsTab'
 import { QuickSwitcher, type QSAction } from './QuickSwitcher'
 import { ShortcutsHelp } from './ShortcutsHelp'
 import { HomeShell } from './home/HomeShell'
+import { HomeSkeleton } from './home/HomeSkeleton'
 import { Skeleton, CardSkeleton, FadeIn, Pulse } from './ui'
 import { useGlobalShortcuts } from '../hooks/useGlobalShortcuts'
 import { orgConfigStore } from '../store/orgConfig'
@@ -441,7 +442,7 @@ export function Dashboard({ token, onLogout }: Props) {
 
         {view === 'home' && (
           (data.isLoading || data.progressMsg) ? (
-            <LoadingSkeleton progressMsg={data.progressMsg} />
+            <HomeSkeleton progressMsg={data.progressMsg} />
           ) : (
             <HomeShell
               token={token}
@@ -758,8 +759,8 @@ function ConfigView({
               <details className="partial-errors" open>
                 <summary>{errors.length} sync errors</summary>
                 <ul>
-                  {errors.map((e, i) => (
-                    <li key={i}>
+                  {errors.map((e) => (
+                    <li key={e.source}>
                       <strong>{e.source}:</strong> {e.message}
                     </li>
                   ))}
@@ -916,7 +917,15 @@ function RepoCard({
   return (
     <article
       className={`card signal-${signal.level} ${repo.isArchived ? 'archived' : ''} ${pinned ? 'pinned' : ''}`}
+      role="button"
+      tabIndex={0}
       onClick={onSelect}
+      onKeyDown={(e) => {
+        if (e.key === 'Enter' || e.key === ' ') {
+          e.preventDefault()
+          onSelect()
+        }
+      }}
     >
       <header>
         <span className="title">{repo.name}</span>
@@ -963,6 +972,50 @@ function RepoCard({
   )
 }
 
+type RepoSignal = {
+  level: 'critical' | 'attention' | 'active' | 'quiet'
+  health: string
+  reasons: string[]
+  activityLabel: string
+}
+
+function repoSignal(repo: Repo, pinned: boolean): RepoSignal {
+  const reasons: string[] = []
+  let score = 0
+
+  if (pinned) { score += 20; reasons.push('pinned') }
+  if (repo.openPRs.totalCount > 0) {
+    score += 40 + Math.min(repo.openPRs.totalCount, 5) * 4
+    reasons.push(`${repo.openPRs.totalCount} open PR${repo.openPRs.totalCount > 1 ? 's' : ''}`)
+  }
+  if (repo.openIssues.totalCount > 0) {
+    score += Math.min(repo.openIssues.totalCount, 10)
+    reasons.push(`${repo.openIssues.totalCount} open issue${repo.openIssues.totalCount > 1 ? 's' : ''}`)
+  }
+
+  const daysSincePush = (Date.now() - new Date(repo.pushedAt).getTime()) / 86_400_000
+  if (daysSincePush <= 7) { score += 10; reasons.push('recent commit') }
+  else if (pinned && daysSincePush > 90) { score += 12; reasons.push('pinned but stale') }
+  if (repo.isFork) reasons.push('fork')
+
+  const activityLabel = activityFor(daysSincePush)
+
+  if (repo.isArchived) return { level: 'quiet', health: '🗄', reasons: ['archived'], activityLabel }
+  if (score >= 60) return { level: 'critical', health: '!', reasons, activityLabel }
+  if (score >= 25) return { level: 'attention', health: '~', reasons, activityLabel }
+  if (daysSincePush <= 7) return { level: 'active', health: '✓', reasons: reasons.length ? reasons : ['recent commit'], activityLabel }
+  return { level: 'quiet', health: '·', reasons: reasons.length ? reasons : ['no immediate signal'], activityLabel }
+}
+
+function activityFor(days: number): string {
+  if (days < 1) return 'today'
+  if (days < 2) return 'yesterday'
+  if (days < 7) return `${Math.floor(days)}d ago`
+  if (days < 30) return `${Math.floor(days / 7)}w ago`
+  if (days < 365) return `${Math.floor(days / 30)}mo ago`
+  return `${Math.floor(days / 365)}y ago`
+}
+
 function groupRepos(repos: Repo[], by: GroupBy): Array<[string, Repo[]]> {
   if (by === 'none') return [['', repos]]
   const map = new Map<string, Repo[]>()
@@ -972,7 +1025,7 @@ function groupRepos(repos: Repo[], by: GroupBy): Array<[string, Repo[]]> {
     arr.push(r)
     map.set(key, arr)
   }
-  return [...map.entries()].sort((a, b) => b[1].length - a[1].length)
+  return Array.from(map.entries()).toSorted((a, b) => b[1].length - a[1].length)
 }
 
 function keyFor(r: Repo, by: GroupBy): string {

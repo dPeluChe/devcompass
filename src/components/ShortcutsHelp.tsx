@@ -14,8 +14,22 @@ const ROWS: { keys: string[]; label: string }[] = [
 export function ShortcutsHelp({ open, onClose }: Props) {
   if (!open) return null
   return (
-    <div className="qs-backdrop" onClick={onClose} role="dialog" aria-modal="true" aria-label="Keyboard shortcuts">
-      <div className="help-panel" onClick={(e) => e.stopPropagation()}>
+    <div
+      className="qs-backdrop"
+      onClick={onClose}
+      onKeyDown={(e) => { if (e.key === 'Escape') onClose() }}
+      role="button"
+      tabIndex={-1}
+      aria-label="Close shortcuts help"
+    >
+      <div
+        className="help-panel"
+        onClick={(e) => e.stopPropagation()}
+        onKeyDown={(e) => e.stopPropagation()}
+        role="dialog"
+        aria-modal="true"
+        aria-label="Keyboard shortcuts"
+      >
         <header className="help-head">
           <h2>Keyboard shortcuts</h2>
           <button className="link-btn" onClick={onClose}>Close</button>
@@ -24,8 +38,8 @@ export function ShortcutsHelp({ open, onClose }: Props) {
           {ROWS.map((row) => (
             <li key={row.label}>
               <span className="help-keys">
-                {row.keys.map((k, i) => (
-                  <kbd key={i}>{k}</kbd>
+                {row.keys.map((k) => (
+                  <kbd key={k}>{k}</kbd>
                 ))}
               </span>
               <span className="help-label">{row.label}</span>

@@ -50,7 +50,7 @@ export function SettingsTab({ panel = 'all' }: { panel?: SettingsPanel }) {
   }
 
   if (loading) {
-    return <div className="settings-tab"><p>Loading...</p></div>
+    return <div className="settings-tab"><p>Loading…</p></div>
   }
 
   return (

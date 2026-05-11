@@ -94,15 +94,11 @@ export const orgConfigStore = create<OrgConfigState>()(
       },
 
       getEnabledOrgs: () => {
-        return Object.values(get().orgs)
-          .filter(o => o.enabled)
-          .map(o => o.login)
+        return Object.values(get().orgs).flatMap(o => o.enabled ? [o.login] : [])
       },
 
       getSyncingOrgs: () => {
-        return Object.values(get().orgs)
-          .filter(o => o.enabled && o.syncEnabled)
-          .map(o => o.login)
+        return Object.values(get().orgs).flatMap(o => o.enabled && o.syncEnabled ? [o.login] : [])
       },
 
       orgNeedsSync: (login) => {

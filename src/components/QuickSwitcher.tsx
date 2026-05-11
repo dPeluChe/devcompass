@@ -83,8 +83,22 @@ export function QuickSwitcher({ open, onClose, onPick, repos }: Props) {
   }
 
   return (
-    <div className="qs-backdrop" onClick={onClose} role="dialog" aria-modal="true" aria-label="Quick switcher">
-      <div className="qs-panel" onClick={(e) => e.stopPropagation()}>
+    <div
+      className="qs-backdrop"
+      onClick={onClose}
+      onKeyDown={(e) => { if (e.key === 'Escape') onClose() }}
+      role="button"
+      tabIndex={-1}
+      aria-label="Close quick switcher"
+    >
+      <div
+        className="qs-panel"
+        onClick={(e) => e.stopPropagation()}
+        onKeyDown={(e) => e.stopPropagation()}
+        role="dialog"
+        aria-modal="true"
+        aria-label="Quick switcher"
+      >
         <input
           ref={inputRef}
           className="qs-input"

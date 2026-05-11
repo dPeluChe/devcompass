@@ -170,24 +170,26 @@ function prEvent(
  * change, and exposes a markSeen() that snapshots the current state and
  * resets the event list locally.
  */
+type SnapshotState = { snapshot: VisitSnapshot | null; loaded: boolean }
+
 export function useSinceLastVisit(repos: Repo[]) {
-  const [snapshot, setSnapshot] = useState<VisitSnapshot | null>(null)
-  const [loaded, setLoaded] = useState(false)
+  const [state, setState] = useState<SnapshotState>({ snapshot: null, loaded: false })
 
   useEffect(() => {
     let alive = true
     getVisitSnapshot()
-      .then((s) => { if (alive) { setSnapshot(s); setLoaded(true) } })
-      .catch(() => { if (alive) { setLoaded(true) } })
+      .then((s) => { if (alive) setState({ snapshot: s, loaded: true }) })
+      .catch(() => { if (alive) setState((prev) => ({ ...prev, loaded: true })) })
     return () => { alive = false }
   }, [])
 
+  const { snapshot, loaded } = state
   const events = !loaded || !snapshot ? [] : diff(repos, snapshot)
 
   async function markSeen() {
     const next = buildSnapshot(repos)
     await saveVisitSnapshot(next)
-    setSnapshot(next)
+    setState((prev) => ({ ...prev, snapshot: next }))
   }
 
   return {
