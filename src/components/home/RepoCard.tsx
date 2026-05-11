@@ -1,5 +1,5 @@
 import type { Repo } from '../../api/github'
-import { FaPython, FaJs, FaJava, FaVuejs, FaReact, FaAngular, FaNode, FaDatabase, FaLock, FaCodeBranch, FaExclamationCircle, FaStar } from 'react-icons/fa'
+import { FaPython, FaJs, FaJava, FaVuejs, FaReact, FaAngular, FaNode, FaDatabase, FaLock, FaCodeBranch, FaExclamationCircle, FaStar, FaExclamation, FaCheck } from 'react-icons/fa'
 import { SiTypescript, SiGo, SiRust, SiMysql, SiMongodb } from 'react-icons/si'
 import { VscJson, VscSymbolMisc } from 'react-icons/vsc'
 
@@ -33,7 +33,6 @@ function getLangIcon(name: string): IconType | null {
 
 export type RepoSignal = {
   level: 'critical' | 'attention' | 'active' | 'quiet'
-  health: string
   reasons: string[]
   activityLabel: string
 }
@@ -59,11 +58,17 @@ export function repoSignal(repo: Repo, pinned: boolean): RepoSignal {
 
   const activityLabel = activityFor(daysSincePush)
 
-  if (repo.isArchived) return { level: 'quiet', health: '🗄', reasons: ['archived'], activityLabel }
-  if (score >= 60) return { level: 'critical', health: '!', reasons, activityLabel }
-  if (score >= 25) return { level: 'attention', health: '~', reasons, activityLabel }
-  if (daysSincePush <= 7) return { level: 'active', health: '✓', reasons: reasons.length ? reasons : ['recent commit'], activityLabel }
-  return { level: 'quiet', health: '·', reasons: reasons.length ? reasons : ['no immediate signal'], activityLabel }
+  if (repo.isArchived) return { level: 'quiet', reasons: ['archived'], activityLabel }
+  if (score >= 60) return { level: 'critical', reasons, activityLabel }
+  if (score >= 25) return { level: 'attention', reasons, activityLabel }
+  if (daysSincePush <= 7) return { level: 'active', reasons: reasons.length ? reasons : ['recent commit'], activityLabel }
+  return { level: 'quiet', reasons: reasons.length ? reasons : ['no immediate signal'], activityLabel }
+}
+
+function StatusIcon({ level }: { level: RepoSignal['level'] }) {
+  if (level === 'critical' || level === 'attention') return <FaExclamation size={9} />
+  if (level === 'active') return <FaCheck size={9} />
+  return null
 }
 
 function activityFor(days: number): string {
@@ -106,7 +111,7 @@ export function RepoCard({ repo, pinned = false, onTogglePinned, onSelect }: Pro
         <span className="title">{repo.name}</span>
         <span className="badges">
           <span className={`op-status status-${signal.level}`} title={signal.reasons.join(' · ')}>
-            {signal.health}
+            <StatusIcon level={signal.level} />
           </span>
           {onTogglePinned && (
             <button
