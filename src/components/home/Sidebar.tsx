@@ -4,6 +4,8 @@ import type { ScopeKey } from './types'
 type ItemDef = { key: ScopeKey; label: string; icon: string; count?: number; hasAttn?: boolean }
 type Group = { title: string; items: ItemDef[] }
 
+export type OrgEntry = { login: string; count: number }
+
 type Props = {
   active: ScopeKey
   collapsed: boolean
@@ -13,6 +15,8 @@ type Props = {
   pinnedCount: number
   active7dCount: number
   allReposCount: number
+  /** Per-org repo counts. Sorted by caller — usually viewer first, then by count desc. */
+  orgs?: OrgEntry[]
   onSelect: (key: ScopeKey) => void
   onToggleCollapsed: () => void
   footer?: ReactNode
@@ -22,6 +26,7 @@ export function Sidebar({
   active, collapsed,
   needsMeCount, sinceCount, watchingCount,
   pinnedCount, active7dCount, allReposCount,
+  orgs,
   onSelect,
   onToggleCollapsed,
   footer
@@ -42,15 +47,21 @@ export function Sidebar({
         { key: 'active', label: 'Active 7d', icon: '▴', count: active7dCount },
         { key: 'repos', label: 'All repos', icon: '⊞', count: allReposCount }
       ]
-    },
-    {
-      title: 'Insights',
-      items: [
-        { key: 'digest', label: 'Digest', icon: '∿' },
-        { key: 'rate', label: 'Token & rate', icon: '◎' }
-      ]
     }
   ]
+  if (orgs && orgs.length > 0) {
+    groups.push({
+      title: 'Orgs',
+      items: orgs.map((o) => ({ key: `org:${o.login}`, label: o.login, icon: '◆', count: o.count }))
+    })
+  }
+  groups.push({
+    title: 'Insights',
+    items: [
+      { key: 'digest', label: 'Digest', icon: '∿' },
+      { key: 'rate', label: 'Token & rate', icon: '◎' }
+    ]
+  })
 
   return (
     <aside className={`hs-sidebar ${collapsed ? 'collapsed' : ''}`}>

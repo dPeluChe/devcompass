@@ -9,6 +9,17 @@ export type ScopeKey =
   | 'repos'
   | 'digest'
   | 'rate'
+  | `org:${string}`
+
+/** True for an org-specific scope key (e.g. "org:Iteristech"). */
+export function isOrgScope(s: ScopeKey): s is `org:${string}` {
+  return typeof s === 'string' && s.startsWith('org:')
+}
+
+/** Extract the login from an "org:LOGIN" scope key. */
+export function loginFromOrgScope(s: `org:${string}`): string {
+  return s.slice('org:'.length)
+}
 
 export type Reason =
   | 'ci-failing'

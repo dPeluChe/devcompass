@@ -3,10 +3,11 @@ import type { Repo, RepoOpenPR, Viewer } from '../../api/github'
 import type { PinnedRepo } from '../../store/db'
 import { OrgChip } from './OrgChip'
 import { AttentionRow } from './AttentionRow'
+import { RepoCard } from './RepoCard'
 import { useNeedsMe } from './useNeedsMe'
 import { useSinceLastVisit, type SinceEvent } from './useSinceLastVisit'
 import type { AttentionItem, ScopeKey } from './types'
-import { ownerAndName } from './types'
+import { isOrgScope, loginFromOrgScope, ownerAndName } from './types'
 
 type Props = {
   scope: ScopeKey
@@ -18,7 +19,7 @@ type Props = {
   onOpenItem: (item: AttentionItem) => void
   onSnoozeItem: (item: AttentionItem) => void
   onOpenRepo: (repo: Repo) => void
-  onGotoRepos: () => void
+  onTogglePinned: (repo: Repo) => void
 }
 
 export function ScopeView(props: Props) {
@@ -27,7 +28,9 @@ export function ScopeView(props: Props) {
   if (scope === 'since') return <SinceScope {...props} />
   if (scope === 'pinned') return <PinnedScope {...props} />
   if (scope === 'active') return <ActiveScope {...props} />
-  return <PlaceholderScope scope={scope} onGotoRepos={props.onGotoRepos} />
+  if (scope === 'repos') return <ReposScope {...props} />
+  if (isOrgScope(scope)) return <OrgScope {...props} login={loginFromOrgScope(scope)} />
+  return <PlaceholderScope scope={scope} />
 }
 
 /* ===================== Needs me ===================== */
@@ -260,13 +263,116 @@ function ActiveScope({ repos, onOpenRepo }: Props) {
   )
 }
 
+/* ===================== Repos (cards) ===================== */
+
+function ReposScope({ repos, pinned, onOpenRepo, onTogglePinned }: Props) {
+  const pinnedIds = useMemo(() => new Set(pinned.map((p) => p.repoId)), [pinned])
+  return (
+    <RepoGridScope
+      title="All repos"
+      meta="Full repo list, sorted by recent activity"
+      repos={repos}
+      pinnedIds={pinnedIds}
+      onOpenRepo={onOpenRepo}
+      onTogglePinned={onTogglePinned}
+    />
+  )
+}
+
+function OrgScope({ repos, pinned, onOpenRepo, onTogglePinned, login }: Props & { login: string }) {
+  const pinnedIds = useMemo(() => new Set(pinned.map((p) => p.repoId)), [pinned])
+  const orgRepos = useMemo(() => repos.filter((r) => r.owner.login === login), [repos, login])
+  return (
+    <RepoGridScope
+      title={login}
+      meta={`${orgRepos.length} repo${orgRepos.length === 1 ? '' : 's'} in @${login}`}
+      repos={orgRepos}
+      pinnedIds={pinnedIds}
+      onOpenRepo={onOpenRepo}
+      onTogglePinned={onTogglePinned}
+    />
+  )
+}
+
+function RepoGridScope({
+  title, meta, repos, pinnedIds, onOpenRepo, onTogglePinned
+}: {
+  title: string
+  meta: string
+  repos: Repo[]
+  pinnedIds: Set<string>
+  onOpenRepo: (r: Repo) => void
+  onTogglePinned: (r: Repo) => void
+}) {
+  const [search, setSearch] = useState('')
+  const [hideArchived, setHideArchived] = useState(true)
+  const [hideForks, setHideForks] = useState(false)
+
+  const filtered = useMemo(() => {
+    const q = search.toLowerCase().trim()
+    return repos.filter((r) => {
+      if (hideArchived && r.isArchived) return false
+      if (hideForks && r.isFork) return false
+      if (!q) return true
+      return r.name.toLowerCase().includes(q)
+        || r.nameWithOwner.toLowerCase().includes(q)
+        || (r.description ?? '').toLowerCase().includes(q)
+    })
+  }, [repos, search, hideArchived, hideForks])
+
+  // Pinned-first within the filtered set so the most-watched repos surface at the top.
+  const sorted = useMemo(() => {
+    const pinnedRepos: Repo[] = []
+    const rest: Repo[] = []
+    for (const r of filtered) (pinnedIds.has(r.id) ? pinnedRepos : rest).push(r)
+    return [...pinnedRepos, ...rest]
+  }, [filtered, pinnedIds])
+
+  return (
+    <main className="hs-main">
+      <div className="hs-main-head">
+        <h1>{title}</h1>
+        <span className="hs-h-count">{filtered.length}</span>
+        <span className="hs-h-meta">{meta}</span>
+      </div>
+      <div className="hs-grid-controls">
+        <input
+          type="search"
+          className="hs-grid-search"
+          placeholder="Search repos…"
+          value={search}
+          onChange={(e) => setSearch(e.target.value)}
+        />
+        <label><input type="checkbox" checked={hideArchived} onChange={(e) => setHideArchived(e.target.checked)} /> No archived</label>
+        <label><input type="checkbox" checked={hideForks} onChange={(e) => setHideForks(e.target.checked)} /> No forks</label>
+      </div>
+      {sorted.length === 0 ? (
+        <div className="hs-empty">
+          <strong>No repos match.</strong>
+          {search ? 'Try clearing the search.' : 'Adjust the filters above.'}
+        </div>
+      ) : (
+        <div className="grid hs-grid">
+          {sorted.map((r) => (
+            <RepoCard
+              key={r.id}
+              repo={r}
+              pinned={pinnedIds.has(r.id)}
+              onSelect={() => onOpenRepo(r)}
+              onTogglePinned={() => onTogglePinned(r)}
+            />
+          ))}
+        </div>
+      )}
+    </main>
+  )
+}
+
 /* ===================== Placeholders ===================== */
 
-function PlaceholderScope({ scope, onGotoRepos }: { scope: ScopeKey; onGotoRepos: () => void }) {
+function PlaceholderScope({ scope }: { scope: ScopeKey }) {
   const titles: Record<string, { title: string; meta: string; body: string }> = {
-    since: { title: 'Since last visit', meta: 'Diff against your local snapshot', body: 'Coming in Phase 2 — diff against IndexedDB visit snapshot.' },
     watching: { title: 'Watching', meta: 'Active PRs that don\'t need action right now', body: 'Coming in Phase 2 — lower-urgency rows from the same searchPRs cohorts.' },
-    repos: { title: 'All repos', meta: 'Full repo list. Cmd+K to jump.', body: 'Use the Repos tab in the topbar (or ⌘K).' },
     digest: { title: 'Operational digest', meta: 'Trends and counts', body: 'Coming in Phase 3 as a separate /insights route.' },
     rate: { title: 'Token & rate', meta: 'Token type, scopes, SSO, rate limit', body: 'Available today under Config → Token.' }
   }
@@ -277,11 +383,6 @@ function PlaceholderScope({ scope, onGotoRepos }: { scope: ScopeKey; onGotoRepos
       <div className="hs-empty">
         <strong>{t.title}</strong>
         {t.body}
-        {scope === 'repos' && (
-          <div style={{ marginTop: 12 }}>
-            <button className="hs-modal-btn primary" onClick={onGotoRepos}>Open Repos →</button>
-          </div>
-        )}
       </div>
     </main>
   )

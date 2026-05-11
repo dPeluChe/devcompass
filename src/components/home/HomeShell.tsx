@@ -1,8 +1,8 @@
-import { useState, useEffect, useCallback } from 'react'
-import type { Repo, Viewer } from '../../api/github'
+import { useState, useEffect, useCallback, useMemo } from 'react'
+import type { Org, Repo, Viewer } from '../../api/github'
 import type { PinnedRepo } from '../../store/db'
 import { snoozePr } from '../../store/db'
-import { Sidebar } from './Sidebar'
+import { Sidebar, type OrgEntry } from './Sidebar'
 import { UserFooter } from './UserFooter'
 import { ScopeView } from './ScopeView'
 import { DetailModal } from './DetailModal'
@@ -19,13 +19,22 @@ type Props = {
   viewer: Viewer | undefined
   repos: Repo[]
   pinned: PinnedRepo[]
+  orgs: Org[]
+  /** Initial sidebar scope. Lets the topbar tabs drop the user straight into "All repos" etc. */
+  initialScope?: ScopeKey
   onOpenRepo: (repo: Repo) => void
-  onGotoRepos: () => void
+  onTogglePinned: (repo: Repo) => void
   onLogout: () => void
 }
 
-export function HomeShell({ token, viewer, repos, pinned, onOpenRepo, onGotoRepos, onLogout }: Props) {
-  const [scope, setScope] = useState<ScopeKey>('needs')
+export function HomeShell({ token, viewer, repos, pinned, orgs, initialScope, onOpenRepo, onTogglePinned, onLogout }: Props) {
+  const [scope, setScope] = useState<ScopeKey>(initialScope ?? 'needs')
+
+  // Keep the inner scope in sync with topbar tab clicks (Dashboard re-mounts with a
+  // new initialScope when the user switches Home <-> Repos).
+  useEffect(() => {
+    if (initialScope) setScope(initialScope)
+  }, [initialScope])
   const [collapsed, setCollapsed] = useState<boolean>(() => {
     try { return localStorage.getItem(COLLAPSED_KEY) === '1' } catch { return false }
   })
@@ -61,6 +70,23 @@ export function HomeShell({ token, viewer, repos, pinned, onOpenRepo, onGotoRepo
   const sinceCount = sinceEvents.length
 
   const active7dCount = repos.filter((r) => Date.now() - new Date(r.pushedAt).getTime() < 7 * 86_400_000).length
+
+  // Counts per org for the Orgs sidebar group. Viewer first, then by count desc so the
+  // user's heaviest orgs surface at the top.
+  const orgEntries = useMemo<OrgEntry[]>(() => {
+    const counts = new Map<string, number>()
+    for (const r of repos) counts.set(r.owner.login, (counts.get(r.owner.login) ?? 0) + 1)
+    const viewerLogin = viewer?.login
+    const known = new Set(orgs.map((o) => o.login))
+    if (viewerLogin) known.add(viewerLogin)
+    const entries: OrgEntry[] = []
+    for (const login of known) entries.push({ login, count: counts.get(login) ?? 0 })
+    return entries.toSorted((a, b) => {
+      if (a.login === viewerLogin) return -1
+      if (b.login === viewerLogin) return 1
+      return b.count - a.count || a.login.localeCompare(b.login)
+    })
+  }, [orgs, repos, viewer?.login])
 
   useEffect(() => {
     try { localStorage.setItem(COLLAPSED_KEY, collapsed ? '1' : '0') } catch {}
@@ -142,6 +168,7 @@ export function HomeShell({ token, viewer, repos, pinned, onOpenRepo, onGotoRepo
         pinnedCount={pinned.length}
         active7dCount={active7dCount}
         allReposCount={repos.length}
+        orgs={orgEntries}
         onSelect={onSelectScope}
         onToggleCollapsed={() => setCollapsed((c) => !c)}
         footer={<UserFooter viewer={viewer} collapsed={collapsed} onLogout={onLogout} />}
@@ -157,7 +184,7 @@ export function HomeShell({ token, viewer, repos, pinned, onOpenRepo, onGotoRepo
         onOpenItem={selectItem}
         onSnoozeItem={handleSnooze}
         onOpenRepo={onOpenRepo}
-        onGotoRepos={onGotoRepos}
+        onTogglePinned={onTogglePinned}
       />
 
       <DetailModal
