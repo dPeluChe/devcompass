@@ -149,7 +149,7 @@ function SinceScope({ repos, onOpenItem, onOpenRepo }: Props) {
 
 function SinceRow({ event, onClick }: { event: SinceEvent; onClick: () => void }) {
   return (
-    <div className="hs-row" tabIndex={0} onClick={onClick} onKeyDown={(e) => e.key === 'Enter' && onClick()}>
+    <div className="hs-row" role="button" tabIndex={0} onClick={onClick} onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onClick() } }}>
       <span className={`hs-dot ${event.dot}`} />
       <div className="hs-row-main">
         <div className="hs-row-title">
@@ -307,7 +307,13 @@ function CompactRow({ repo, onClick }: { repo: Repo; onClick: () => void }) {
   const dot = failingPRs > 0 ? 'critical' : repo.openPRs.totalCount > 0 ? 'warn' : 'ok'
 
   return (
-    <div className="hs-row-compact" onClick={onClick} role="button" tabIndex={0}>
+    <div
+      className="hs-row-compact"
+      onClick={onClick}
+      onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onClick() } }}
+      role="button"
+      tabIndex={0}
+    >
       <span className={`hs-dot ${dot}`} />
       <div className="hs-repo-cell">
         <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>

@@ -86,7 +86,7 @@ export function useNeedsMe(token: string, viewerLogin: string | undefined) {
       // Strict reverse-chronological by updatedAt: the row's "9h"/"6mo" badge
       // matches the position. Severity is communicated by the dot color and the
       // reason chips, not by the order.
-      return [...byId.values()].sort(
+      return Array.from(byId.values()).toSorted(
         (a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime()
       )
     }

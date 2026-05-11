@@ -107,10 +107,14 @@ export function AttentionRow(props: Props) {
   return (
     <div
       className={`hs-row ${snoozed ? 'snoozed' : ''}`}
+      role="button"
       tabIndex={0}
       onClick={onOpen}
       onKeyDown={(e) => {
-        if (e.key === 'Enter') onOpen()
+        if (e.key === 'Enter' || e.key === ' ') {
+          e.preventDefault()
+          onOpen()
+        }
       }}
     >
       <span className={`hs-dot ${item.dot}`} />
@@ -128,10 +132,15 @@ export function AttentionRow(props: Props) {
           <span className="hs-row-time">{timeAgo(item.updatedAt)}</span>
         </div>
       </div>
-      <div className="hs-row-actions" onClick={(e) => e.stopPropagation()}>
-        {actionsFor(item.reasons).map((a, i) => (
+      <div
+        className="hs-row-actions"
+        onClick={(e) => e.stopPropagation()}
+        onKeyDown={(e) => e.stopPropagation()}
+        role="presentation"
+      >
+        {actionsFor(item.reasons).map((a) => (
           <button
-            key={i}
+            key={a.label}
             className={`hs-row-action ${a.kind ?? ''}`}
             title={a.title || a.label}
             onClick={(e) => handleAction(e, a)}

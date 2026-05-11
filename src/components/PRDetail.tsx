@@ -28,7 +28,7 @@ export function PRDetail({ token, owner, name, number }: Props) {
   }, [token, owner, name, number])
 
   if (error) return <div className="pr-detail"><pre className="error-inline">{error}</pre></div>
-  if (!data) return <div className="pr-detail"><p className="muted">Loading PR...</p></div>
+  if (!data) return <div className="pr-detail"><p className="muted">Loading PR…</p></div>
 
   const timeline = buildTimeline(data)
 
@@ -100,20 +100,20 @@ export function PRDetail({ token, owner, name, number }: Props) {
               <SanitizedMarkdown html={data.bodyHTML} />
             </article>
           )}
-          {timeline.map((item, i) => (
-            <TimelineItem key={i} item={item} />
+          {timeline.map((item) => (
+            <TimelineItem key={timelineKey(item)} item={item} />
           ))}
           {timeline.length === 0 && !data.bodyHTML && <p className="muted">No activity yet.</p>}
 
           {data.reviewRequests.nodes.length > 0 && (
             <div className="reviewers-pending">
               <strong className="muted">Waiting for review from:</strong>
-              {data.reviewRequests.nodes.map((r, i) => {
+              {data.reviewRequests.nodes.map((r) => {
                 const rev = r.requestedReviewer
                 if (!rev) return null
                 const label = rev.__typename === 'User' ? rev.login : rev.name
                 return (
-                  <span key={i} className="reviewer-chip">
+                  <span key={label} className="reviewer-chip">
                     <img src={rev.avatarUrl} alt="" width={16} height={16} className="avatar-xs" />
                     {label}
                   </span>
@@ -142,8 +142,8 @@ export function PRDetail({ token, owner, name, number }: Props) {
 
       {tab === 'checks' && (
         <ul className="checks-list">
-          {data.checks.map((c, i) => (
-            <CheckRow key={i} check={c} />
+          {data.checks.map((c) => (
+            <CheckRow key={c.__typename === 'CheckRun' ? c.name : c.context} check={c} />
           ))}
           {data.checks.length === 0 && <li className="muted">Este PR no tiene checks configurados.</li>}
         </ul>
@@ -183,6 +183,11 @@ function buildTimeline(d: PRDetailT): TLItem[] {
   for (const r of d.reviews.nodes) items.push({ kind: 'review', review: r, date: r.submittedAt ?? '' })
   for (const c of d.comments.nodes) items.push({ kind: 'comment', comment: c, date: c.createdAt })
   return items.sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime())
+}
+
+function timelineKey(item: TLItem): string {
+  const author = item.kind === 'review' ? item.review.author?.login : item.comment.author?.login
+  return `${item.kind}:${item.date}:${author ?? '?'}`
 }
 
 function TimelineItem({ item }: { item: TLItem }) {

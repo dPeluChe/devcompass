@@ -1,9 +1,11 @@
-import { useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 
 type Props = { onSubmit: (token: string) => void }
 
 export function TokenSetup({ onSubmit }: Props) {
   const [token, setToken] = useState('')
+  const inputRef = useRef<HTMLInputElement>(null)
+  useEffect(() => { inputRef.current?.focus() }, [])
 
   return (
     <div className="login-page">
@@ -35,11 +37,11 @@ export function TokenSetup({ onSubmit }: Props) {
             }}
           >
             <input
+              ref={inputRef}
               type="password"
               value={token}
               onChange={(e) => setToken(e.target.value)}
               placeholder="ghp_... or github_pat_..."
-              autoFocus
             />
             <button type="submit" disabled={!token.trim()}>
               Connect

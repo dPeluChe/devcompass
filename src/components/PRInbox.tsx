@@ -103,7 +103,7 @@ export function PRInbox({ token, viewer, initialSelected, initialFilter }: Props
         <div className="inbox-controls">
           <input
             type="search"
-            placeholder="Search title, repo, author..."
+            placeholder="Search title, repo, author…"
             value={search}
             onChange={(e) => setSearch(e.target.value)}
           />
@@ -128,7 +128,7 @@ export function PRInbox({ token, viewer, initialSelected, initialFilter }: Props
         </div>
 
         {error && <pre className="error-inline">{error}</pre>}
-        {loading && <p className="muted">Loading...</p>}
+        {loading && <p className="muted">Loading…</p>}
         {!loading && filtered.length === 0 && <p className="muted empty">No PRs in this view.</p>}
 
         <ul className="pr-cards">
@@ -204,7 +204,15 @@ function PRCard({
   return (
     <li
       className={`pr-card ${pr.isDraft ? 'draft' : ''} ${stale ? 'stale' : ''} ${selected ? 'selected' : ''}`}
+      role="button"
+      tabIndex={0}
       onClick={onSelect}
+      onKeyDown={(e) => {
+        if (e.key === 'Enter' || e.key === ' ') {
+          e.preventDefault()
+          onSelect()
+        }
+      }}
       title={pr.title}
     >
       <div className="pr-line-1">
@@ -266,7 +274,7 @@ function mergePRs(authored: PullRequest[], assigned: PullRequest[], review: Pull
   tag(authored, 'mine')
   tag(assigned, 'assigned')
   tag(review, 'review')
-  return [...byId.values()].sort(
+  return Array.from(byId.values()).toSorted(
     (a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime()
   )
 }

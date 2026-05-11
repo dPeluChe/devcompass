@@ -267,19 +267,24 @@ export async function fetchAllRepos(
     errors.push({ source: 'viewer', message: e instanceof Error ? e.message : String(e) })
   }
 
-  for (const org of viewer.organizations.nodes) {
-    try {
-      const orgRepos = await paginate(
-        (after) => fetchOrgReposPage(token, org.login, after),
-        (n) => onProgress?.({ kind: 'org', login: org.login, count: n })
-      )
-      for (const r of orgRepos) byId.set(r.id, r)
-    } catch (e) {
-      errors.push({ source: `org:${org.login}`, message: e instanceof Error ? e.message : String(e) })
-    }
-  }
+  // Sync orgs in parallel — each org is independent. Map.set is safe from any one
+  // microtask at a time; later writes overwrite earlier ones for the same repo id,
+  // which is fine because they carry the same data.
+  await Promise.all(
+    viewer.organizations.nodes.map(async (org) => {
+      try {
+        const orgRepos = await paginate(
+          (after) => fetchOrgReposPage(token, org.login, after),
+          (n) => onProgress?.({ kind: 'org', login: org.login, count: n })
+        )
+        for (const r of orgRepos) byId.set(r.id, r)
+      } catch (e) {
+        errors.push({ source: `org:${org.login}`, message: e instanceof Error ? e.message : String(e) })
+      }
+    })
+  )
 
-  const repos = [...byId.values()].sort(
+  const repos = Array.from(byId.values()).toSorted(
     (a, b) => new Date(b.pushedAt).getTime() - new Date(a.pushedAt).getTime()
   )
   onProgress?.({ kind: 'done', total: repos.length })
@@ -325,7 +330,7 @@ export async function fetchTokenInfo(token: string): Promise<TokenInfo> {
   }
   return {
     type: scopesHeader === null ? 'fine-grained' : scopesHeader === '' ? 'unknown' : 'classic',
-    scopes: scopesHeader ? scopesHeader.split(',').map((s) => s.trim()).filter(Boolean) : [],
+    scopes: scopesHeader ? scopesHeader.split(',').flatMap((s) => { const t = s.trim(); return t ? [t] : [] }) : [],
     ssoRequired: sso
   }
 }
@@ -401,12 +406,11 @@ export async function searchPRs(token: string, query: string, first = 50): Promi
   `,
     { q: query, first }
   )
-  return data.search.nodes
-    .filter((n): n is RawPR => !!n && !!n.id)
-    .map((n) => ({
-      ...n,
-      ciState: n.commits.nodes[0]?.commit.statusCheckRollup?.state ?? null
-    }))
+  return data.search.nodes.flatMap((n) =>
+    n && n.id
+      ? [{ ...(n as RawPR), ciState: (n as RawPR).commits.nodes[0]?.commit.statusCheckRollup?.state ?? null }]
+      : []
+  )
 }
 
 // ---------- PR detail (single PR, rich) ----------

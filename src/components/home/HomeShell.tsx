@@ -125,7 +125,14 @@ export function HomeShell({ token, viewer, repos, pinned, onOpenRepo, onGotoRepo
         onClick={() => setMobileOpen(true)}
         aria-label="Open sidebar"
       >≡</button>
-      <div className="hs-mobile-backdrop" onClick={() => setMobileOpen(false)} />
+      <div
+        className="hs-mobile-backdrop"
+        onClick={() => setMobileOpen(false)}
+        onKeyDown={(e) => { if (e.key === 'Escape') setMobileOpen(false) }}
+        role="button"
+        tabIndex={-1}
+        aria-label="Close sidebar"
+      />
       <Sidebar
         active={scope}
         collapsed={collapsed}

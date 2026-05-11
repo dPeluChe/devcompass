@@ -45,7 +45,7 @@ export function RepoDetail({ token, owner, name, onClose }: Props) {
       </header>
 
       {error && <pre className="error-inline">{error}</pre>}
-      {!data && !error && <p className="muted">Loading...</p>}
+      {!data && !error && <p className="muted">Loading…</p>}
 
       {data && (
         <div className="detail-body">

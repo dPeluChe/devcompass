@@ -39,27 +39,50 @@ export function OrgChip({ login, avatarUrl, title, onClick, size = 18 }: Props) 
   // and fall back to the initials chip rather than showing a broken image.
   const [imgFailed, setImgFailed] = useState(false)
   const showImage = avatarUrl && !imgFailed
+  const label = title ?? `Filter by ${login}`
 
+  const inner = showImage ? (
+    <img
+      src={avatarUrl}
+      alt={login}
+      className="org-avatar org-avatar-img"
+      style={{ width: size, height: size }}
+      onError={() => setImgFailed(true)}
+    />
+  ) : (
+    <span
+      className="org-avatar"
+      style={{ background: colorForOrg(login), width: size, height: size }}
+    >
+      {initials(login)}
+    </span>
+  )
+
+  if (onClick) {
+    return (
+      <button type="button" className="org-avatar-btn" title={label} aria-label={label} onClick={onClick}>
+        {inner}
+      </button>
+    )
+  }
+  // Non-interactive: keep tooltip available on the visible element.
   if (showImage) {
     return (
       <img
         src={avatarUrl}
         alt={login}
-        title={title ?? `Filter by ${login}`}
+        title={label}
         className="org-avatar org-avatar-img"
         style={{ width: size, height: size }}
-        onClick={onClick}
         onError={() => setImgFailed(true)}
       />
     )
   }
-
   return (
     <span
       className="org-avatar"
       style={{ background: colorForOrg(login), width: size, height: size }}
-      title={title ?? `Filter by ${login}`}
-      onClick={onClick}
+      title={label}
     >
       {initials(login)}
     </span>
