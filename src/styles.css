@@ -746,15 +746,17 @@ button:disabled { opacity: 0.5; cursor: not-allowed; }
   text-transform: uppercase;
 }
 .op-status {
-  font-size: 0.62rem;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  flex-shrink: 0;
+  font-size: 0.72rem;
   line-height: 1;
-  padding: 2px 6px;
-  border-radius: 10px;
+  font-weight: 700;
   color: var(--bg);
-  text-transform: uppercase;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
 }
 .card .owner { margin: 0; font-size: 0.8em; }
 .card .desc {
