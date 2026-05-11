@@ -196,13 +196,21 @@ export function DetailModal({ token, viewerLogin, item, onClose, onSnooze }: Pro
 
   return (
     <div className={`hs-modal-shell ${open ? 'hs-modal-open' : ''}`}>
-      <div className="hs-modal-backdrop" onClick={onClose} />
+      <div
+        className="hs-modal-backdrop"
+        onClick={onClose}
+        onKeyDown={(e) => { if (e.key === 'Escape') onClose() }}
+        role="button"
+        tabIndex={-1}
+        aria-label="Close detail"
+      />
       <div
         className="hs-modal"
         role="dialog"
         aria-modal="true"
         aria-hidden={!open}
         onClick={(e) => e.stopPropagation()}
+        onKeyDown={(e) => e.stopPropagation()}
       >
         {item && (
           <>
@@ -552,8 +560,8 @@ function TabButton({ active, onClick, label, icon, count }: { active: boolean; o
 function FilesList({ nodes, total }: { nodes: PRDetail['files']['nodes']; total: number }) {
   return (
     <div className="hs-file-list">
-      {nodes.slice(0, 100).map((f, i) => (
-        <div key={i} className="hs-file-row">
+      {nodes.slice(0, 100).map((f) => (
+        <div key={f.path} className="hs-file-row">
           <span className="hs-file-changetype">{changeTypeIcon(f.changeType)}</span>
           <span className="hs-file-path" title={f.path}>{f.path}</span>
           <span className="hs-file-stats">
@@ -645,8 +653,8 @@ function ChecksList({ token, owner, repo, checks }: { token: string; owner: stri
         {counts.other > 0 && <span className="hs-checks-pill neutral">⊘ {counts.other} skipped/neutral</span>}
       </div>
       <div className="hs-checks-list">
-        {rows.map((r, i) => (
-          <CheckItem key={i} row={r} token={token} owner={owner} repo={repo} />
+        {rows.map((r) => (
+          <CheckItem key={r.name} row={r} token={token} owner={owner} repo={repo} />
         ))}
       </div>
     </div>
@@ -836,8 +844,8 @@ function buildConversation(detail: PRDetail | undefined): ConvItem[] {
 function ConversationList({ items }: { items: ConvItem[] }) {
   return (
     <div className="hs-conv-list">
-      {items.map((item, i) => (
-        <article className="hs-conv-item" key={i}>
+      {items.map((item) => (
+        <article className="hs-conv-item" key={`${item.kind}:${item.time}:${item.author?.login ?? '?'}`}>
           {item.author?.avatarUrl ? (
             <img className="hs-conv-avatar" src={item.author.avatarUrl} alt="" />
           ) : (
@@ -891,14 +899,6 @@ function relativeTime(iso: string): string {
   return `${Math.floor(day / 365)}y ago`
 }
 
-function MetaSection({ title, children }: { title: string; children: React.ReactNode }) {
-  return (
-    <div className="hs-meta-section">
-      <h5>{title}</h5>
-      {children}
-    </div>
-  )
-}
 
 function SummaryTab({
   detail, onReadFull, onOpenCommits, onOpenChecks, onOpenComments
@@ -1046,44 +1046,7 @@ function buildReviewers(detail: PRDetail): ReviewerEntry[] {
     }
   }
   const order: Record<ReviewerEntry['state'], number> = { changes: 0, requested: 1, commented: 2, team: 3, approved: 4 }
-  return [...byAuthor.values()].sort((a, b) => order[a.state] - order[b.state] || a.login.localeCompare(b.login))
-}
-
-function PeopleRow({ detail }: { detail: PRDetail }) {
-  const reviewers = useMemo(() => buildReviewers(detail), [detail])
-  const author = detail.author
-  return (
-    <section className="hs-summary-people">
-      <div className="hs-people-side">
-        <span className="hs-people-label">Opened by</span>
-        {author ? (
-          <span className="hs-people-chip">
-            <img src={author.avatarUrl} alt="" />
-            <span>@{author.login}</span>
-          </span>
-        ) : (
-          <span className="hs-muted-text">unknown</span>
-        )}
-      </div>
-      {reviewers.length > 0 && (
-        <>
-          <span className="hs-people-arrow">→</span>
-          <div className="hs-people-side">
-            <span className="hs-people-label">Review</span>
-            <div className="hs-people-reviewers">
-              {reviewers.map((r) => (
-                <span key={r.login} className={`hs-people-chip state-${r.state}`} title={`${r.login} — ${reviewerStateLabel(r.state)}`}>
-                  <img src={r.avatarUrl} alt="" />
-                  <span>{r.state === 'team' ? r.login : `@${r.login}`}</span>
-                  <span className="hs-people-state">{reviewerStateLabel(r.state)}</span>
-                </span>
-              ))}
-            </div>
-          </div>
-        </>
-      )}
-    </section>
-  )
+  return Array.from(byAuthor.values()).toSorted((a, b) => order[a.state] - order[b.state] || a.login.localeCompare(b.login))
 }
 
 function reviewerStateLabel(s: ReviewerEntry['state']): string {
@@ -1101,103 +1064,7 @@ const METHOD_LABELS: Record<MergeMethod, string> = {
   rebase: 'Rebase and merge'
 }
 
-function MergeBox({ detail, onMerge, busy, compact = false }: { detail: PRDetail; onMerge: (m: MergeMethod) => void; busy: boolean; compact?: boolean }) {
-  const [method, setMethod] = useState<MergeMethod>(() => {
-    try {
-      const saved = localStorage.getItem(MERGE_METHOD_KEY) as MergeMethod | null
-      if (saved === 'squash' || saved === 'merge' || saved === 'rebase') return saved
-    } catch { /* ignore */ }
-    return 'squash'
-  })
-  const [open, setOpen] = useState(false)
-
-  function pick(m: MergeMethod) {
-    setMethod(m)
-    setOpen(false)
-    try { localStorage.setItem(MERGE_METHOD_KEY, m) } catch { /* ignore */ }
-  }
-
-  const reviewState = mergeReviewLine(detail)
-  const checksState = mergeChecksLine(detail)
-  const conflictState = mergeConflictLine(detail)
-  const allGreen = reviewState.kind === 'ok' && checksState.kind !== 'fail' && conflictState.kind === 'ok'
-  const canMerge = detail.mergeable === 'MERGEABLE' && detail.state === 'OPEN' && !detail.isDraft
-
-  return (
-    <div className={`hs-mergebox ${compact ? 'compact' : 'hs-meta-section'}`}>
-      {!compact && <h5>Merge</h5>}
-      <ul className="hs-merge-status">
-        <MergeRow {...reviewState} />
-        <MergeRow {...checksState} />
-        <MergeRow {...conflictState} />
-      </ul>
-
-      <div className={`hs-merge-action ${allGreen ? 'green' : ''}`}>
-        <button
-          className="hs-merge-btn primary"
-          onClick={() => onMerge(method)}
-          disabled={!canMerge || busy}
-          title={canMerge ? `Merge with method: ${method}` : 'Not mergeable yet'}
-        >
-          {busy ? 'Merging…' : METHOD_LABELS[method]}
-        </button>
-        <button
-          className="hs-merge-method-toggle"
-          onClick={() => setOpen((v) => !v)}
-          aria-haspopup="menu"
-          aria-expanded={open}
-          title="Choose merge method"
-        >▾</button>
-        {open && (
-          <div className="hs-merge-menu" role="menu">
-            {(['squash', 'merge', 'rebase'] as const).map((m) => (
-              <button
-                key={m}
-                className={`hs-merge-menu-item ${m === method ? 'active' : ''}`}
-                onClick={() => pick(m)}
-              >
-                {METHOD_LABELS[m]}
-                {m === method && <span className="hs-merge-menu-check">✓</span>}
-              </button>
-            ))}
-          </div>
-        )}
-      </div>
-      {detail.isDraft && (
-        <div className="hs-merge-note">PR is in draft — mark ready to merge.</div>
-      )}
-    </div>
-  )
-}
-
 type MergeStatus = { kind: 'ok' | 'fail' | 'pending'; title: string; detail?: string }
-
-function MergeRow({ kind, title, detail }: MergeStatus) {
-  const icon = kind === 'ok' ? '✓' : kind === 'fail' ? '✕' : '⋯'
-  return (
-    <li className={`hs-merge-row state-${kind}`}>
-      <span className="hs-merge-row-icon">{icon}</span>
-      <span className="hs-merge-row-body">
-        <span className="hs-merge-row-title">{title}</span>
-        {detail && <span className="hs-merge-row-detail">{detail}</span>}
-      </span>
-    </li>
-  )
-}
-
-function mergeReviewLine(d: PRDetail): MergeStatus {
-  const decision = d.reviewDecision
-  if (decision === 'APPROVED') return { kind: 'ok', title: 'Review approved' }
-  if (decision === 'CHANGES_REQUESTED') return { kind: 'fail', title: 'Changes requested', detail: 'A reviewer asked for changes.' }
-  if (decision === 'REVIEW_REQUIRED') {
-    const requested = d.reviewRequests.nodes.length
-    return { kind: 'pending', title: 'Review required', detail: requested > 0 ? `${requested} reviewer${requested === 1 ? '' : 's'} pending` : 'A review is required before merging.' }
-  }
-  // null → either review not enforced, or no decision yet
-  const requested = d.reviewRequests.nodes.length
-  if (requested > 0) return { kind: 'pending', title: 'Review pending', detail: `${requested} reviewer${requested === 1 ? '' : 's'} requested` }
-  return { kind: 'ok', title: 'Review not required' }
-}
 
 function mergeChecksLine(d: PRDetail): MergeStatus {
   const checks = d.checks
@@ -1219,68 +1086,6 @@ function mergeChecksLine(d: PRDetail): MergeStatus {
   if (fail > 0) return { kind: 'fail', title: `${fail} failing check${fail === 1 ? '' : 's'}`, detail: `${ok} passed, ${pending} pending` }
   if (pending > 0) return { kind: 'pending', title: `${pending} check${pending === 1 ? '' : 's'} running`, detail: `${ok} passed` }
   return { kind: 'ok', title: 'All checks passed', detail: `${ok} successful` }
-}
-
-function mergeConflictLine(d: PRDetail): MergeStatus {
-  if (d.mergeable === 'CONFLICTING') return { kind: 'fail', title: 'Conflicts with base branch', detail: 'Resolve in GitHub or via local merge.' }
-  if (d.mergeable === 'UNKNOWN') return { kind: 'pending', title: 'Mergeability checking…' }
-  return { kind: 'ok', title: 'No conflicts with base branch' }
-}
-
-function Reviewers({ detail }: { detail: PRDetail }) {
-  const requested = detail.reviewRequests.nodes
-    .map((rr) => rr.requestedReviewer)
-    .filter((r): r is NonNullable<typeof r> => r !== null)
-  const reviews = detail.reviews.nodes.filter((r) => r.author && r.state !== 'PENDING')
-
-  if (requested.length === 0 && reviews.length === 0) {
-    return <span className="hs-muted-text">none</span>
-  }
-  return (
-    <>
-      {reviews.map((rv, i) => {
-        const stateClassName = rv.state === 'APPROVED' ? 'approved' :
-                           rv.state === 'CHANGES_REQUESTED' ? 'changes' : 'requested'
-        const label = rv.state === 'APPROVED' ? 'approved' :
-                      rv.state === 'CHANGES_REQUESTED' ? 'changes' : rv.state.toLowerCase()
-        return (
-          <div className="hs-meta-row" key={`r-${i}`}>
-            {rv.author && <img src={rv.author.avatarUrl} alt="" />}
-            <span>{rv.author?.login}</span>
-            <span className={`hs-meta-state ${stateClassName}`}>{label}</span>
-          </div>
-        )
-      })}
-      {requested.map((r, i) => (
-        <div className="hs-meta-row" key={`req-${i}`}>
-          <img src={r.avatarUrl} alt="" />
-          <span>{r.__typename === 'User' ? r.login : r.name}</span>
-          <span className="hs-meta-state requested">requested</span>
-        </div>
-      ))}
-    </>
-  )
-}
-
-function Checks({ checks }: { checks: CheckContext[] }) {
-  return (
-    <>
-      {checks.map((c, i) => {
-        const name = c.__typename === 'CheckRun' ? c.name : c.context
-        const conclusion = c.__typename === 'CheckRun' ? c.conclusion : c.state
-        const cls = conclusion === 'SUCCESS' ? 'ok' :
-                    conclusion === 'FAILURE' || conclusion === 'ERROR' ? 'fail' :
-                    conclusion === 'PENDING' || conclusion === 'EXPECTED' ? 'pending' : ''
-        const icon = cls === 'ok' ? '✓' : cls === 'fail' ? '✕' : '⋯'
-        return (
-          <div key={i} className={`hs-check-row ${cls}`}>
-            <span>{icon}</span>
-            <span className="hs-check-name">{name}</span>
-          </div>
-        )
-      })}
-    </>
-  )
 }
 
 function Skeleton({ lines = 1, width = '100%' }: { lines?: number; width?: string }) {
