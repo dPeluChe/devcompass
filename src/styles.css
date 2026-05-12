@@ -2293,46 +2293,57 @@ button:disabled { opacity: 0.5; cursor: not-allowed; }
 }
 .cache-group-clear:hover { border-color: var(--danger); color: var(--danger); }
 .cache-group-empty { padding: 10px 14px; font-size: 0.85em; }
-.cache-row-list {
-  list-style: none;
-  margin: 0;
-  padding: 0;
+/* Each cached entry renders as a horizontal chip — denser than a row list
+   so groups with 20+ entries don't stretch the page. Auto-prune on mount
+   keeps the count bounded to live entries only. */
+.cache-chip-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  padding: 10px 14px 12px;
 }
-.cache-row-list li {
-  display: grid;
-  grid-template-columns: 1fr auto auto;
-  gap: 12px;
+.cache-chip {
+  display: inline-flex;
   align-items: center;
-  padding: 8px 14px;
-  border-bottom: 1px solid var(--border-soft, var(--border));
-  font-size: 0.85em;
-}
-.cache-row-list li:last-child { border-bottom: none; }
-.cache-row-key {
+  gap: 8px;
+  padding: 4px 4px 4px 10px;
   background: var(--bg);
-  padding: 2px 8px;
-  border-radius: 4px;
-  font-size: 0.86em;
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  font-size: 0.82em;
+  max-width: 100%;
+  transition: border-color .12s;
+}
+.cache-chip:hover { border-color: var(--accent); }
+.cache-chip-key {
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
   color: var(--text);
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+  max-width: 320px;
+  font-size: 0.92em;
 }
-.cache-row-time { font-size: 0.85em; white-space: nowrap; }
-.cache-row-delete {
-  background: transparent;
-  border: 1px solid var(--border);
-  color: var(--muted);
-  width: 24px;
-  height: 24px;
-  padding: 0;
-  border-radius: 6px;
-  cursor: pointer;
+.cache-chip-time {
+  font-size: 0.85em;
+  white-space: nowrap;
+}
+.cache-chip-delete {
   display: inline-flex;
   align-items: center;
   justify-content: center;
+  width: 20px;
+  height: 20px;
+  background: transparent;
+  border: none;
+  color: var(--muted);
+  cursor: pointer;
+  border-radius: 50%;
+  font-size: 1.1em;
+  line-height: 1;
+  flex-shrink: 0;
 }
-.cache-row-delete:hover { border-color: var(--danger); color: var(--danger); }
+.cache-chip-delete:hover { background: var(--danger); color: #fff; }
 
 .cache-actions {
   display: flex;

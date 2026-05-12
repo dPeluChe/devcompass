@@ -8,7 +8,13 @@ import { App } from './App'
 import { RepoDetail } from './components/RepoDetail'
 import { TokenSetup } from './components/TokenSetup'
 import { auth } from './store/auth'
+import { pruneExpiredCachePrefs } from './store/db'
 import './styles.css'
+
+// Sweep stale TTL-bound cache rows once on boot so the Cache tab and any
+// downstream reads start from a clean baseline. Fire-and-forget — the
+// promise rejection is swallowed since IDB unavailability isn't fatal.
+pruneExpiredCachePrefs().catch(() => {})
 
 function ProtectedRoute({ children }: { children: () => React.ReactNode }) {
   const token = auth.get()

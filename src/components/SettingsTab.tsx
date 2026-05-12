@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { db, getDbStats, clearAllRepos, clearOldRepos, type PinnedRepo, getPinnedRepos, unpinRepo, getOrgsByOrder, getStorageBreakdown, type StorageBreakdown } from '../store/db'
+import { db, getDbStats, clearAllRepos, clearOldRepos, type PinnedRepo, getPinnedRepos, unpinRepo, getOrgsByOrder, getStorageBreakdown, pruneExpiredCachePrefs, type StorageBreakdown } from '../store/db'
 import { ConfirmDialog } from './ConfirmDialog'
 
 interface DbStats {
@@ -51,6 +51,9 @@ export function SettingsTab({ panel = 'all', onForceResync }: Props) {
 
   async function loadData() {
     setLoading(true)
+    // Drop expired TTL-bound rows first so the Cache tab only ever shows
+    // entries that would actually be served from cache on the next request.
+    await pruneExpiredCachePrefs()
     const [s, b, p, o] = await Promise.all([
       getDbStats(),
       getStorageBreakdown(),
@@ -409,25 +412,25 @@ function CachePanel({ breakdown, onChange }: { breakdown: StorageBreakdown; onCh
             {rows.length === 0 ? (
               <div className="cache-group-empty muted">No entries.</div>
             ) : (
-              <ul className="cache-row-list">
+              <div className="cache-chip-list">
                 {rows.map((r) => {
                   const sub = r.key.slice(g.prefix.length)
                   const label = g.rowLabel ? g.rowLabel(sub) : sub
                   return (
-                    <li key={r.key}>
-                      <code className="cache-row-key">{label || '(default)'}</code>
-                      <span className="muted cache-row-time">cached {timeAgo(r.updatedAt)}</span>
+                    <span key={r.key} className="cache-chip" title={`cached ${timeAgo(r.updatedAt)} — click × to evict`}>
+                      <code className="cache-chip-key">{label || '(default)'}</code>
+                      <span className="cache-chip-time muted">{timeAgo(r.updatedAt)}</span>
                       <button
-                        className="cache-row-delete"
-                        title="Evict this entry; the next request will re-fetch"
+                        className="cache-chip-delete"
+                        aria-label="Evict from cache"
                         onClick={() => deleteEntry(r.key)}
                       >
-                        ✕
+                        ×
                       </button>
-                    </li>
+                    </span>
                   )
                 })}
-              </ul>
+              </div>
             )}
           </div>
         )

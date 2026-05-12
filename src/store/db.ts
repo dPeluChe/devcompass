@@ -174,6 +174,41 @@ export async function getPref<T>(key: string, defaultValue: T): Promise<T> {
 }
 
 /**
+ * Single source of truth for which prefs keys are TTL-bound caches and their
+ * freshness windows. Used by `pruneExpiredCachePrefs` and by the Cache tab
+ * to render chips per group. `visit:` is intentionally absent — the
+ * since-last-visit snapshot is a baseline and never expires.
+ */
+export const CACHE_TTLS: Record<string, number> = {
+  'viewer:': 60 * 60 * 1000,
+  'tokenInfo:': 60 * 60 * 1000,
+  'userOrgs:': 60 * 60 * 1000,
+  'prDetail:': 15 * 60 * 1000,
+  'branches:': 15 * 60 * 1000
+}
+
+/**
+ * Sweep the prefs table and delete every TTL-bound row whose `updatedAt`
+ * has aged past its bucket's window. Cheap to call — one scan + bulk
+ * delete. Returns the number of rows evicted so callers can log it.
+ */
+export async function pruneExpiredCachePrefs(): Promise<number> {
+  const now = Date.now()
+  const all = await db.prefs.toArray()
+  const toDelete: string[] = []
+  for (const row of all) {
+    for (const [prefix, ttlMs] of Object.entries(CACHE_TTLS)) {
+      if (row.key.startsWith(prefix) && now - row.updatedAt > ttlMs) {
+        toDelete.push(row.key)
+        break
+      }
+    }
+  }
+  if (toDelete.length > 0) await db.prefs.bulkDelete(toDelete)
+  return toDelete.length
+}
+
+/**
  * TTL-aware cache backed by the `prefs` table. Returns null when the row is
  * missing or older than `ttlMs`. Use savePref(key, value) to write — the
  * timestamp is the row's `updatedAt`.
