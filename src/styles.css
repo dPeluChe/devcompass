@@ -817,15 +817,17 @@ button:disabled { opacity: 0.5; cursor: not-allowed; }
 .view-tab.active { color: var(--text); background: var(--panel); border-color: var(--border); }
 .view-tab:hover { color: var(--text); }
 
+/* `.config-view` sits inside `.hs-main` (see HomeShell mainSlot), which already
+   provides the outer padding for the column. We only override what's specific
+   to Config here — no padding/max-width fight with .hs-main. */
 .config-view {
   max-width: 1180px;
-  padding: 8px 0 32px;
 }
 .config-tabs {
   display: inline-flex;
   gap: 4px;
   padding: 3px;
-  margin-bottom: 12px;
+  margin: 0 0 16px;
   background: var(--panel);
   border: 1px solid var(--border);
   border-radius: 8px;
