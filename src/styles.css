@@ -846,17 +846,21 @@ button:disabled { opacity: 0.5; cursor: not-allowed; }
 .config-section {
   background: var(--panel);
   border: 1px solid var(--border);
-  border-radius: 8px;
-  padding: 14px;
-  margin-bottom: 12px;
+  border-radius: 10px;
+  padding: 18px 20px 20px;
+  margin-bottom: 14px;
 }
 .config-section-header {
   display: flex;
   align-items: baseline;
   justify-content: space-between;
   gap: 16px;
-  margin-bottom: 10px;
+  margin-bottom: 14px;
+  padding-bottom: 10px;
+  border-bottom: 1px solid var(--border);
 }
+.config-section-header h2 { font-size: 1.05rem; }
+.config-section-header h3 { font-size: 0.95rem; margin: 0; }
 .config-section h2 {
   margin: 0;
   font-size: 1rem;
@@ -2004,9 +2008,9 @@ button:disabled { opacity: 0.5; cursor: not-allowed; }
   display: flex;
   justify-content: space-between;
   align-items: center;
-  margin-bottom: 10px;
-  padding-bottom: 8px;
-  border-bottom: 1px solid var(--border);
+  margin-bottom: 12px;
+  padding-bottom: 10px;
+  border-bottom: 1px solid var(--border-soft, var(--border));
 }
 .org-list {
   max-height: 300px;
@@ -2021,44 +2025,50 @@ button:disabled { opacity: 0.5; cursor: not-allowed; }
 .org-list.inline {
   max-height: none;
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
-  gap: 6px;
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  gap: 8px;
 }
 .org-row {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  padding: 6px 8px;
-  border-radius: 4px;
-}
-.org-row:hover {
+  padding: 10px 12px;
+  border-radius: 8px;
   background: var(--panel-2);
+  border: 1px solid var(--border);
+  gap: 12px;
+  transition: border-color .12s;
 }
-.org-row.disabled {
-  opacity: 0.5;
-}
+.org-row:hover { border-color: var(--accent); }
+.org-row.disabled { opacity: 0.5; }
 .org-toggle {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: 10px;
   cursor: pointer;
+  min-width: 0;
+  flex: 1;
 }
-.org-toggle input {
-  width: auto;
-}
-.org-toggle img {
-  border-radius: 50%;
+.org-toggle input { width: auto; flex-shrink: 0; }
+.org-toggle img { border-radius: 50%; flex-shrink: 0; }
+.org-toggle > span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 0.92em;
 }
 .org-sync-toggle {
   display: flex;
   align-items: center;
-  gap: 4px;
+  gap: 6px;
+  padding: 4px 6px;
+  border-radius: 6px;
+  flex-shrink: 0;
 }
-.org-sync-toggle input {
-  width: auto;
-}
+.org-sync-toggle input { width: auto; }
 .sync-label {
-  font-size: 1em;
+  font-size: 0.9em;
+  color: var(--muted);
 }
 
 
