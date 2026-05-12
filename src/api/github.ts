@@ -811,9 +811,12 @@ export type RepoDetail = {
       number: number
       title: string
       url: string
+      state: 'OPEN' | 'CLOSED' | 'MERGED'
       isDraft: boolean
       createdAt: string
       updatedAt: string
+      mergedAt: string | null
+      closedAt: string | null
       author: { login: string; avatarUrl: string } | null
     }[]
   }
@@ -886,10 +889,10 @@ export async function fetchRepoDetail(token: string, owner: string, name: string
           totalSize
           edges { size node { name color } }
         }
-        pullRequests(first: 10, states: OPEN, orderBy: { field: UPDATED_AT, direction: DESC }) {
+        pullRequests(first: 30, orderBy: { field: UPDATED_AT, direction: DESC }) {
           totalCount
           nodes {
-            number title url isDraft createdAt updatedAt
+            number title url state isDraft createdAt updatedAt mergedAt closedAt
             author { login avatarUrl }
           }
         }
