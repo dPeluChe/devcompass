@@ -1,5 +1,5 @@
 import { type ReactNode } from 'react'
-import { motion, AnimatePresence } from 'framer-motion'
+import { m, AnimatePresence } from 'framer-motion'
 import './ui.css'
 
 interface SkeletonProps {
@@ -54,14 +54,14 @@ interface FadeInProps {
 
 export function FadeIn({ children, delay = 0, className = '' }: FadeInProps) {
   return (
-    <motion.div
+    <m.div
       initial={{ opacity: 0, y: 12 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.35, delay, ease: [0.25, 0.1, 0.25, 1] }}
       className={className}
     >
       {children}
-    </motion.div>
+    </m.div>
   )
 }
 
@@ -79,14 +79,14 @@ export function SlideIn({ children, direction = 'right', className = '' }: Slide
     down: { x: 0, y: 40 }
   }
   return (
-    <motion.div
+    <m.div
       initial={{ opacity: 0, ...dirs[direction] }}
       animate={{ opacity: 1, x: 0, y: 0 }}
       transition={{ duration: 0.25, ease: 'easeOut' }}
       className={className}
     >
       {children}
-    </motion.div>
+    </m.div>
   )
 }
 
@@ -98,7 +98,7 @@ interface StaggerProps {
 
 export function Stagger({ children, stagger = 0.05, className = '' }: StaggerProps) {
   return (
-    <motion.div
+    <m.div
       initial="initial"
       animate="animate"
       variants={{
@@ -107,18 +107,18 @@ export function Stagger({ children, stagger = 0.05, className = '' }: StaggerPro
       className={className}
     >
       {children}
-    </motion.div>
+    </m.div>
   )
 }
 
 export function StaggerItem({ children, className = '' }: { children: ReactNode; className?: string }) {
   return (
-    <motion.div
+    <m.div
       variants={{ initial: { opacity: 0, y: 8 }, animate: { opacity: 1, y: 0 } }}
       className={className}
     >
       {children}
-    </motion.div>
+    </m.div>
   )
 }
 
@@ -130,7 +130,7 @@ interface PageTransitionProps {
 export function PageTransition({ children, key: k }: PageTransitionProps) {
   return (
     <AnimatePresence mode="wait">
-      <motion.div
+      <m.div
         key={k}
         initial={{ opacity: 0, x: 8 }}
         animate={{ opacity: 1, x: 0 }}
@@ -138,7 +138,7 @@ export function PageTransition({ children, key: k }: PageTransitionProps) {
         transition={{ duration: 0.2 }}
       >
         {children}
-      </motion.div>
+      </m.div>
     </AnimatePresence>
   )
 }
@@ -151,7 +151,7 @@ interface TabTransitionProps {
 export function TabTransition({ active, children }: TabTransitionProps) {
   return (
     <AnimatePresence mode="wait">
-      <motion.div
+      <m.div
         key={active}
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
@@ -159,7 +159,7 @@ export function TabTransition({ active, children }: TabTransitionProps) {
         transition={{ duration: 0.15 }}
       >
         {children[active]}
-      </motion.div>
+      </m.div>
     </AnimatePresence>
   )
 }
@@ -192,13 +192,13 @@ interface PulseProps {
 
 export function Pulse({ children, className = '' }: PulseProps) {
   return (
-    <motion.div
+    <m.div
       animate={{ opacity: [0.5, 1, 0.5] }}
       transition={{ duration: 1.5, repeat: Infinity }}
       className={className}
     >
       {children}
-    </motion.div>
+    </m.div>
   )
 }
 

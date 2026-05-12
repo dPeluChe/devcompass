@@ -793,6 +793,7 @@ export type RepoDetail = {
               committedDate: string
               url: string
               author: { name: string | null; user: { login: string; avatarUrl: string } | null } | null
+              associatedPullRequests: { nodes: { number: number; headRefName: string }[] }
             }[]
           }
           statusCheckRollup: { state: string } | null
@@ -878,6 +879,9 @@ export async function fetchRepoDetail(token: string, owner: string, name: string
                   committedDate
                   url
                   author { name user { login avatarUrl } }
+                  associatedPullRequests(first: 1) {
+                    nodes { number headRefName }
+                  }
                 }
               }
               statusCheckRollup { state }

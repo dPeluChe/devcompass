@@ -817,15 +817,17 @@ button:disabled { opacity: 0.5; cursor: not-allowed; }
 .view-tab.active { color: var(--text); background: var(--panel); border-color: var(--border); }
 .view-tab:hover { color: var(--text); }
 
+/* `.config-view` sits inside `.hs-main` (see HomeShell mainSlot), which already
+   provides the outer padding for the column. We only override what's specific
+   to Config here — no padding/max-width fight with .hs-main. */
 .config-view {
   max-width: 1180px;
-  padding: 8px 0 32px;
 }
 .config-tabs {
   display: inline-flex;
   gap: 4px;
   padding: 3px;
-  margin-bottom: 12px;
+  margin: 0 0 16px;
   background: var(--panel);
   border: 1px solid var(--border);
   border-radius: 8px;
@@ -846,17 +848,21 @@ button:disabled { opacity: 0.5; cursor: not-allowed; }
 .config-section {
   background: var(--panel);
   border: 1px solid var(--border);
-  border-radius: 8px;
-  padding: 14px;
-  margin-bottom: 12px;
+  border-radius: 10px;
+  padding: 18px 20px 20px;
+  margin-bottom: 14px;
 }
 .config-section-header {
   display: flex;
   align-items: baseline;
   justify-content: space-between;
   gap: 16px;
-  margin-bottom: 10px;
+  margin-bottom: 14px;
+  padding-bottom: 10px;
+  border-bottom: 1px solid var(--border);
 }
+.config-section-header h2 { font-size: 1.05rem; }
+.config-section-header h3 { font-size: 0.95rem; margin: 0; }
 .config-section h2 {
   margin: 0;
   font-size: 1rem;
@@ -1742,27 +1748,65 @@ button:disabled { opacity: 0.5; cursor: not-allowed; }
 /* ----- Commits tab stats strip ----- */
 .rd-commits { display: flex; flex-direction: column; gap: 12px; }
 .rd-commits-stats {
-  display: grid;
-  grid-template-columns: repeat(4, 1fr);
-  gap: 14px 18px;
-  padding: 14px 16px;
+  padding: 12px 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
 }
-.rd-commits-stats .rd-stat-contributors { grid-column: 1 / -1; }
-.rd-stat-block { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
-.rd-stat-num {
-  font-size: 1.4em;
-  font-weight: 600;
-  color: var(--text);
-  line-height: 1.1;
+.rd-stat-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
 }
-.rd-stat-label {
-  font-size: 0.78em;
+.rd-stat-chip {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 6px;
+  padding: 6px 12px;
+  background: var(--panel-2);
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  font-size: 0.85em;
+  white-space: nowrap;
   color: var(--muted);
-  text-transform: uppercase;
-  letter-spacing: 0.04em;
 }
-@media (max-width: 900px) {
-  .rd-commits-stats { grid-template-columns: repeat(2, 1fr); }
+.rd-stat-chip strong {
+  color: var(--text);
+  font-weight: 600;
+  font-size: 1.1em;
+  font-variant-numeric: tabular-nums;
+}
+.rd-stat-chip-unit {
+  font-size: 0.7em;
+  color: var(--muted);
+  font-weight: 500;
+  margin-left: -2px;
+}
+.rd-stat-contrib-head {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 8px;
+  font-size: 0.85em;
+}
+.rd-stat-contrib-head strong { color: var(--text); }
+
+/* Source-branch chip on each commit row (only when an associated PR exists). */
+.rd-branch-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 1px 7px;
+  background: var(--panel-2);
+  border: 1px solid var(--border);
+  border-radius: 9px;
+  color: var(--accent);
+  font-size: 0.78em;
+  font-weight: 500;
+  line-height: 1.4;
+  white-space: nowrap;
+  max-width: 240px;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .rd-contributor-list { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 8px; }
@@ -1966,9 +2010,9 @@ button:disabled { opacity: 0.5; cursor: not-allowed; }
   display: flex;
   justify-content: space-between;
   align-items: center;
-  margin-bottom: 10px;
-  padding-bottom: 8px;
-  border-bottom: 1px solid var(--border);
+  margin-bottom: 12px;
+  padding-bottom: 10px;
+  border-bottom: 1px solid var(--border-soft, var(--border));
 }
 .org-list {
   max-height: 300px;
@@ -1983,44 +2027,50 @@ button:disabled { opacity: 0.5; cursor: not-allowed; }
 .org-list.inline {
   max-height: none;
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
-  gap: 6px;
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  gap: 8px;
 }
 .org-row {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  padding: 6px 8px;
-  border-radius: 4px;
-}
-.org-row:hover {
+  padding: 10px 12px;
+  border-radius: 8px;
   background: var(--panel-2);
+  border: 1px solid var(--border);
+  gap: 12px;
+  transition: border-color .12s;
 }
-.org-row.disabled {
-  opacity: 0.5;
-}
+.org-row:hover { border-color: var(--accent); }
+.org-row.disabled { opacity: 0.5; }
 .org-toggle {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: 10px;
   cursor: pointer;
+  min-width: 0;
+  flex: 1;
 }
-.org-toggle input {
-  width: auto;
-}
-.org-toggle img {
-  border-radius: 50%;
+.org-toggle input { width: auto; flex-shrink: 0; }
+.org-toggle img { border-radius: 50%; flex-shrink: 0; }
+.org-toggle > span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 0.92em;
 }
 .org-sync-toggle {
   display: flex;
   align-items: center;
-  gap: 4px;
+  gap: 6px;
+  padding: 4px 6px;
+  border-radius: 6px;
+  flex-shrink: 0;
 }
-.org-sync-toggle input {
-  width: auto;
-}
+.org-sync-toggle input { width: auto; }
 .sync-label {
-  font-size: 1em;
+  font-size: 0.9em;
+  color: var(--muted);
 }
 
 
@@ -2102,9 +2152,203 @@ button:disabled { opacity: 0.5; cursor: not-allowed; }
   color: var(--muted);
   margin-top: 4px;
 }
+/* Storage panel — extra detail */
+.storage-blurb {
+  margin: 0 0 14px;
+  font-size: 0.88em;
+  line-height: 1.55;
+}
+.storage-stats { grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); }
+.storage-stats .stat {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  padding: 14px 12px;
+}
+.storage-stats .stat-value { font-size: 1.3rem; font-weight: 600; }
+.storage-stats .stat-label { font-size: 0.85em; }
+.storage-stats .stat-sub { font-size: 0.72em; }
+
+.storage-detail {
+  margin: 18px 0 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.storage-detail h3 {
+  margin: 12px 0 4px;
+  font-size: 0.85rem;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--muted);
+  font-weight: 600;
+}
+.storage-where, .storage-pref-list {
+  list-style: none;
+  margin: 0 0 4px;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.storage-where li {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  padding: 10px 12px;
+  background: var(--panel-2);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  font-size: 0.88em;
+}
+.storage-where li > code:first-child,
+.storage-where li > strong:first-child {
+  color: var(--text);
+}
+.storage-where code {
+  background: var(--bg);
+  padding: 1px 6px;
+  border-radius: 4px;
+  font-size: 0.92em;
+}
+.storage-where .muted { line-height: 1.5; }
+
+.storage-pref-list li {
+  display: grid;
+  grid-template-columns: 1fr auto auto;
+  gap: 12px;
+  padding: 6px 12px;
+  border-bottom: 1px solid var(--border-soft, var(--border));
+  font-size: 0.85em;
+  align-items: baseline;
+}
+.storage-pref-list li:last-child { border-bottom: none; }
+.storage-pref-label {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--text);
+}
+
+/* Cache tab — grouped per-prefix view of prefs entries */
+.cache-group {
+  background: var(--panel-2);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  margin-bottom: 10px;
+  overflow: hidden;
+}
+/* Per-resource caches (PR detail, Branches): bumped border + accent left
+   stripe so they read as the "active" caches the user actually navigates. */
+.cache-group--primary {
+  border-left: 3px solid var(--accent);
+}
+/* Session singletons (viewer / tokenInfo / userOrgs): subdued so they don't
+   compete for attention — there's only one entry each, keyed by the token. */
+.cache-group--session {
+  opacity: 0.85;
+}
+.cache-group-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 14px;
+  background: var(--panel);
+  border-bottom: 1px solid var(--border);
+}
+.cache-group-blurb {
+  padding: 8px 14px 0;
+  font-size: 0.82em;
+  line-height: 1.5;
+}
+.cache-group-title {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 10px;
+  flex: 1;
+  min-width: 0;
+  font-size: 0.92em;
+}
+.cache-group-title strong { color: var(--text); }
+.cache-group-ttl {
+  background: rgba(88, 166, 255, 0.14);
+  color: var(--accent);
+  padding: 1px 8px;
+  border-radius: 10px;
+  font-size: 0.78em;
+  font-weight: 500;
+  letter-spacing: 0.02em;
+}
+.cache-group-clear {
+  background: transparent;
+  border: 1px solid var(--border);
+  color: var(--muted);
+  font: inherit;
+  font-size: 0.82em;
+  padding: 4px 10px;
+  border-radius: 6px;
+  cursor: pointer;
+}
+.cache-group-clear:hover { border-color: var(--danger); color: var(--danger); }
+.cache-group-empty { padding: 10px 14px; font-size: 0.85em; }
+/* Each cached entry renders as a horizontal chip — denser than a row list
+   so groups with 20+ entries don't stretch the page. Auto-prune on mount
+   keeps the count bounded to live entries only. */
+.cache-chip-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  padding: 10px 14px 12px;
+}
+.cache-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 4px 4px 4px 10px;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  font-size: 0.82em;
+  max-width: 100%;
+  transition: border-color .12s;
+}
+.cache-chip:hover { border-color: var(--accent); }
+.cache-chip-key {
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  color: var(--text);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  max-width: 320px;
+  font-size: 0.92em;
+}
+.cache-chip-time {
+  font-size: 0.85em;
+  white-space: nowrap;
+}
+.cache-chip-delete {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 20px;
+  height: 20px;
+  background: transparent;
+  border: none;
+  color: var(--muted);
+  cursor: pointer;
+  border-radius: 50%;
+  font-size: 1.1em;
+  line-height: 1;
+  flex-shrink: 0;
+}
+.cache-chip-delete:hover { background: var(--danger); color: #fff; }
+
 .cache-actions {
   display: flex;
   gap: 12px;
+  flex-wrap: wrap;
 }
 .cache-actions button {
   background: var(--panel-2);
@@ -2113,10 +2357,145 @@ button:disabled { opacity: 0.5; cursor: not-allowed; }
   padding: 8px 16px;
   color: var(--text);
   cursor: pointer;
+  font: inherit;
 }
-.cache-actions button:hover {
-  background: var(--border);
+.cache-actions button:hover { background: var(--border); }
+.cache-actions button:disabled { opacity: 0.55; cursor: not-allowed; }
+.cache-actions .hard-refresh-btn {
+  border-color: var(--accent);
+  background: rgba(88, 166, 255, 0.10);
+  color: var(--accent);
+  font-weight: 600;
 }
+.cache-actions .hard-refresh-btn:hover:not(:disabled) {
+  background: rgba(88, 166, 255, 0.18);
+}
+.cache-actions-hint {
+  margin: 10px 0 0;
+  font-size: 0.82em;
+  line-height: 1.5;
+}
+
+/* ===================== ConfirmDialog ===================== */
+.ui-confirm-shell {
+  position: fixed;
+  inset: 0;
+  z-index: 1000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+}
+.ui-confirm-backdrop {
+  position: absolute;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.55);
+  backdrop-filter: blur(2px);
+  border: none;
+  cursor: pointer;
+}
+.ui-confirm {
+  position: relative;
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  box-shadow: 0 24px 60px rgba(0, 0, 0, 0.55);
+  max-width: 460px;
+  width: 100%;
+  padding: 20px 22px 18px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  animation: ui-confirm-in .12s ease-out;
+}
+@keyframes ui-confirm-in {
+  from { opacity: 0; transform: translateY(6px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+.ui-confirm-title {
+  margin: 0;
+  font-size: 1.05em;
+  font-weight: 600;
+  color: var(--text);
+}
+.ui-confirm-body {
+  font-size: 0.9em;
+  line-height: 1.55;
+  color: var(--muted);
+}
+.ui-confirm-body strong { color: var(--text); }
+.ui-confirm-body p:first-child { margin-top: 0; }
+.ui-confirm-body p:last-child { margin-bottom: 0; }
+.ui-confirm-body input[type="text"] {
+  width: 100%;
+  padding: 8px 10px;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  color: var(--text);
+  font: inherit;
+  font-size: 0.85em;
+  font-family: 'SF Mono', Menlo, monospace;
+}
+.ui-confirm-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  margin-top: 4px;
+}
+.ui-confirm-btn {
+  padding: 8px 16px;
+  background: var(--panel-2);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  color: var(--text);
+  font: inherit;
+  font-size: 0.88em;
+  cursor: pointer;
+}
+.ui-confirm-btn:hover { background: var(--border); }
+.ui-confirm-btn.primary {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: #fff;
+  font-weight: 600;
+}
+.ui-confirm-btn.primary:hover { filter: brightness(1.1); }
+.ui-confirm-btn.danger {
+  background: var(--danger);
+  border-color: var(--danger);
+  color: #fff;
+  font-weight: 600;
+}
+.ui-confirm-btn.danger:hover { filter: brightness(1.1); }
+
+/* Collaborator orgs block inside Config → Orgs. */
+.config-collab-list {
+  list-style: none;
+  margin: 10px 0 0;
+  padding: 0;
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+  gap: 8px;
+}
+.config-collab-list li {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 12px;
+  background: var(--panel-2);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  font-size: 0.9em;
+}
+.config-collab-list li img {
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+.config-collab-list li strong { color: var(--text); }
+.config-collab-list li .muted { margin-left: auto; font-size: 0.85em; }
 .pinned-list, .org-order-list {
   list-style: none;
   margin: 0;

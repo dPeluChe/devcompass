@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useMemo } from 'react'
+import { useState, useEffect, useCallback, useMemo, type ReactNode } from 'react'
 import type { Org, Repo, Viewer } from '../../api/github'
 import type { PinnedRepo } from '../../store/db'
 import { snoozePr } from '../../store/db'
@@ -20,11 +20,17 @@ type Props = {
   viewer: Viewer | undefined
   repos: Repo[]
   pinned: PinnedRepo[]
-  orgs: Org[]
-  /** Initial sidebar scope. Lets the topbar tabs drop the user straight into "All repos" etc. */
-  initialScope?: ScopeKey
+  /** Membership orgs (viewer.organizations). Used to label sidebar items as member vs collaborator. */
+  memberOrgs: Org[]
+  /** Scope is owned by Dashboard so topbar tabs can flip it without re-mounting the shell. */
+  scope: ScopeKey
+  onScopeChange: (key: ScopeKey) => void
   /** When set, the main column renders the repo detail browser instead of ScopeView; the sidebar stays mounted. */
   selectedRepo?: { owner: string; name: string } | null
+  /** Optional render override for the main column — e.g. ConfigView. When provided
+   *  it replaces the scope content (still overridden by selectedRepo). Lets every
+   *  top-level view share the same shell + sidebar. */
+  mainSlot?: ReactNode
   onOpenRepo: (repo: Repo) => void
   onCloseSelectedRepo?: () => void
   onTogglePinned: (repo: Repo) => void
@@ -32,17 +38,10 @@ type Props = {
 }
 
 export function HomeShell({
-  token, viewer, repos, pinned, orgs, initialScope,
-  selectedRepo, onOpenRepo, onCloseSelectedRepo,
+  token, viewer, repos, pinned, memberOrgs, scope, onScopeChange,
+  selectedRepo, mainSlot, onOpenRepo, onCloseSelectedRepo,
   onTogglePinned, onLogout
 }: Props) {
-  const [scope, setScope] = useState<ScopeKey>(initialScope ?? 'needs')
-
-  // Keep the inner scope in sync with topbar tab clicks (Dashboard re-mounts with a
-  // new initialScope when the user switches Home <-> Repos).
-  useEffect(() => {
-    if (initialScope) setScope(initialScope)
-  }, [initialScope])
   const [collapsed, setCollapsed] = useState<boolean>(() => {
     try { return localStorage.getItem(COLLAPSED_KEY) === '1' } catch { return false }
   })
@@ -79,22 +78,30 @@ export function HomeShell({
 
   const active7dCount = repos.filter((r) => Date.now() - new Date(r.pushedAt).getTime() < 7 * 86_400_000).length
 
-  // Counts per org for the Orgs sidebar group. Viewer first, then by count desc so the
-  // user's heaviest orgs surface at the top.
+  // Counts per org for the Orgs sidebar group. Derived from the loaded repos
+  // rather than viewer.organizations so we include orgs the user is only a
+  // collaborator on (not a formal member) — same source as the All repos
+  // chip row, so the two views stay consistent. `kind` lets the sidebar pick
+  // a different icon + tooltip for self / member / collaborator.
   const orgEntries = useMemo<OrgEntry[]>(() => {
     const counts = new Map<string, number>()
     for (const r of repos) counts.set(r.owner.login, (counts.get(r.owner.login) ?? 0) + 1)
     const viewerLogin = viewer?.login
-    const known = new Set(orgs.map((o) => o.login))
-    if (viewerLogin) known.add(viewerLogin)
-    const entries: OrgEntry[] = []
-    for (const login of known) entries.push({ login, count: counts.get(login) ?? 0 })
-    return entries.toSorted((a, b) => {
-      if (a.login === viewerLogin) return -1
-      if (b.login === viewerLogin) return 1
-      return b.count - a.count || a.login.localeCompare(b.login)
-    })
-  }, [orgs, repos, viewer?.login])
+    const memberSet = new Set(memberOrgs.map((o) => o.login))
+    return Array.from(counts.entries())
+      .map(([login, count]) => {
+        const kind: OrgEntry['kind'] =
+          login === viewerLogin ? 'self' :
+          memberSet.has(login) ? 'member' :
+          'collaborator'
+        return { login, count, kind }
+      })
+      .toSorted((a, b) => {
+        if (a.login === viewerLogin) return -1
+        if (b.login === viewerLogin) return 1
+        return b.count - a.count || a.login.localeCompare(b.login)
+      })
+  }, [repos, memberOrgs, viewer?.login])
 
   useEffect(() => {
     try { localStorage.setItem(COLLAPSED_KEY, collapsed ? '1' : '0') } catch {}
@@ -149,7 +156,7 @@ export function HomeShell({
   // tap targets the content. Picking a scope also drops out of the repo
   // detail panel so the new scope is what the user sees.
   function onSelectScope(key: ScopeKey) {
-    setScope(key)
+    onScopeChange(key)
     setMobileOpen(false)
     if (selectedRepo) onCloseSelectedRepo?.()
   }
@@ -192,7 +199,7 @@ export function HomeShell({
           onSelect={onOpenRepo}
           onClose={() => onCloseSelectedRepo?.()}
         />
-      ) : (
+      ) : mainSlot ?? (
         <ScopeView
           scope={scope}
           token={token}

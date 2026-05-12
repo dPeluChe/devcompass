@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState, useCallback } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { fetchRateLimit, fetchTokenInfo, fetchUserOrgsRest, fetchViewer, fetchOrgReposSimple, fetchViewerReposSimple, type Repo, type TokenInfo, type Org } from '../api/github'
+import type { ScopeKey } from './home/types'
 import { OrgManager } from './OrgManager'
 import { SettingsTab } from './SettingsTab'
 import { QuickSwitcher, type QSAction } from './QuickSwitcher'
@@ -10,7 +11,7 @@ import { HomeSkeleton } from './home/HomeSkeleton'
 import { Pulse } from './ui'
 import { useGlobalShortcuts } from '../hooks/useGlobalShortcuts'
 import { orgConfigStore } from '../store/orgConfig'
-import { cacheRepos, getCachedRepos, getPinnedRepos, pinRepo, unpinRepo, type PinnedRepo } from '../store/db'
+import { cacheRepos, db, getAllCachedRepos, getCachedPref, getPinnedRepos, pinRepo, savePref, unpinRepo, type PinnedRepo } from '../store/db'
 
 export { Skeleton, CardSkeleton, FadeIn, Pulse } from './ui'
 
@@ -27,23 +28,45 @@ function useViewerData(token: string) {
   const [refreshSeq, setRefreshSeq] = useState(0)
   const inFlight = useRef(false)
   
+  // 1h IndexedDB TTL on the per-session metadata so reloads don't burn
+  // viewer/tokenInfo/userOrgs calls when the cache is still fresh.
+  const SCALAR_CACHE_TTL = 60 * 60 * 1000
+
   const viewerQuery = useQuery({
     queryKey: ['viewer', token],
-    queryFn: () => fetchViewer(token),
-    staleTime: 30 * 60 * 1000,
+    queryFn: async () => {
+      const cached = await getCachedPref<Awaited<ReturnType<typeof fetchViewer>>>(`viewer:${token}`, SCALAR_CACHE_TTL)
+      if (cached) return cached
+      const fresh = await fetchViewer(token)
+      await savePref(`viewer:${token}`, fresh)
+      return fresh
+    },
+    staleTime: SCALAR_CACHE_TTL,
   })
 
   const tokenInfoQuery = useQuery({
     queryKey: ['tokenInfo', token],
-    queryFn: () => fetchTokenInfo(token),
-    staleTime: 30 * 60 * 1000,
+    queryFn: async () => {
+      const cached = await getCachedPref<Awaited<ReturnType<typeof fetchTokenInfo>>>(`tokenInfo:${token}`, SCALAR_CACHE_TTL)
+      if (cached) return cached
+      const fresh = await fetchTokenInfo(token)
+      await savePref(`tokenInfo:${token}`, fresh)
+      return fresh
+    },
+    staleTime: SCALAR_CACHE_TTL,
     enabled: !!token,
   })
 
   const userOrgsQuery = useQuery({
     queryKey: ['userOrgs', token],
-    queryFn: () => fetchUserOrgsRest(token),
-    staleTime: 30 * 60 * 1000,
+    queryFn: async () => {
+      const cached = await getCachedPref<Awaited<ReturnType<typeof fetchUserOrgsRest>>>(`userOrgs:${token}`, SCALAR_CACHE_TTL)
+      if (cached) return cached
+      const fresh = await fetchUserOrgsRest(token)
+      await savePref(`userOrgs:${token}`, fresh)
+      return fresh
+    },
+    staleTime: SCALAR_CACHE_TTL,
     enabled: !!token,
   })
 
@@ -90,11 +113,17 @@ function useViewerData(token: string) {
     const cachedByOrg = new Map<string, Repo[]>()
     const sourcesToSync = [v.login, ...syncingOrgs.filter((login) => login !== v.login)]
 
-    await Promise.all(sourcesToSync.map(async (login) => {
-      const cached = await getCachedRepos(login)
-      cachedByOrg.set(login, cached)
-      for (const r of cached) byId.set(r.id, r)
-    }))
+    // Read ALL cached repos (not just for sourcesToSync logins) so collaborator
+    // repos that came in via the viewer's COLLABORATOR affiliation — owned by
+    // orgs we never iterate explicitly — survive reloads. The per-org buckets
+    // still drive the "needs sync" check below.
+    const allCached = await getAllCachedRepos()
+    for (const r of allCached) byId.set(r.id, r)
+    for (const login of sourcesToSync) cachedByOrg.set(login, [])
+    for (const r of allCached) {
+      const bucket = cachedByOrg.get(r.owner.login)
+      if (bucket) bucket.push(r)
+    }
 
     if (byId.size > 0) {
       setRepos(sortRepos([...byId.values()]))
@@ -158,9 +187,15 @@ function useViewerData(token: string) {
     rateLimitQuery.refetch()
   }, [refreshSeq])
 
-  const refresh = useCallback(() => {
+  const refresh = useCallback(async () => {
+    // Drop the IDB scalar caches so the next queryFn run goes to the network
+    // instead of returning the stored-but-not-yet-TTL'd value. Then refetch
+    // the three queries imperatively. Repo sync is handled below via the
+    // refreshSeq effect.
+    await db.prefs.bulkDelete([`viewer:${token}`, `tokenInfo:${token}`, `userOrgs:${token}`])
+    await Promise.all([viewerQuery.refetch(), tokenInfoQuery.refetch(), userOrgsQuery.refetch()])
     setRefreshSeq((n) => n + 1)
-  }, [])
+  }, [token, viewerQuery, tokenInfoQuery, userOrgsQuery])
 
   return {
     viewer: viewerQuery.data,
@@ -187,6 +222,10 @@ export function Dashboard({ token, onLogout }: Props) {
   const data = useViewerData(token)
 
   const [view, setView] = useState<View>('home')
+  // Sidebar scope lives here (not inside HomeShell) so the topbar tabs can flip
+  // it without re-mounting the shell — avoids the effect-as-handler smell from
+  // syncing an `initialScope` prop into local state.
+  const [scope, setScope] = useState<ScopeKey>('needs')
   const [selected, setSelected] = useState<{ owner: string; name: string } | null>(null)
   const [pinned, setPinned] = useState<PinnedRepo[]>([])
   const [qsOpen, setQsOpen] = useState(false)
@@ -212,6 +251,16 @@ export function Dashboard({ token, onLogout }: Props) {
   function gotoView(target: View) {
     setView(target)
     setSelected(null)
+    if (target === 'home') setScope('needs')
+    else if (target === 'repos') setScope('repos')
+  }
+
+  // Sidebar item clicks always exit config / detail and land on the chosen scope.
+  // Mirrors topbar tab behavior so navigation feels coherent.
+  function handleScopeChange(key: ScopeKey) {
+    setScope(key)
+    setSelected(null)
+    setView(key === 'repos' ? 'repos' : 'home')
   }
 
   function handleQuickPick(action: QSAction) {
@@ -332,13 +381,7 @@ export function Dashboard({ token, onLogout }: Props) {
           </div>
         </header>
 
-        {view === 'config' ? (
-          <ConfigView
-            tokenInfo={data.tokenInfo}
-            orgs={data.orgs}
-            errors={data.errors}
-          />
-        ) : (data.isLoading || data.progressMsg) && !selected ? (
+        {(data.isLoading || data.progressMsg) && !selected && view !== 'config' ? (
           <HomeSkeleton progressMsg={data.progressMsg} />
         ) : (
           <HomeShell
@@ -346,9 +389,19 @@ export function Dashboard({ token, onLogout }: Props) {
             viewer={data.viewer}
             repos={data.repos}
             pinned={pinned}
-            orgs={data.orgs}
-            initialScope={view === 'repos' ? 'repos' : 'needs'}
+            memberOrgs={data.orgs}
+            scope={scope}
+            onScopeChange={handleScopeChange}
             selectedRepo={selected}
+            mainSlot={view === 'config' ? (
+              <ConfigView
+                tokenInfo={data.tokenInfo}
+                orgs={data.orgs}
+                repos={data.repos}
+                errors={data.errors}
+                onForceResync={data.refresh}
+              />
+            ) : undefined}
             onOpenRepo={(repo) => {
               setSelected({ owner: repo.owner.login, name: repo.name })
               setView('repos')
@@ -386,16 +439,36 @@ function timeAgoShort(ms: number): string {
 function ConfigView({
   tokenInfo,
   orgs,
-  errors
+  repos,
+  errors,
+  onForceResync
 }: {
   tokenInfo: TokenInfo | undefined
   orgs: Org[]
+  repos: Repo[]
   errors: { source: string; message: string }[]
+  onForceResync: () => void
 }) {
-  const [section, setSection] = useState<'orgs' | 'token' | 'storage' | 'pinned'>('orgs')
+  const [section, setSection] = useState<'orgs' | 'token' | 'storage' | 'cache' | 'pinned'>('orgs')
+
+  // Collaborator-only orgs: own at least one repo that arrived via the viewer's
+  // COLLABORATOR affiliation but aren't in viewer.organizations / /user/orgs.
+  const collaboratorOrgs = useMemo(() => {
+    const memberSet = new Set(orgs.map((o) => o.login))
+    const counts = new Map<string, { count: number; avatarUrl: string }>()
+    for (const r of repos) {
+      if (memberSet.has(r.owner.login)) continue
+      const cur = counts.get(r.owner.login)
+      if (cur) cur.count += 1
+      else counts.set(r.owner.login, { count: 1, avatarUrl: r.owner.avatarUrl })
+    }
+    return Array.from(counts.entries())
+      .map(([login, v]) => ({ login, count: v.count, avatarUrl: v.avatarUrl }))
+      .toSorted((a, b) => b.count - a.count || a.login.localeCompare(b.login))
+  }, [orgs, repos])
 
   return (
-    <div className="config-view">
+    <main className="hs-main config-view">
       <div className="config-tabs">
         <button className={`config-tab ${section === 'orgs' ? 'active' : ''}`} onClick={() => setSection('orgs')}>
           Orgs
@@ -405,6 +478,9 @@ function ConfigView({
         </button>
         <button className={`config-tab ${section === 'storage' ? 'active' : ''}`} onClick={() => setSection('storage')}>
           Storage
+        </button>
+        <button className={`config-tab ${section === 'cache' ? 'active' : ''}`} onClick={() => setSection('cache')}>
+          Cache
         </button>
         <button className={`config-tab ${section === 'pinned' ? 'active' : ''}`} onClick={() => setSection('pinned')}>
           Pinned
@@ -419,6 +495,28 @@ function ConfigView({
               <span className="muted">Choose which orgs are available and synced.</span>
             </div>
             <OrgManager orgs={orgs} variant="inline" />
+
+            {collaboratorOrgs.length > 0 && (
+              <div className="config-collab-block">
+                <div className="config-section-header" style={{ marginTop: 18 }}>
+                  <h3>Collaborator orgs</h3>
+                  <span className="muted">
+                    You have repo access here but aren't a formal member.
+                    Their repos sync as part of your own viewer affiliation —
+                    no separate toggle.
+                  </span>
+                </div>
+                <ul className="config-collab-list">
+                  {collaboratorOrgs.map((c) => (
+                    <li key={c.login}>
+                      <img src={c.avatarUrl} alt="" />
+                      <strong>{c.login}</strong>
+                      <span className="muted">{c.count} repo{c.count === 1 ? '' : 's'}</span>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            )}
           </section>
         )}
 
@@ -450,10 +548,11 @@ function ConfigView({
           </section>
         )}
 
-        {section === 'storage' && <SettingsTab panel="storage" />}
+        {section === 'storage' && <SettingsTab panel="storage" onForceResync={onForceResync} />}
+        {section === 'cache' && <SettingsTab panel="cache" onForceResync={onForceResync} />}
         {section === 'pinned' && <SettingsTab panel="pinned" />}
       </div>
-    </div>
+    </main>
   )
 }
 

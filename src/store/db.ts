@@ -135,6 +135,17 @@ export async function getCachedRepos(orgLogin: string, maxAgeHours = 24 * 7): Pr
     .toArray()
 }
 
+/**
+ * Returns every cached repo regardless of owner. Needed because collaborator
+ * repos come through the viewer's COLLABORATOR affiliation: they're stored
+ * with `owner.login = <collab-org>`, but that login isn't in sourcesToSync,
+ * so the per-org getCachedRepos read would miss them on a normal reload.
+ */
+export async function getAllCachedRepos(maxAgeHours = 24 * 7): Promise<CachedRepo[]> {
+  const cutoff = Date.now() - (maxAgeHours * 60 * 60 * 1000)
+  return db.repos.filter(r => r.cachedAt > cutoff).toArray()
+}
+
 export async function clearOldRepos(maxAgeHours = 24) {
   const cutoff = Date.now() - (maxAgeHours * 60 * 60 * 1000)
   await db.repos.where('cachedAt').below(cutoff).delete()
@@ -160,6 +171,62 @@ export async function savePref(key: string, value: unknown) {
 export async function getPref<T>(key: string, defaultValue: T): Promise<T> {
   const row = await db.prefs.get(key)
   return row ? (row.value as T) : defaultValue
+}
+
+/**
+ * Single source of truth for which prefs keys are TTL-bound caches and their
+ * freshness windows. Used by `pruneExpiredCachePrefs` and by the Cache tab
+ * to render chips per group. `visit:` is intentionally absent — the
+ * since-last-visit snapshot is a baseline and never expires.
+ */
+export const CACHE_TTLS: Record<string, number> = {
+  'viewer:': 60 * 60 * 1000,
+  'tokenInfo:': 60 * 60 * 1000,
+  'userOrgs:': 60 * 60 * 1000,
+  'prDetail:': 15 * 60 * 1000,
+  'branches:': 15 * 60 * 1000
+}
+
+/**
+ * Sweep the prefs table and delete every TTL-bound row whose `updatedAt`
+ * has aged past its bucket's window. Cheap to call — one scan + bulk
+ * delete. Returns the number of rows evicted so callers can log it.
+ */
+export async function pruneExpiredCachePrefs(): Promise<number> {
+  const now = Date.now()
+  const all = await db.prefs.toArray()
+  const toDelete: string[] = []
+  for (const row of all) {
+    for (const [prefix, ttlMs] of Object.entries(CACHE_TTLS)) {
+      if (row.key.startsWith(prefix) && now - row.updatedAt > ttlMs) {
+        toDelete.push(row.key)
+        break
+      }
+    }
+  }
+  if (toDelete.length > 0) await db.prefs.bulkDelete(toDelete)
+  return toDelete.length
+}
+
+/**
+ * TTL-aware cache backed by the `prefs` table. Returns null when the row is
+ * missing or older than `ttlMs`. Use savePref(key, value) to write — the
+ * timestamp is the row's `updatedAt`.
+ *
+ * Wrap a fetch with `getCachedPref` to skip the network when fresh data is
+ * already in IndexedDB:
+ *
+ *   const cached = await getCachedPref<T>('viewer', 60 * 60 * 1000)
+ *   if (cached) return cached
+ *   const fresh = await fetchViewer(token)
+ *   await savePref('viewer', fresh)
+ *   return fresh
+ */
+export async function getCachedPref<T>(key: string, ttlMs: number): Promise<T | null> {
+  const row = await db.prefs.get(key)
+  if (!row) return null
+  if (Date.now() - row.updatedAt > ttlMs) return null
+  return row.value as T
 }
 
 export async function saveTokenMeta(token: string, expiresAt: number | null, scopes: string[], note = 'github_pat') {
@@ -220,6 +287,57 @@ export async function getDbStats() {
     db.tokens.count()
   ])
   return { repoCount, orgCount, pinnedCount, tokenCount }
+}
+
+export type PrefSummary = { key: string; updatedAt: number }
+export type StorageBreakdown = {
+  repos: number
+  orgs: number
+  prefs: number
+  tokensMeta: number
+  pinned: number
+  snoozed: number
+  prefKeys: PrefSummary[]
+  /** Browser-reported total IndexedDB+localStorage size in bytes, when supported. */
+  usageBytes: number | null
+  quotaBytes: number | null
+}
+
+/**
+ * Detailed storage snapshot for the Settings → Storage panel. Counts every
+ * Dexie table plus the per-key prefs index (used to render which API
+ * responses are currently cached) and the browser-reported quota.
+ */
+export async function getStorageBreakdown(): Promise<StorageBreakdown> {
+  const [repos, orgs, prefs, tokensMeta, pinned, snoozed, prefRows] = await Promise.all([
+    db.repos.count(),
+    db.orgs.count(),
+    db.prefs.count(),
+    db.tokens.count(),
+    db.pinnedRepos.count(),
+    db.snoozedPRs.count(),
+    db.prefs.toArray()
+  ])
+  let usageBytes: number | null = null
+  let quotaBytes: number | null = null
+  if (typeof navigator !== 'undefined' && navigator.storage?.estimate) {
+    try {
+      const est = await navigator.storage.estimate()
+      usageBytes = est.usage ?? null
+      quotaBytes = est.quota ?? null
+    } catch { /* permission denied or unsupported — fine */ }
+  }
+  return {
+    repos,
+    orgs,
+    prefs,
+    tokensMeta,
+    pinned,
+    snoozed,
+    prefKeys: prefRows.map((r) => ({ key: r.key, updatedAt: r.updatedAt })).toSorted((a, b) => b.updatedAt - a.updatedAt),
+    usageBytes,
+    quotaBytes
+  }
 }
 
 // ---------- snooze ----------
