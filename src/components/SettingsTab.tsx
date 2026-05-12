@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import { getDbStats, clearAllRepos, clearOldRepos, type PinnedRepo, getPinnedRepos, unpinRepo, getOrgsByOrder } from '../store/db'
+import { ConfirmDialog } from './ConfirmDialog'
 
 interface DbStats {
   repoCount: number
@@ -41,9 +42,10 @@ export function SettingsTab({ panel = 'all', onForceResync }: Props) {
   }
 
   const [busy, setBusy] = useState<'clear' | 'hard' | null>(null)
+  const [confirmKind, setConfirmKind] = useState<'clear' | 'hard' | null>(null)
 
-  async function handleClearCache() {
-    if (!confirm('Clear all cached repos? They will be re-fetched on the next sync, but the app won\'t reload now.')) return
+  async function doClearCache() {
+    setConfirmKind(null)
     setBusy('clear')
     try {
       await clearAllRepos()
@@ -51,8 +53,8 @@ export function SettingsTab({ panel = 'all', onForceResync }: Props) {
     } finally { setBusy(null) }
   }
 
-  async function handleHardRefresh() {
-    if (!confirm('Hard refresh: clear all cached repos AND re-fetch from GitHub now.\n\nUse this if you suspect the cache is out of sync (e.g. collaborator-only repos are missing).')) return
+  async function doHardRefresh() {
+    setConfirmKind(null)
     setBusy('hard')
     try {
       await clearAllRepos()
@@ -100,13 +102,13 @@ export function SettingsTab({ panel = 'all', onForceResync }: Props) {
         <div className="cache-actions">
           <button
             className="hard-refresh-btn"
-            onClick={handleHardRefresh}
+            onClick={() => setConfirmKind('hard')}
             disabled={busy !== null || !onForceResync}
             title="Clear the local cache and re-fetch every repo from GitHub. Useful when collaborator repos go missing or you suspect stale data."
           >
             {busy === 'hard' ? 'Refreshing…' : '↻ Hard refresh from GitHub'}
           </button>
-          <button onClick={handleClearCache} disabled={busy !== null}>
+          <button onClick={() => setConfirmKind('clear')} disabled={busy !== null}>
             {busy === 'clear' ? 'Clearing…' : 'Clear all cache'}
           </button>
           <button onClick={handleClearOld} disabled={busy !== null}>Clear stale cache</button>
@@ -132,6 +134,36 @@ export function SettingsTab({ panel = 'all', onForceResync }: Props) {
           </ul>
         )}
       </section>}
+
+      <ConfirmDialog
+        open={confirmKind === 'clear'}
+        title="Clear all cache?"
+        body={
+          <p>
+            Empties the local repo cache. Repos will be re-fetched on the next sync,
+            but the app won't reload now. Use this if you just need to free storage —
+            for a true re-pull from GitHub use <strong>Hard refresh</strong>.
+          </p>
+        }
+        confirmLabel="Clear cache"
+        confirmKind="danger"
+        onConfirm={doClearCache}
+        onCancel={() => setConfirmKind(null)}
+      />
+      <ConfirmDialog
+        open={confirmKind === 'hard'}
+        title="Hard refresh from GitHub?"
+        body={
+          <p>
+            Clears the local cache <strong>and</strong> immediately re-fetches every
+            repo. Use this when collaborator-only repos are missing or you suspect
+            stale data.
+          </p>
+        }
+        confirmLabel="Refresh now"
+        onConfirm={doHardRefresh}
+        onCancel={() => setConfirmKind(null)}
+      />
 
       {(panel === 'all' || panel === 'orgOrder') && <section>
         <h2>Org Order</h2>

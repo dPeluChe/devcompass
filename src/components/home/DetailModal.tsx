@@ -14,6 +14,7 @@ import {
 } from '../../api/github'
 import { queryKeys } from '../../store/queries'
 import { SanitizedMarkdown } from '../SanitizedMarkdown'
+import { ConfirmDialog } from '../ConfirmDialog'
 import { OrgChip } from './OrgChip'
 import type { AttentionItem } from './types'
 import { ChecksList, Skeleton } from './detail/Checks'
@@ -331,6 +332,10 @@ function HeaderMeta({ detail, item }: { detail: PRDetail; item: AttentionItem })
 
 function LinkActions({ item }: { item: AttentionItem }) {
   const [copied, setCopied] = useState(false)
+  // When the Clipboard API fails (insecure context, denied permission, etc.)
+  // we surface the URL in a styled dialog so the user can manually select +
+  // copy. Replaces the old window.prompt fallback.
+  const [fallbackUrl, setFallbackUrl] = useState<string | null>(null)
   async function copyLink() {
     const url = item.url || `${window.location.origin}${window.location.pathname}?pr=${item.org}/${item.repo}/${item.number}`
     try {
@@ -338,7 +343,7 @@ function LinkActions({ item }: { item: AttentionItem }) {
       setCopied(true)
       setTimeout(() => setCopied(false), 1800)
     } catch {
-      window.prompt('Copy this link:', url)
+      setFallbackUrl(url)
     }
   }
   return (
@@ -349,6 +354,25 @@ function LinkActions({ item }: { item: AttentionItem }) {
       <a className="hs-modal-btn link" href={item.url} target="_blank" rel="noopener noreferrer">
         Open on GitHub ↗
       </a>
+      <ConfirmDialog
+        open={!!fallbackUrl}
+        title="Copy this link"
+        hideConfirm
+        cancelLabel="Done"
+        body={
+          <>
+            <p>The browser blocked automatic copy. Select the link and copy it manually:</p>
+            <input
+              type="text"
+              readOnly
+              value={fallbackUrl ?? ''}
+              onFocus={(e) => e.currentTarget.select()}
+              autoFocus
+            />
+          </>
+        }
+        onCancel={() => setFallbackUrl(null)}
+      />
     </div>
   )
 }
