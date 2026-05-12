@@ -301,14 +301,69 @@ export function SettingsTab({ panel = 'all', onForceResync }: Props) {
  * Cache tab — groups the prefs-table entries (per-API response caches)
  * by what they belong to and lets the user evict individual rows.
  */
+type CacheGroup = {
+  title: string
+  ttl: string
+  prefix: string
+  /** Override the per-row label. Used to mask the token-as-discriminator
+   *  for session-level caches so it never renders to the DOM. */
+  rowLabel?: (sub: string) => string
+  /** Visual emphasis: per-resource caches (PR detail, Branches) get a
+   *  brighter card border so they stand out from session singletons. */
+  emphasis?: 'primary' | 'session'
+  /** Short helper line under the title to remind why we cache this. */
+  blurb?: string
+}
+
 function CachePanel({ breakdown, onChange }: { breakdown: StorageBreakdown; onChange: () => void }) {
-  const groups: { title: string; ttl: string; prefix: string }[] = [
-    { title: 'Viewer (login + memberships)', ttl: '1h', prefix: 'viewer:' },
-    { title: 'Token info (scopes, SSO)', ttl: '1h', prefix: 'tokenInfo:' },
-    { title: '/user/orgs', ttl: '1h', prefix: 'userOrgs:' },
-    { title: 'PR detail', ttl: '15m', prefix: 'prDetail:' },
-    { title: 'Branches', ttl: '15m', prefix: 'branches:' },
-    { title: 'Since-last-visit snapshot', ttl: '∞', prefix: 'visit:' }
+  const groups: CacheGroup[] = [
+    // Per-resource caches: change as the user navigates; one entry per repo / PR.
+    {
+      title: 'PR detail',
+      ttl: '15m',
+      prefix: 'prDetail:',
+      emphasis: 'primary',
+      blurb: 'Each open of a PR detail modal — keyed by owner/repo/#PR.'
+    },
+    {
+      title: 'Branches',
+      ttl: '15m',
+      prefix: 'branches:',
+      emphasis: 'primary',
+      blurb: 'Branch list for each repo opened from the Repos grid.'
+    },
+    {
+      title: 'Since-last-visit snapshot',
+      ttl: '∞',
+      prefix: 'visit:',
+      blurb: 'Baseline that powers the Home → Since last visit feed.'
+    },
+    // Session-level singletons: one entry per token. The token is the
+    // discriminator — never show it.
+    {
+      title: '/user/orgs',
+      ttl: '1h',
+      prefix: 'userOrgs:',
+      emphasis: 'session',
+      rowLabel: () => 'current session',
+      blurb: 'REST list of orgs the viewer belongs to.'
+    },
+    {
+      title: 'Viewer (login + memberships)',
+      ttl: '1h',
+      prefix: 'viewer:',
+      emphasis: 'session',
+      rowLabel: () => 'current session',
+      blurb: 'GraphQL viewer query — login, avatar, viewer.organizations.'
+    },
+    {
+      title: 'Token info (scopes, SSO)',
+      ttl: '1h',
+      prefix: 'tokenInfo:',
+      emphasis: 'session',
+      rowLabel: () => 'current session',
+      blurb: 'X-OAuth-Scopes + X-GitHub-SSO from /user response headers.'
+    }
   ]
 
   async function deleteEntry(key: string) {
@@ -335,8 +390,9 @@ function CachePanel({ breakdown, onChange }: { breakdown: StorageBreakdown; onCh
 
       {groups.map((g) => {
         const rows = breakdown.prefKeys.filter((p) => p.key.startsWith(g.prefix))
+        const emphasisClass = g.emphasis ? `cache-group--${g.emphasis}` : ''
         return (
-          <div key={g.prefix} className="cache-group">
+          <div key={g.prefix} className={`cache-group ${emphasisClass}`}>
             <div className="cache-group-head">
               <span className="cache-group-title">
                 <strong>{g.title}</strong>
@@ -349,15 +405,17 @@ function CachePanel({ breakdown, onChange }: { breakdown: StorageBreakdown; onCh
                 </button>
               )}
             </div>
+            {g.blurb && <div className="cache-group-blurb muted">{g.blurb}</div>}
             {rows.length === 0 ? (
               <div className="cache-group-empty muted">No entries.</div>
             ) : (
               <ul className="cache-row-list">
                 {rows.map((r) => {
                   const sub = r.key.slice(g.prefix.length)
+                  const label = g.rowLabel ? g.rowLabel(sub) : sub
                   return (
                     <li key={r.key}>
-                      <code className="cache-row-key">{sub || '(default)'}</code>
+                      <code className="cache-row-key">{label || '(default)'}</code>
                       <span className="muted cache-row-time">cached {timeAgo(r.updatedAt)}</span>
                       <button
                         className="cache-row-delete"

@@ -2239,6 +2239,16 @@ button:disabled { opacity: 0.5; cursor: not-allowed; }
   margin-bottom: 10px;
   overflow: hidden;
 }
+/* Per-resource caches (PR detail, Branches): bumped border + accent left
+   stripe so they read as the "active" caches the user actually navigates. */
+.cache-group--primary {
+  border-left: 3px solid var(--accent);
+}
+/* Session singletons (viewer / tokenInfo / userOrgs): subdued so they don't
+   compete for attention — there's only one entry each, keyed by the token. */
+.cache-group--session {
+  opacity: 0.85;
+}
 .cache-group-head {
   display: flex;
   justify-content: space-between;
@@ -2247,6 +2257,11 @@ button:disabled { opacity: 0.5; cursor: not-allowed; }
   padding: 10px 14px;
   background: var(--panel);
   border-bottom: 1px solid var(--border);
+}
+.cache-group-blurb {
+  padding: 8px 14px 0;
+  font-size: 0.82em;
+  line-height: 1.5;
 }
 .cache-group-title {
   display: inline-flex;
