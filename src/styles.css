@@ -1742,46 +1742,47 @@ button:disabled { opacity: 0.5; cursor: not-allowed; }
 /* ----- Commits tab stats strip ----- */
 .rd-commits { display: flex; flex-direction: column; gap: 12px; }
 .rd-commits-stats {
-  display: grid;
-  grid-template-columns: repeat(4, 1fr);
-  gap: 14px 18px;
-  padding: 14px 16px;
+  padding: 12px 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
 }
-.rd-commits-stats .rd-stat-contributors { grid-column: 1 / -1; }
-.rd-stat-block { display: flex; flex-direction: column; gap: 3px; min-width: 0; }
-.rd-stat-num {
-  font-size: 1.6em;
-  font-weight: 600;
-  color: var(--text);
-  line-height: 1.1;
-  font-variant-numeric: tabular-nums;
+.rd-stat-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.rd-stat-chip {
   display: inline-flex;
   align-items: baseline;
-  gap: 4px;
-}
-.rd-stat-unit {
-  font-size: 0.55em;
-  font-weight: 500;
+  gap: 6px;
+  padding: 6px 12px;
+  background: var(--panel-2);
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  font-size: 0.85em;
+  white-space: nowrap;
   color: var(--muted);
-  text-transform: lowercase;
-  letter-spacing: 0;
 }
-.rd-stat-label {
-  font-size: 0.78em;
+.rd-stat-chip strong {
   color: var(--text);
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
-  font-weight: 500;
+  font-weight: 600;
+  font-size: 1.1em;
+  font-variant-numeric: tabular-nums;
 }
-.rd-stat-sub {
-  font-size: 0.72em;
+.rd-stat-chip-unit {
+  font-size: 0.7em;
   color: var(--muted);
-  letter-spacing: 0;
-  text-transform: none;
+  font-weight: 500;
+  margin-left: -2px;
 }
-@media (max-width: 900px) {
-  .rd-commits-stats { grid-template-columns: repeat(2, 1fr); }
+.rd-stat-contrib-head {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 8px;
+  font-size: 0.85em;
 }
+.rd-stat-contrib-head strong { color: var(--text); }
 
 .rd-contributor-list { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 8px; }
 .rd-contributor {
