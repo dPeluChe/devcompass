@@ -1,5 +1,6 @@
-import { useEffect, useState, type ReactNode } from 'react'
-import { fetchRepoDetail, type RepoDetail as RepoDetailT } from '../api/github'
+import { useEffect, useMemo, useState, type ReactNode } from 'react'
+import { useQuery } from '@tanstack/react-query'
+import { fetchBranches, fetchRepoDetail, type Branch, type RepoDetail as RepoDetailT } from '../api/github'
 import { OrgChip } from './home/OrgChip'
 import { FaCodeBranch, FaExclamationCircle, FaLock, FaLockOpen, FaStar, FaTag, FaCheck, FaExclamation } from 'react-icons/fa'
 
@@ -51,7 +52,7 @@ export function RepoDetail({ token, owner, name, onClose }: Props) {
             releaseCount={data.releases.totalCount}
           />
           <div className="rd-body">
-            {tab === 'overview' && <OverviewTab data={data} />}
+            {tab === 'overview' && <OverviewTab token={token} owner={owner} name={name} data={data} />}
             {tab === 'commits' && <CommitsTab data={data} />}
             {tab === 'prs' && <PRsTab data={data} />}
             {tab === 'issues' && <IssuesTab data={data} />}
@@ -177,7 +178,11 @@ function TabButton({ active, onClick, label, count }: { active: boolean; onClick
 
 /* ============================== Overview ============================== */
 
-function OverviewTab({ data }: { data: RepoDetailT }) {
+function OverviewTab({ token, owner, name, data }: { token: string; owner: string; name: string; data: RepoDetailT }) {
+  const ageDays = Math.max(1, (Date.now() - new Date(data.createdAt).getTime()) / 86_400_000)
+  const totalCommits = branchCommitsTotal(data) ?? 0
+  const commitsPerWeek = totalCommits > 0 ? ((totalCommits / ageDays) * 7).toFixed(1) : '0'
+
   return (
     <div className="rd-grid">
       <Surface title="Summary">
@@ -185,12 +190,13 @@ function OverviewTab({ data }: { data: RepoDetailT }) {
         <KV k="Size on disk" v={data.diskUsage != null ? `${(data.diskUsage / 1024).toFixed(1)} MB` : '—'} />
         <KV k="License" v={data.licenseInfo?.name ?? '—'} />
         {data.homepageUrl && <KV k="Homepage" v={<a href={data.homepageUrl} target="_blank" rel="noreferrer">{data.homepageUrl}</a>} />}
-        <KV k="Created" v={fmtDate(data.createdAt)} />
-        <KV k="Last push" v={fmtDate(data.pushedAt)} />
-        <KV k="Last updated" v={fmtDate(data.updatedAt)} />
+        <KV k="Created" v={`${fmtDate(data.createdAt)} (${shortAgo(data.createdAt)})`} />
+        <KV k="Last push" v={`${fmtDate(data.pushedAt)} (${shortAgo(data.pushedAt)})`} />
       </Surface>
 
-      <Surface title="Engagement">
+      <Surface title="Activity">
+        <KV k="Total commits" v={totalCommits.toLocaleString()} />
+        <KV k="Commits / week" v={`${commitsPerWeek} avg since creation`} />
         <KV k={<><FaStar size={10} /> Stars</>} v={data.stargazerCount} />
         <KV k={<><FaCodeBranch size={10} /> Forks</>} v={data.forkCount} />
         <KV k="Watchers" v={data.watchers.totalCount} />
@@ -220,7 +226,50 @@ function OverviewTab({ data }: { data: RepoDetailT }) {
           </ul>
         </Surface>
       )}
+
+      <BranchesSurface token={token} owner={owner} name={name} defaultBranch={data.defaultBranchRef?.name ?? null} />
     </div>
+  )
+}
+
+/* ============================== Branches surface ============================== */
+
+function BranchesSurface({ token, owner, name, defaultBranch }: { token: string; owner: string; name: string; defaultBranch: string | null }) {
+  const { data, isLoading, error } = useQuery({
+    queryKey: ['branches', owner, name],
+    queryFn: () => fetchBranches(token, owner, name),
+    staleTime: 5 * 60 * 1000
+  })
+  const branches: Branch[] = data ?? []
+  const top = branches.slice(0, 10)
+
+  return (
+    <Surface title={`Branches${branches.length > 0 ? ` (${branches.length})` : ''}`}>
+      {isLoading && <div className="hs-skeleton-bar" style={{ width: '70%' }} />}
+      {error && <span className="muted">Failed to load branches.</span>}
+      {!isLoading && !error && top.length === 0 && <span className="muted">No branches.</span>}
+      {top.map((b) => {
+        const isDefault = b.name === defaultBranch
+        const author = b.target.author?.user?.login
+        return (
+          <div key={b.name} className="rd-branch">
+            <FaCodeBranch size={11} className="rd-branch-icon" />
+            <span className="rd-branch-name">
+              {b.name}
+              {isDefault && <span className="rd-tag">default</span>}
+            </span>
+            <span className="rd-branch-meta muted">
+              {author ? `@${author} · ` : ''}{shortAgo(b.target.committedDate)}
+            </span>
+          </div>
+        )
+      })}
+      {branches.length > top.length && (
+        <div className="muted" style={{ fontSize: '0.8em', marginTop: 8 }}>
+          + {branches.length - top.length} more
+        </div>
+      )}
+    </Surface>
   )
 }
 
@@ -232,20 +281,98 @@ function pct(size: number, total: number): string {
 
 function CommitsTab({ data }: { data: RepoDetailT }) {
   const commits = branchCommits(data)
+  const totalCommits = branchCommitsTotal(data) ?? 0
   if (commits.length === 0) return <EmptyState label="No visible commits on the default branch." />
+
   return (
-    <section className="hs-surface rd-list">
-      {commits.map((c) => (
-        <a key={c.oid} className="rd-row" href={c.url} target="_blank" rel="noreferrer">
-          <code className="rd-sha">{c.oid.slice(0, 7)}</code>
-          <div className="rd-row-main">
-            <div className="rd-row-title">{c.messageHeadline}</div>
-            <div className="rd-row-meta muted">
-              {c.author?.user?.login ?? c.author?.name ?? 'unknown'} · {shortAgo(c.committedDate)}
+    <div className="rd-commits">
+      <CommitsStats commits={commits} totalCommits={totalCommits} />
+      <section className="hs-surface rd-list">
+        {commits.map((c) => (
+          <a key={c.oid} className="rd-row" href={c.url} target="_blank" rel="noreferrer">
+            <code className="rd-sha">{c.oid.slice(0, 7)}</code>
+            <div className="rd-row-main">
+              <div className="rd-row-title">{c.messageHeadline}</div>
+              <div className="rd-row-meta muted">
+                {c.author?.user?.avatarUrl && (
+                  <img className="rd-row-avatar" src={c.author.user.avatarUrl} alt="" />
+                )}
+                <span>{c.author?.user?.login ?? c.author?.name ?? 'unknown'}</span>
+                <span>·</span>
+                <span>{shortAgo(c.committedDate)}</span>
+              </div>
             </div>
+          </a>
+        ))}
+      </section>
+    </div>
+  )
+}
+
+type Contributor = { login: string; avatarUrl: string | null; count: number }
+
+function CommitsStats({ commits, totalCommits }: { commits: ReturnType<typeof branchCommits>; totalCommits: number }) {
+  const stats = useMemo(() => {
+    const times = commits.map((c) => new Date(c.committedDate).getTime())
+    const newest = Math.max(...times)
+    const oldest = Math.min(...times)
+    const spanDays = Math.max(1, (newest - oldest) / 86_400_000)
+    const rate = (commits.length / spanDays) * 7 // commits / week in the visible window
+
+    const byAuthor = new Map<string, Contributor>()
+    for (const c of commits) {
+      const login = c.author?.user?.login ?? c.author?.name ?? 'unknown'
+      const avatarUrl = c.author?.user?.avatarUrl ?? null
+      const cur = byAuthor.get(login)
+      if (cur) cur.count += 1
+      else byAuthor.set(login, { login, avatarUrl, count: 1 })
+    }
+    const contributors = Array.from(byAuthor.values()).toSorted((a, b) => b.count - a.count).slice(0, 4)
+
+    // Distinct days touched in the visible window.
+    const days = new Set(commits.map((c) => c.committedDate.slice(0, 10)))
+
+    return {
+      lastCommitAge: shortAgo(new Date(newest).toISOString()),
+      windowSpan: spanDays >= 1 ? `last ${Math.round(spanDays)}d` : 'last day',
+      rate: rate.toFixed(1),
+      activeDays: days.size,
+      contributors
+    }
+  }, [commits])
+
+  return (
+    <section className="hs-surface rd-commits-stats">
+      <div className="rd-stat-block">
+        <span className="rd-stat-num">{totalCommits.toLocaleString()}</span>
+        <span className="rd-stat-label">total commits</span>
+      </div>
+      <div className="rd-stat-block">
+        <span className="rd-stat-num">{stats.rate}</span>
+        <span className="rd-stat-label">/ week ({stats.windowSpan})</span>
+      </div>
+      <div className="rd-stat-block">
+        <span className="rd-stat-num">{stats.activeDays}</span>
+        <span className="rd-stat-label">active days ({stats.windowSpan})</span>
+      </div>
+      <div className="rd-stat-block">
+        <span className="rd-stat-num">{stats.lastCommitAge}</span>
+        <span className="rd-stat-label">since last commit</span>
+      </div>
+      {stats.contributors.length > 0 && (
+        <div className="rd-stat-block rd-stat-contributors">
+          <span className="rd-stat-label">Top contributors ({commits.length} commits sampled)</span>
+          <div className="rd-contributor-list">
+            {stats.contributors.map((c) => (
+              <span key={c.login} className="rd-contributor" title={`${c.login} — ${c.count} commit${c.count === 1 ? '' : 's'}`}>
+                {c.avatarUrl ? <img src={c.avatarUrl} alt="" /> : <span className="rd-contributor-fallback" />}
+                <span className="rd-contributor-login">@{c.login}</span>
+                <span className="rd-contributor-count">{c.count}</span>
+              </span>
+            ))}
           </div>
-        </a>
-      ))}
+        </div>
+      )}
     </section>
   )
 }

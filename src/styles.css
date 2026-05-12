@@ -1739,6 +1739,95 @@ button:disabled { opacity: 0.5; cursor: not-allowed; }
   white-space: nowrap;
 }
 
+/* ----- Commits tab stats strip ----- */
+.rd-commits { display: flex; flex-direction: column; gap: 12px; }
+.rd-commits-stats {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 14px 18px;
+  padding: 14px 16px;
+}
+.rd-commits-stats .rd-stat-contributors { grid-column: 1 / -1; }
+.rd-stat-block { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.rd-stat-num {
+  font-size: 1.4em;
+  font-weight: 600;
+  color: var(--text);
+  line-height: 1.1;
+}
+.rd-stat-label {
+  font-size: 0.78em;
+  color: var(--muted);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+@media (max-width: 900px) {
+  .rd-commits-stats { grid-template-columns: repeat(2, 1fr); }
+}
+
+.rd-contributor-list { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 8px; }
+.rd-contributor {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 3px 10px 3px 4px;
+  background: var(--panel-2);
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  font-size: 0.82em;
+}
+.rd-contributor img,
+.rd-contributor-fallback {
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  object-fit: cover;
+}
+.rd-contributor-fallback { background: var(--border); }
+.rd-contributor-login { color: var(--text); }
+.rd-contributor-count {
+  background: var(--bg);
+  color: var(--accent);
+  padding: 1px 6px;
+  border-radius: 8px;
+  font-size: 0.86em;
+}
+
+/* Commit row avatar */
+.rd-row-avatar {
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  object-fit: cover;
+}
+
+/* ----- Branches surface ----- */
+.rd-branch {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 4px 0;
+  font-size: 0.88em;
+}
+.rd-branch:not(:last-child) { border-bottom: 1px solid var(--border-soft, var(--border)); }
+.rd-branch-icon { color: var(--muted); flex-shrink: 0; }
+.rd-branch-name {
+  flex: 0 1 auto;
+  min-width: 0;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--text);
+}
+.rd-branch-meta {
+  margin-left: auto;
+  font-size: 0.85em;
+  white-space: nowrap;
+}
+
 .rd-error { margin: 0; }
 .rd-loading {
   background: var(--panel);

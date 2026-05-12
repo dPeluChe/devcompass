@@ -867,7 +867,7 @@ export async function fetchRepoDetail(token: string, owner: string, name: string
             __typename
             ... on Commit {
               oid
-              history(first: 10) {
+              history(first: 50) {
                 totalCount
                 nodes {
                   oid
