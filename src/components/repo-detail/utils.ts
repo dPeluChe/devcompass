@@ -6,6 +6,8 @@ type CommitHistoryNode = {
   committedDate: string
   url: string
   author: { name: string | null; user: { login: string; avatarUrl: string } | null } | null
+  /** Populated by associatedPullRequests(first: 1). PR merges expose their source branch via headRefName. */
+  associatedPullRequests?: { nodes: { number: number; headRefName: string }[] }
 }
 
 /** Extracts commit history from defaultBranchRef.target — only present when it's a Commit. */

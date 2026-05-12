@@ -1,4 +1,5 @@
 import { useMemo, useState } from 'react'
+import { FaCodeBranch } from 'react-icons/fa'
 import type { RepoDetail as RepoDetailT } from '../../api/github'
 import { EmptyState } from './common'
 import { branchCommits, branchCommitsTotal, shortAgo } from './utils'
@@ -22,22 +23,36 @@ export function CommitsTab({ data }: { data: RepoDetailT }) {
     <div className="rd-commits">
       <CommitsStats commits={commits} totalCommits={totalCommits} />
       <section className="hs-surface rd-list">
-        {visible.map((c) => (
-          <a key={c.oid} className="rd-row" href={c.url} target="_blank" rel="noreferrer">
-            <code className="rd-sha">{c.oid.slice(0, 7)}</code>
-            <div className="rd-row-main">
-              <div className="rd-row-title">{c.messageHeadline}</div>
-              <div className="rd-row-meta muted">
-                {c.author?.user?.avatarUrl && (
-                  <img className="rd-row-avatar" src={c.author.user.avatarUrl} alt="" />
-                )}
-                <span>{c.author?.user?.login ?? c.author?.name ?? 'unknown'}</span>
-                <span>·</span>
-                <span>{shortAgo(c.committedDate)}</span>
+        {visible.map((c) => {
+          // associatedPullRequests carries the PR (if any) that brought this
+          // commit onto the default branch. headRefName is the source branch
+          // — useful to distinguish merges from direct pushes at a glance.
+          const pr = c.associatedPullRequests?.nodes[0]
+          return (
+            <a key={c.oid} className="rd-row" href={c.url} target="_blank" rel="noreferrer">
+              <code className="rd-sha">{c.oid.slice(0, 7)}</code>
+              <div className="rd-row-main">
+                <div className="rd-row-title">
+                  {c.messageHeadline}
+                  {pr && (
+                    <span className="rd-branch-chip" title={`Merged via PR #${pr.number} from ${pr.headRefName}`}>
+                      <FaCodeBranch size={9} />
+                      {pr.headRefName}
+                    </span>
+                  )}
+                </div>
+                <div className="rd-row-meta muted">
+                  {c.author?.user?.avatarUrl && (
+                    <img className="rd-row-avatar" src={c.author.user.avatarUrl} alt="" />
+                  )}
+                  <span>{c.author?.user?.login ?? c.author?.name ?? 'unknown'}</span>
+                  <span>·</span>
+                  <span>{shortAgo(c.committedDate)}</span>
+                </div>
               </div>
-            </div>
-          </a>
-        ))}
+            </a>
+          )
+        })}
       </section>
       {pageCount > 1 && (
         <nav className="rd-pager" aria-label="Commits pagination">

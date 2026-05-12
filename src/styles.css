@@ -1784,6 +1784,25 @@ button:disabled { opacity: 0.5; cursor: not-allowed; }
 }
 .rd-stat-contrib-head strong { color: var(--text); }
 
+/* Source-branch chip on each commit row (only when an associated PR exists). */
+.rd-branch-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 1px 7px;
+  background: var(--panel-2);
+  border: 1px solid var(--border);
+  border-radius: 9px;
+  color: var(--accent);
+  font-size: 0.78em;
+  font-weight: 500;
+  line-height: 1.4;
+  white-space: nowrap;
+  max-width: 240px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
 .rd-contributor-list { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 8px; }
 .rd-contributor {
   display: inline-flex;
