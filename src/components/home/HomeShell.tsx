@@ -21,8 +21,9 @@ type Props = {
   repos: Repo[]
   pinned: PinnedRepo[]
   orgs: Org[]
-  /** Initial sidebar scope. Lets the topbar tabs drop the user straight into "All repos" etc. */
-  initialScope?: ScopeKey
+  /** Scope is owned by Dashboard so topbar tabs can flip it without re-mounting the shell. */
+  scope: ScopeKey
+  onScopeChange: (key: ScopeKey) => void
   /** When set, the main column renders the repo detail browser instead of ScopeView; the sidebar stays mounted. */
   selectedRepo?: { owner: string; name: string } | null
   onOpenRepo: (repo: Repo) => void
@@ -32,17 +33,10 @@ type Props = {
 }
 
 export function HomeShell({
-  token, viewer, repos, pinned, orgs, initialScope,
+  token, viewer, repos, pinned, orgs, scope, onScopeChange,
   selectedRepo, onOpenRepo, onCloseSelectedRepo,
   onTogglePinned, onLogout
 }: Props) {
-  const [scope, setScope] = useState<ScopeKey>(initialScope ?? 'needs')
-
-  // Keep the inner scope in sync with topbar tab clicks (Dashboard re-mounts with a
-  // new initialScope when the user switches Home <-> Repos).
-  useEffect(() => {
-    if (initialScope) setScope(initialScope)
-  }, [initialScope])
   const [collapsed, setCollapsed] = useState<boolean>(() => {
     try { return localStorage.getItem(COLLAPSED_KEY) === '1' } catch { return false }
   })
@@ -149,7 +143,7 @@ export function HomeShell({
   // tap targets the content. Picking a scope also drops out of the repo
   // detail panel so the new scope is what the user sees.
   function onSelectScope(key: ScopeKey) {
-    setScope(key)
+    onScopeChange(key)
     setMobileOpen(false)
     if (selectedRepo) onCloseSelectedRepo?.()
   }

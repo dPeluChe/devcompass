@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState, useCallback } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { fetchRateLimit, fetchTokenInfo, fetchUserOrgsRest, fetchViewer, fetchOrgReposSimple, fetchViewerReposSimple, type Repo, type TokenInfo, type Org } from '../api/github'
+import type { ScopeKey } from './home/types'
 import { OrgManager } from './OrgManager'
 import { SettingsTab } from './SettingsTab'
 import { QuickSwitcher, type QSAction } from './QuickSwitcher'
@@ -187,6 +188,10 @@ export function Dashboard({ token, onLogout }: Props) {
   const data = useViewerData(token)
 
   const [view, setView] = useState<View>('home')
+  // Sidebar scope lives here (not inside HomeShell) so the topbar tabs can flip
+  // it without re-mounting the shell — avoids the effect-as-handler smell from
+  // syncing an `initialScope` prop into local state.
+  const [scope, setScope] = useState<ScopeKey>('needs')
   const [selected, setSelected] = useState<{ owner: string; name: string } | null>(null)
   const [pinned, setPinned] = useState<PinnedRepo[]>([])
   const [qsOpen, setQsOpen] = useState(false)
@@ -212,6 +217,8 @@ export function Dashboard({ token, onLogout }: Props) {
   function gotoView(target: View) {
     setView(target)
     setSelected(null)
+    if (target === 'home') setScope('needs')
+    else if (target === 'repos') setScope('repos')
   }
 
   function handleQuickPick(action: QSAction) {
@@ -347,7 +354,8 @@ export function Dashboard({ token, onLogout }: Props) {
             repos={data.repos}
             pinned={pinned}
             orgs={data.orgs}
-            initialScope={view === 'repos' ? 'repos' : 'needs'}
+            scope={scope}
+            onScopeChange={setScope}
             selectedRepo={selected}
             onOpenRepo={(repo) => {
               setSelected({ owner: repo.owner.login, name: repo.name })
