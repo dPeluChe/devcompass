@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { getDbStats, clearAllRepos, clearOldRepos, type PinnedRepo, getPinnedRepos, unpinRepo, getOrgsByOrder, getStorageBreakdown, type StorageBreakdown } from '../store/db'
+import { db, getDbStats, clearAllRepos, clearOldRepos, type PinnedRepo, getPinnedRepos, unpinRepo, getOrgsByOrder, getStorageBreakdown, type StorageBreakdown } from '../store/db'
 import { ConfirmDialog } from './ConfirmDialog'
 
 interface DbStats {
@@ -28,18 +28,8 @@ function timeAgo(ts: number): string {
   return `${Math.floor(day / 30)}mo ago`
 }
 
-/** Human label + short description for each `prefs:` key family. */
-function describePrefKey(key: string): { label: string; kind: string } {
-  if (key.startsWith('viewer:')) return { label: 'Viewer (login, orgs)', kind: 'API cache · 1h' }
-  if (key.startsWith('tokenInfo:')) return { label: 'Token info (scopes, SSO)', kind: 'API cache · 1h' }
-  if (key.startsWith('userOrgs:')) return { label: '/user/orgs', kind: 'API cache · 1h' }
-  if (key.startsWith('prDetail:')) return { label: `PR detail · ${key.slice('prDetail:'.length)}`, kind: 'API cache · 15m' }
-  if (key.startsWith('branches:')) return { label: `Branches · ${key.slice('branches:'.length)}`, kind: 'API cache · 15m' }
-  if (key.startsWith('visit:')) return { label: 'Since-last-visit snapshot', kind: 'baseline' }
-  return { label: key, kind: 'pref' }
-}
 
-type SettingsPanel = 'all' | 'storage' | 'pinned' | 'orgOrder'
+type SettingsPanel = 'all' | 'storage' | 'cache' | 'pinned' | 'orgOrder'
 
 type Props = {
   panel?: SettingsPanel
@@ -128,11 +118,6 @@ export function SettingsTab({ panel = 'all', onForceResync }: Props) {
             <span className="stat-sub muted">cached repos table</span>
           </div>
           <div className="stat">
-            <span className="stat-value">{breakdown?.orgs ?? stats?.orgCount ?? 0}</span>
-            <span className="stat-label">Orgs</span>
-            <span className="stat-sub muted">enabled/sync flags</span>
-          </div>
-          <div className="stat">
             <span className="stat-value">{breakdown?.pinned ?? stats?.pinnedCount ?? 0}</span>
             <span className="stat-label">Pinned</span>
             <span className="stat-sub muted">workbench-pinned</span>
@@ -144,21 +129,16 @@ export function SettingsTab({ panel = 'all', onForceResync }: Props) {
           </div>
           <div className="stat">
             <span className="stat-value">{breakdown?.prefs ?? 0}</span>
-            <span className="stat-label">Pref rows</span>
-            <span className="stat-sub muted">api caches + ui prefs</span>
+            <span className="stat-label">API cache rows</span>
+            <span className="stat-sub muted">see Cache tab</span>
           </div>
           <div className="stat">
-            <span className="stat-value">{breakdown?.tokensMeta ?? stats?.tokenCount ?? 0}</span>
-            <span className="stat-label">Token meta</span>
-            <span className="stat-sub muted">scopes, expiry</span>
-          </div>
-          <div className="stat" style={{ gridColumn: 'span 2' }}>
             <span className="stat-value">{formatBytes(breakdown?.usageBytes ?? null)}</span>
             <span className="stat-label">On disk</span>
             <span className="stat-sub muted">
               {breakdown?.quotaBytes
-                ? `of ~${formatBytes(breakdown.quotaBytes)} quota`
-                : 'browser doesn\'t expose total'}
+                ? `of ~${formatBytes(breakdown.quotaBytes)}`
+                : 'used'}
             </span>
           </div>
         </div>
@@ -226,26 +206,6 @@ export function SettingsTab({ panel = 'all', onForceResync }: Props) {
             </li>
           </ul>
 
-          {breakdown && breakdown.prefKeys.length > 0 && (
-            <>
-              <h3>Cached API responses ({breakdown.prefKeys.length})</h3>
-              <ul className="storage-pref-list">
-                {breakdown.prefKeys.slice(0, 20).map((p) => {
-                  const desc = describePrefKey(p.key)
-                  return (
-                    <li key={p.key}>
-                      <span className="storage-pref-label">{desc.label}</span>
-                      <span className="muted">{desc.kind}</span>
-                      <span className="muted">cached {timeAgo(p.updatedAt)}</span>
-                    </li>
-                  )
-                })}
-                {breakdown.prefKeys.length > 20 && (
-                  <li className="muted">+ {breakdown.prefKeys.length - 20} more entries</li>
-                )}
-              </ul>
-            </>
-          )}
         </div>
 
         <div className="cache-actions">
@@ -267,6 +227,10 @@ export function SettingsTab({ panel = 'all', onForceResync }: Props) {
           <strong>Clear all cache</strong> only empties storage — repos come back on the next sync.
         </p>
       </section>}
+
+      {(panel === 'all' || panel === 'cache') && breakdown && (
+        <CachePanel breakdown={breakdown} onChange={loadData} />
+      )}
 
       {(panel === 'all' || panel === 'pinned') && <section>
         <h2>Pinned Repos</h2>
@@ -330,5 +294,86 @@ export function SettingsTab({ panel = 'all', onForceResync }: Props) {
         )}
       </section>}
     </div>
+  )
+}
+
+/**
+ * Cache tab — groups the prefs-table entries (per-API response caches)
+ * by what they belong to and lets the user evict individual rows.
+ */
+function CachePanel({ breakdown, onChange }: { breakdown: StorageBreakdown; onChange: () => void }) {
+  const groups: { title: string; ttl: string; prefix: string }[] = [
+    { title: 'Viewer (login + memberships)', ttl: '1h', prefix: 'viewer:' },
+    { title: 'Token info (scopes, SSO)', ttl: '1h', prefix: 'tokenInfo:' },
+    { title: '/user/orgs', ttl: '1h', prefix: 'userOrgs:' },
+    { title: 'PR detail', ttl: '15m', prefix: 'prDetail:' },
+    { title: 'Branches', ttl: '15m', prefix: 'branches:' },
+    { title: 'Since-last-visit snapshot', ttl: '∞', prefix: 'visit:' }
+  ]
+
+  async function deleteEntry(key: string) {
+    await db.prefs.delete(key)
+    onChange()
+  }
+
+  async function deleteGroup(prefix: string) {
+    const matching = breakdown.prefKeys.filter((p) => p.key.startsWith(prefix)).map((p) => p.key)
+    if (matching.length === 0) return
+    await db.prefs.bulkDelete(matching)
+    onChange()
+  }
+
+  return (
+    <section>
+      <h2>API response cache</h2>
+      <p className="muted storage-blurb">
+        Each row below is an API call this app made and saved to IndexedDB so
+        the next request can be served locally. TTL is the freshness window —
+        after that the cache entry is ignored and a fresh call goes out.
+        Delete a row to force the next request to re-fetch.
+      </p>
+
+      {groups.map((g) => {
+        const rows = breakdown.prefKeys.filter((p) => p.key.startsWith(g.prefix))
+        return (
+          <div key={g.prefix} className="cache-group">
+            <div className="cache-group-head">
+              <span className="cache-group-title">
+                <strong>{g.title}</strong>
+                <span className="cache-group-ttl">TTL {g.ttl}</span>
+                <span className="muted">· {rows.length} cached</span>
+              </span>
+              {rows.length > 0 && (
+                <button className="cache-group-clear" onClick={() => deleteGroup(g.prefix)}>
+                  Clear group
+                </button>
+              )}
+            </div>
+            {rows.length === 0 ? (
+              <div className="cache-group-empty muted">No entries.</div>
+            ) : (
+              <ul className="cache-row-list">
+                {rows.map((r) => {
+                  const sub = r.key.slice(g.prefix.length)
+                  return (
+                    <li key={r.key}>
+                      <code className="cache-row-key">{sub || '(default)'}</code>
+                      <span className="muted cache-row-time">cached {timeAgo(r.updatedAt)}</span>
+                      <button
+                        className="cache-row-delete"
+                        title="Evict this entry; the next request will re-fetch"
+                        onClick={() => deleteEntry(r.key)}
+                      >
+                        ✕
+                      </button>
+                    </li>
+                  )
+                })}
+              </ul>
+            )}
+          </div>
+        )
+      })}
+    </section>
   )
 }

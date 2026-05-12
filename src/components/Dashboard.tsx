@@ -449,7 +449,7 @@ function ConfigView({
   errors: { source: string; message: string }[]
   onForceResync: () => void
 }) {
-  const [section, setSection] = useState<'orgs' | 'token' | 'storage' | 'pinned'>('orgs')
+  const [section, setSection] = useState<'orgs' | 'token' | 'storage' | 'cache' | 'pinned'>('orgs')
 
   // Collaborator-only orgs: own at least one repo that arrived via the viewer's
   // COLLABORATOR affiliation but aren't in viewer.organizations / /user/orgs.
@@ -478,6 +478,9 @@ function ConfigView({
         </button>
         <button className={`config-tab ${section === 'storage' ? 'active' : ''}`} onClick={() => setSection('storage')}>
           Storage
+        </button>
+        <button className={`config-tab ${section === 'cache' ? 'active' : ''}`} onClick={() => setSection('cache')}>
+          Cache
         </button>
         <button className={`config-tab ${section === 'pinned' ? 'active' : ''}`} onClick={() => setSection('pinned')}>
           Pinned
@@ -546,6 +549,7 @@ function ConfigView({
         )}
 
         {section === 'storage' && <SettingsTab panel="storage" onForceResync={onForceResync} />}
+        {section === 'cache' && <SettingsTab panel="cache" onForceResync={onForceResync} />}
         {section === 'pinned' && <SettingsTab panel="pinned" />}
       </div>
     </main>
