@@ -927,25 +927,28 @@ export type Branch = {
 }
 
 export async function fetchBranches(token: string, owner: string, name: string): Promise<Branch[]> {
+  // The Repository type has no "branches" field — branches are refs under
+  // refs/heads/. RefOrder doesn't expose a commit-date sort either, so we
+  // pull alphabetically and sort by the underlying commit date client-side.
   const data = await gql<{
     repository: {
-      branches: {
+      refs: {
         nodes: {
           name: string
           target: {
-            committedDate: string
-            messageHeadline: string
-            author: { user: { login: string; avatarUrl: string } | null } | null
-          }
+            committedDate?: string
+            messageHeadline?: string
+            author?: { user: { login: string; avatarUrl: string } | null } | null
+          } | null
         }[]
-      }
+      } | null
     }
   }>(
     token,
     `
     query($owner: String!, $name: String!) {
       repository(owner: $owner, name: $name) {
-        branches(first: 100, orderBy: { field: COMMIT_DATE, direction: DESC }) {
+        refs(refPrefix: "refs/heads/", first: 100, orderBy: { field: ALPHABETICAL, direction: ASC }) {
           nodes {
             name
             target {
@@ -962,5 +965,19 @@ export async function fetchBranches(token: string, owner: string, name: string):
   `,
     { owner, name }
   )
-  return data.repository.branches.nodes
+  const nodes = data.repository.refs?.nodes ?? []
+  return nodes
+    .flatMap((n) => {
+      const t = n.target
+      if (!t || !t.committedDate) return []
+      return [{
+        name: n.name,
+        target: {
+          committedDate: t.committedDate,
+          messageHeadline: t.messageHeadline ?? '',
+          author: t.author ?? null
+        }
+      }]
+    })
+    .toSorted((a, b) => new Date(b.target.committedDate).getTime() - new Date(a.target.committedDate).getTime())
 }
