@@ -135,6 +135,17 @@ export async function getCachedRepos(orgLogin: string, maxAgeHours = 24 * 7): Pr
     .toArray()
 }
 
+/**
+ * Returns every cached repo regardless of owner. Needed because collaborator
+ * repos come through the viewer's COLLABORATOR affiliation: they're stored
+ * with `owner.login = <collab-org>`, but that login isn't in sourcesToSync,
+ * so the per-org getCachedRepos read would miss them on a normal reload.
+ */
+export async function getAllCachedRepos(maxAgeHours = 24 * 7): Promise<CachedRepo[]> {
+  const cutoff = Date.now() - (maxAgeHours * 60 * 60 * 1000)
+  return db.repos.filter(r => r.cachedAt > cutoff).toArray()
+}
+
 export async function clearOldRepos(maxAgeHours = 24) {
   const cutoff = Date.now() - (maxAgeHours * 60 * 60 * 1000)
   await db.repos.where('cachedAt').below(cutoff).delete()

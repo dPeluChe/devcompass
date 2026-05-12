@@ -11,7 +11,7 @@ import { HomeSkeleton } from './home/HomeSkeleton'
 import { Pulse } from './ui'
 import { useGlobalShortcuts } from '../hooks/useGlobalShortcuts'
 import { orgConfigStore } from '../store/orgConfig'
-import { cacheRepos, db, getCachedPref, getCachedRepos, getPinnedRepos, pinRepo, savePref, unpinRepo, type PinnedRepo } from '../store/db'
+import { cacheRepos, db, getAllCachedRepos, getCachedPref, getPinnedRepos, pinRepo, savePref, unpinRepo, type PinnedRepo } from '../store/db'
 
 export { Skeleton, CardSkeleton, FadeIn, Pulse } from './ui'
 
@@ -113,11 +113,17 @@ function useViewerData(token: string) {
     const cachedByOrg = new Map<string, Repo[]>()
     const sourcesToSync = [v.login, ...syncingOrgs.filter((login) => login !== v.login)]
 
-    await Promise.all(sourcesToSync.map(async (login) => {
-      const cached = await getCachedRepos(login)
-      cachedByOrg.set(login, cached)
-      for (const r of cached) byId.set(r.id, r)
-    }))
+    // Read ALL cached repos (not just for sourcesToSync logins) so collaborator
+    // repos that came in via the viewer's COLLABORATOR affiliation — owned by
+    // orgs we never iterate explicitly — survive reloads. The per-org buckets
+    // still drive the "needs sync" check below.
+    const allCached = await getAllCachedRepos()
+    for (const r of allCached) byId.set(r.id, r)
+    for (const login of sourcesToSync) cachedByOrg.set(login, [])
+    for (const r of allCached) {
+      const bucket = cachedByOrg.get(r.owner.login)
+      if (bucket) bucket.push(r)
+    }
 
     if (byId.size > 0) {
       setRepos(sortRepos([...byId.values()]))

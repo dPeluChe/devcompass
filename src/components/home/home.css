@@ -1205,8 +1205,24 @@
   font-size: 0.78em;
   color: var(--muted);
   margin-bottom: 6px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
 }
 .hs-log-meta strong { color: var(--text); font-weight: 500; }
+.hs-log-copy {
+  background: var(--panel-2);
+  border: 1px solid var(--border);
+  color: var(--text);
+  padding: 3px 10px;
+  border-radius: 6px;
+  cursor: pointer;
+  font: inherit;
+  font-size: 0.95em;
+  flex-shrink: 0;
+}
+.hs-log-copy:hover { border-color: var(--accent); color: var(--accent); }
 .hs-log-pre {
   margin: 0;
   padding: 10px 12px;
@@ -1219,6 +1235,11 @@
   white-space: pre;
   overflow: auto;
   max-height: 360px;
+  /* Make sure the log text is actually selectable — `user-select: none` on a
+     parent (e.g. a button-styled wrapper) would otherwise propagate. */
+  user-select: text;
+  -webkit-user-select: text;
+  cursor: text;
 }
 
 

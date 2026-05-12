@@ -144,6 +144,25 @@ function CheckItem({ row, token, owner, repo }: { row: CheckRow; token: string; 
   const [loading, setLoading] = useState(false)
   const [err, setErr] = useState<string | null>(null)
   const [matchedJob, setMatchedJob] = useState<WorkflowJob | null>(null)
+  const [copied, setCopied] = useState(false)
+
+  async function copyLog() {
+    if (!log) return
+    try {
+      await navigator.clipboard.writeText(log)
+      setCopied(true)
+      setTimeout(() => setCopied(false), 1500)
+    } catch {
+      // Fallback: select the <pre> text so the user can Cmd/Ctrl+C manually.
+      const pre = document.querySelector<HTMLPreElement>('.hs-log-pre')
+      if (!pre) return
+      const range = document.createRange()
+      range.selectNodeContents(pre)
+      const sel = window.getSelection()
+      sel?.removeAllRanges()
+      sel?.addRange(range)
+    }
+  }
 
   // Only Actions-driven CheckRuns can yield logs (need workflow run id + matching job).
   const supportsLog = !!row.workflowRunId
@@ -226,9 +245,17 @@ function CheckItem({ row, token, owner, repo }: { row: CheckRow; token: string; 
                       <a href={matchedJob.html_url} target="_blank" rel="noopener noreferrer">Open full log on GitHub →</a>
                     )}
                   </span>
-                ) : null}
+                ) : <span />}
+                <button
+                  type="button"
+                  className="hs-log-copy"
+                  onClick={copyLog}
+                  title="Copy the full log to clipboard"
+                >
+                  {copied ? '✓ Copied' : '⎘ Copy log'}
+                </button>
               </div>
-              <pre className="hs-log-pre">{log}</pre>
+              <pre className="hs-log-pre" onClick={(e) => e.stopPropagation()}>{log}</pre>
             </>
           )}
         </div>

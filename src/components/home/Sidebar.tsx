@@ -80,8 +80,8 @@ export function Sidebar({
       title: `${ORG_KIND_TITLE[o.kind]} · @${o.login} · ${o.count} repo${o.count === 1 ? '' : 's'}`,
       count: o.count
     })
-    if (owned.length > 0) groups.push({ title: 'Orgs', items: owned.map(toItem) })
-    if (collaborators.length > 0) groups.push({ title: 'Collaborators', items: collaborators.map(toItem) })
+    if (owned.length > 0) groups.push({ title: 'Orgs — Member', items: owned.map(toItem) })
+    if (collaborators.length > 0) groups.push({ title: 'Orgs — Collaborator', items: collaborators.map(toItem) })
   }
   groups.push({
     title: 'Insights',
