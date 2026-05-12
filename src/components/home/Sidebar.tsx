@@ -68,17 +68,20 @@ export function Sidebar({
       ]
     }
   ]
+  // Split membership orgs (self + member) and collaborator-only orgs into two
+  // sections so the relationship is visible without a tooltip.
   if (orgs && orgs.length > 0) {
-    groups.push({
-      title: 'Orgs',
-      items: orgs.map((o) => ({
-        key: `org:${o.login}`,
-        label: o.kind === 'self' ? 'Personal' : o.login,
-        icon: ORG_KIND_ICON[o.kind],
-        title: `${ORG_KIND_TITLE[o.kind]} · @${o.login} · ${o.count} repo${o.count === 1 ? '' : 's'}`,
-        count: o.count
-      }))
+    const owned = orgs.filter((o) => o.kind === 'self' || o.kind === 'member')
+    const collaborators = orgs.filter((o) => o.kind === 'collaborator')
+    const toItem = (o: OrgEntry): ItemDef => ({
+      key: `org:${o.login}`,
+      label: o.kind === 'self' ? 'Personal' : o.login,
+      icon: ORG_KIND_ICON[o.kind],
+      title: `${ORG_KIND_TITLE[o.kind]} · @${o.login} · ${o.count} repo${o.count === 1 ? '' : 's'}`,
+      count: o.count
     })
+    if (owned.length > 0) groups.push({ title: 'Orgs', items: owned.map(toItem) })
+    if (collaborators.length > 0) groups.push({ title: 'Collaborators', items: collaborators.map(toItem) })
   }
   groups.push({
     title: 'Insights',
@@ -106,9 +109,10 @@ export function Sidebar({
             {group.items.map((item) => (
               <button
                 key={item.key}
-                className={`hs-sidebar-item ${active === item.key ? 'active' : ''} ${item.hasAttn ? 'has-attn' : ''}`}
+                className={`hs-sidebar-item hs-tip ${active === item.key ? 'active' : ''} ${item.hasAttn ? 'has-attn' : ''}`}
                 onClick={() => onSelect(item.key)}
-                title={item.title ?? item.label}
+                data-tip={item.title ?? item.label}
+                aria-label={item.title ?? item.label}
               >
                 <span className="hs-icon">{item.icon}</span>
                 <span className="hs-label">{item.label}</span>
