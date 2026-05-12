@@ -43,6 +43,11 @@
 .hs-sidebar-scroll {
   flex: 1;
   overflow-y: auto;
+  /* Without this, an `.hs-tip::after` positioned to the right of an item
+     pushes the scroll container's content box past the sidebar width, which
+     showed up as an unwanted horizontal scrollbar in the Collaborators
+     group (where some org names are long). */
+  overflow-x: hidden;
   padding: 6px 10px 10px;
 }
 .hs-sidebar-group { margin-bottom: 14px; }
@@ -1486,9 +1491,29 @@
   opacity: 1;
   transition-delay: .25s;
 }
-/* The sidebar tooltip can be wide; let it wrap if longer than the available
-   right-side gutter on narrow viewports. */
-.hs-sidebar-item.hs-tip::after { max-width: 280px; white-space: normal; }
+/* Sidebar tooltips render directly below the item (not to the right) so
+   they stay inside the sidebar's narrow column and don't trigger horizontal
+   overflow. Multi-line wrap is OK; the bubble has a small caret pointing
+   back up at the trigger. */
+.hs-sidebar-item.hs-tip::after {
+  left: 6px;
+  right: 6px;
+  top: 100%;
+  bottom: auto;
+  transform: none;
+  margin: 8px 0 0;
+  max-width: none;
+  white-space: normal;
+}
+.hs-sidebar-item.hs-tip::before {
+  left: 16px;
+  top: 100%;
+  bottom: auto;
+  transform: none;
+  margin: -2px 0 0;
+  border-right-color: transparent;
+  border-bottom-color: var(--border);
+}
 
 /* skeleton */
 .hs-skeleton-bar {
