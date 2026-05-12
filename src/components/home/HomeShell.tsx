@@ -6,6 +6,7 @@ import { Sidebar, type OrgEntry } from './Sidebar'
 import { UserFooter } from './UserFooter'
 import { ScopeView } from './ScopeView'
 import { DetailModal } from './DetailModal'
+import { RepoBrowser } from '../RepoBrowser'
 import { useNeedsMe, useSnoozes } from './useNeedsMe'
 import { useSinceLastVisit } from './useSinceLastVisit'
 import type { AttentionItem, ScopeKey } from './types'
@@ -22,12 +23,19 @@ type Props = {
   orgs: Org[]
   /** Initial sidebar scope. Lets the topbar tabs drop the user straight into "All repos" etc. */
   initialScope?: ScopeKey
+  /** When set, the main column renders the repo detail browser instead of ScopeView; the sidebar stays mounted. */
+  selectedRepo?: { owner: string; name: string } | null
   onOpenRepo: (repo: Repo) => void
+  onCloseSelectedRepo?: () => void
   onTogglePinned: (repo: Repo) => void
   onLogout: () => void
 }
 
-export function HomeShell({ token, viewer, repos, pinned, orgs, initialScope, onOpenRepo, onTogglePinned, onLogout }: Props) {
+export function HomeShell({
+  token, viewer, repos, pinned, orgs, initialScope,
+  selectedRepo, onOpenRepo, onCloseSelectedRepo,
+  onTogglePinned, onLogout
+}: Props) {
   const [scope, setScope] = useState<ScopeKey>(initialScope ?? 'needs')
 
   // Keep the inner scope in sync with topbar tab clicks (Dashboard re-mounts with a
@@ -138,10 +146,12 @@ export function HomeShell({ token, viewer, repos, pinned, orgs, initialScope, on
   // On mobile the sidebar is hidden by default and slides in over the content
   // when the user taps the ≡ button in the topbar (rendered by Dashboard) or
   // the floating toggle below. Selecting a scope auto-closes it so the next
-  // tap targets the content.
+  // tap targets the content. Picking a scope also drops out of the repo
+  // detail panel so the new scope is what the user sees.
   function onSelectScope(key: ScopeKey) {
     setScope(key)
     setMobileOpen(false)
+    if (selectedRepo) onCloseSelectedRepo?.()
   }
 
   return (
@@ -174,18 +184,28 @@ export function HomeShell({ token, viewer, repos, pinned, orgs, initialScope, on
         footer={<UserFooter viewer={viewer} collapsed={collapsed} onLogout={onLogout} />}
       />
 
-      <ScopeView
-        scope={scope}
-        token={token}
-        viewer={viewer}
-        repos={repos}
-        pinned={pinned}
-        snoozes={snoozes}
-        onOpenItem={selectItem}
-        onSnoozeItem={handleSnooze}
-        onOpenRepo={onOpenRepo}
-        onTogglePinned={onTogglePinned}
-      />
+      {selectedRepo ? (
+        <RepoBrowser
+          token={token}
+          repos={repos}
+          current={selectedRepo}
+          onSelect={onOpenRepo}
+          onClose={() => onCloseSelectedRepo?.()}
+        />
+      ) : (
+        <ScopeView
+          scope={scope}
+          token={token}
+          viewer={viewer}
+          repos={repos}
+          pinned={pinned}
+          snoozes={snoozes}
+          onOpenItem={selectItem}
+          onSnoozeItem={handleSnooze}
+          onOpenRepo={onOpenRepo}
+          onTogglePinned={onTogglePinned}
+        />
+      )}
 
       <DetailModal
         token={token}
