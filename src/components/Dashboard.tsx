@@ -11,7 +11,7 @@ import { HomeSkeleton } from './home/HomeSkeleton'
 import { Pulse } from './ui'
 import { useGlobalShortcuts } from '../hooks/useGlobalShortcuts'
 import { orgConfigStore } from '../store/orgConfig'
-import { cacheRepos, getCachedRepos, getPinnedRepos, pinRepo, unpinRepo, type PinnedRepo } from '../store/db'
+import { cacheRepos, db, getCachedPref, getCachedRepos, getPinnedRepos, pinRepo, savePref, unpinRepo, type PinnedRepo } from '../store/db'
 
 export { Skeleton, CardSkeleton, FadeIn, Pulse } from './ui'
 
@@ -28,23 +28,45 @@ function useViewerData(token: string) {
   const [refreshSeq, setRefreshSeq] = useState(0)
   const inFlight = useRef(false)
   
+  // 1h IndexedDB TTL on the per-session metadata so reloads don't burn
+  // viewer/tokenInfo/userOrgs calls when the cache is still fresh.
+  const SCALAR_CACHE_TTL = 60 * 60 * 1000
+
   const viewerQuery = useQuery({
     queryKey: ['viewer', token],
-    queryFn: () => fetchViewer(token),
-    staleTime: 30 * 60 * 1000,
+    queryFn: async () => {
+      const cached = await getCachedPref<Awaited<ReturnType<typeof fetchViewer>>>(`viewer:${token}`, SCALAR_CACHE_TTL)
+      if (cached) return cached
+      const fresh = await fetchViewer(token)
+      await savePref(`viewer:${token}`, fresh)
+      return fresh
+    },
+    staleTime: SCALAR_CACHE_TTL,
   })
 
   const tokenInfoQuery = useQuery({
     queryKey: ['tokenInfo', token],
-    queryFn: () => fetchTokenInfo(token),
-    staleTime: 30 * 60 * 1000,
+    queryFn: async () => {
+      const cached = await getCachedPref<Awaited<ReturnType<typeof fetchTokenInfo>>>(`tokenInfo:${token}`, SCALAR_CACHE_TTL)
+      if (cached) return cached
+      const fresh = await fetchTokenInfo(token)
+      await savePref(`tokenInfo:${token}`, fresh)
+      return fresh
+    },
+    staleTime: SCALAR_CACHE_TTL,
     enabled: !!token,
   })
 
   const userOrgsQuery = useQuery({
     queryKey: ['userOrgs', token],
-    queryFn: () => fetchUserOrgsRest(token),
-    staleTime: 30 * 60 * 1000,
+    queryFn: async () => {
+      const cached = await getCachedPref<Awaited<ReturnType<typeof fetchUserOrgsRest>>>(`userOrgs:${token}`, SCALAR_CACHE_TTL)
+      if (cached) return cached
+      const fresh = await fetchUserOrgsRest(token)
+      await savePref(`userOrgs:${token}`, fresh)
+      return fresh
+    },
+    staleTime: SCALAR_CACHE_TTL,
     enabled: !!token,
   })
 
@@ -159,9 +181,15 @@ function useViewerData(token: string) {
     rateLimitQuery.refetch()
   }, [refreshSeq])
 
-  const refresh = useCallback(() => {
+  const refresh = useCallback(async () => {
+    // Drop the IDB scalar caches so the next queryFn run goes to the network
+    // instead of returning the stored-but-not-yet-TTL'd value. Then refetch
+    // the three queries imperatively. Repo sync is handled below via the
+    // refreshSeq effect.
+    await db.prefs.bulkDelete([`viewer:${token}`, `tokenInfo:${token}`, `userOrgs:${token}`])
+    await Promise.all([viewerQuery.refetch(), tokenInfoQuery.refetch(), userOrgsQuery.refetch()])
     setRefreshSeq((n) => n + 1)
-  }, [])
+  }, [token, viewerQuery, tokenInfoQuery, userOrgsQuery])
 
   return {
     viewer: viewerQuery.data,

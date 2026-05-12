@@ -162,6 +162,27 @@ export async function getPref<T>(key: string, defaultValue: T): Promise<T> {
   return row ? (row.value as T) : defaultValue
 }
 
+/**
+ * TTL-aware cache backed by the `prefs` table. Returns null when the row is
+ * missing or older than `ttlMs`. Use savePref(key, value) to write — the
+ * timestamp is the row's `updatedAt`.
+ *
+ * Wrap a fetch with `getCachedPref` to skip the network when fresh data is
+ * already in IndexedDB:
+ *
+ *   const cached = await getCachedPref<T>('viewer', 60 * 60 * 1000)
+ *   if (cached) return cached
+ *   const fresh = await fetchViewer(token)
+ *   await savePref('viewer', fresh)
+ *   return fresh
+ */
+export async function getCachedPref<T>(key: string, ttlMs: number): Promise<T | null> {
+  const row = await db.prefs.get(key)
+  if (!row) return null
+  if (Date.now() - row.updatedAt > ttlMs) return null
+  return row.value as T
+}
+
 export async function saveTokenMeta(token: string, expiresAt: number | null, scopes: string[], note = 'github_pat') {
   await db.tokens.put({
     id: 'current',

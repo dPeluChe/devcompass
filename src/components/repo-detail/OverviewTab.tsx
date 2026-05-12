@@ -1,6 +1,7 @@
 import { useQuery } from '@tanstack/react-query'
 import { FaCodeBranch, FaStar } from 'react-icons/fa'
 import { fetchBranches, type Branch, type RepoDetail as RepoDetailT } from '../../api/github'
+import { getCachedPref, savePref } from '../../store/db'
 import { KV, Surface } from './common'
 import { branchCommitsTotal, fmtDate, pct, shortAgo } from './utils'
 
@@ -61,7 +62,16 @@ export function OverviewTab({ token, owner, name, data }: { token: string; owner
 function BranchesSurface({ token, owner, name, defaultBranch }: { token: string; owner: string; name: string; defaultBranch: string | null }) {
   const { data, isLoading, error } = useQuery({
     queryKey: ['branches', owner, name],
-    queryFn: () => fetchBranches(token, owner, name),
+    queryFn: async () => {
+      // 15-min IndexedDB cache so revisiting the same repo doesn't re-fetch
+      // the branch list every time.
+      const key = `branches:${owner}/${name}`
+      const cached = await getCachedPref<Branch[]>(key, 15 * 60 * 1000)
+      if (cached) return cached
+      const fresh = await fetchBranches(token, owner, name)
+      await savePref(key, fresh)
+      return fresh
+    },
     staleTime: 5 * 60 * 1000
   })
   const branches: Branch[] = data ?? []

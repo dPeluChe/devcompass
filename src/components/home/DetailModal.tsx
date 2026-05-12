@@ -13,6 +13,7 @@ import {
   type ReviewEvent
 } from '../../api/github'
 import { queryKeys } from '../../store/queries'
+import { getCachedPref, savePref } from '../../store/db'
 import { SanitizedMarkdown } from '../SanitizedMarkdown'
 import { ConfirmDialog } from '../ConfirmDialog'
 import { OrgChip } from './OrgChip'
@@ -63,7 +64,16 @@ export function DetailModal({ token, viewerLogin, item, onClose, onSnooze }: Pro
 
   const detailQuery = useQuery<PRDetail, Error>({
     queryKey: item ? queryKeys.pr(item.org, item.repo, item.number) : ['pr-detail-disabled'],
-    queryFn: () => fetchPullRequestDetail(token, item!.org, item!.repo, item!.number),
+    queryFn: async () => {
+      // 15-min IndexedDB cache for PR detail — opening the same PR twice in a
+      // session (or across reloads) skips the GraphQL round-trip.
+      const key = `prDetail:${item!.org}/${item!.repo}/${item!.number}`
+      const cached = await getCachedPref<PRDetail>(key, 15 * 60 * 1000)
+      if (cached) return cached
+      const fresh = await fetchPullRequestDetail(token, item!.org, item!.repo, item!.number)
+      await savePref(key, fresh)
+      return fresh
+    },
     enabled: open,
     staleTime: 60 * 1000
   })
