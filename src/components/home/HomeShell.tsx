@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback, useMemo } from 'react'
-import type { Org, Repo, Viewer } from '../../api/github'
+import type { Repo, Viewer } from '../../api/github'
 import type { PinnedRepo } from '../../store/db'
 import { snoozePr } from '../../store/db'
 import { Sidebar, type OrgEntry } from './Sidebar'
@@ -20,7 +20,6 @@ type Props = {
   viewer: Viewer | undefined
   repos: Repo[]
   pinned: PinnedRepo[]
-  orgs: Org[]
   /** Scope is owned by Dashboard so topbar tabs can flip it without re-mounting the shell. */
   scope: ScopeKey
   onScopeChange: (key: ScopeKey) => void
@@ -33,7 +32,7 @@ type Props = {
 }
 
 export function HomeShell({
-  token, viewer, repos, pinned, orgs, scope, onScopeChange,
+  token, viewer, repos, pinned, scope, onScopeChange,
   selectedRepo, onOpenRepo, onCloseSelectedRepo,
   onTogglePinned, onLogout
 }: Props) {
@@ -73,22 +72,22 @@ export function HomeShell({
 
   const active7dCount = repos.filter((r) => Date.now() - new Date(r.pushedAt).getTime() < 7 * 86_400_000).length
 
-  // Counts per org for the Orgs sidebar group. Viewer first, then by count desc so the
-  // user's heaviest orgs surface at the top.
+  // Counts per org for the Orgs sidebar group. Derived from the loaded repos
+  // rather than viewer.organizations so we include orgs the user is only a
+  // collaborator on (not a formal member) — same source as the All repos
+  // chip row, so the two views stay consistent.
   const orgEntries = useMemo<OrgEntry[]>(() => {
     const counts = new Map<string, number>()
     for (const r of repos) counts.set(r.owner.login, (counts.get(r.owner.login) ?? 0) + 1)
     const viewerLogin = viewer?.login
-    const known = new Set(orgs.map((o) => o.login))
-    if (viewerLogin) known.add(viewerLogin)
-    const entries: OrgEntry[] = []
-    for (const login of known) entries.push({ login, count: counts.get(login) ?? 0 })
-    return entries.toSorted((a, b) => {
-      if (a.login === viewerLogin) return -1
-      if (b.login === viewerLogin) return 1
-      return b.count - a.count || a.login.localeCompare(b.login)
-    })
-  }, [orgs, repos, viewer?.login])
+    return Array.from(counts.entries())
+      .map(([login, count]) => ({ login, count }))
+      .toSorted((a, b) => {
+        if (a.login === viewerLogin) return -1
+        if (b.login === viewerLogin) return 1
+        return b.count - a.count || a.login.localeCompare(b.login)
+      })
+  }, [repos, viewer?.login])
 
   useEffect(() => {
     try { localStorage.setItem(COLLAPSED_KEY, collapsed ? '1' : '0') } catch {}
