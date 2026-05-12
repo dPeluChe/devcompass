@@ -102,24 +102,35 @@ function CommitsStats({ commits, totalCommits }: { commits: ReturnType<typeof br
   return (
     <section className="hs-surface rd-commits-stats">
       <div className="rd-stat-block">
-        <span className="rd-stat-num">{totalCommits.toLocaleString()}</span>
+        <span className="rd-stat-num">
+          {totalCommits.toLocaleString()}
+        </span>
         <span className="rd-stat-label">total commits</span>
+        <span className="rd-stat-sub">all-time</span>
       </div>
       <div className="rd-stat-block">
-        <span className="rd-stat-num">{stats.rate}</span>
-        <span className="rd-stat-label">/ week ({stats.windowSpan})</span>
+        <span className="rd-stat-num">
+          {stats.rate}<span className="rd-stat-unit">/wk</span>
+        </span>
+        <span className="rd-stat-label">commits per week</span>
+        <span className="rd-stat-sub">{stats.windowSpan}</span>
       </div>
       <div className="rd-stat-block">
-        <span className="rd-stat-num">{stats.activeDays}</span>
-        <span className="rd-stat-label">active days ({stats.windowSpan})</span>
+        <span className="rd-stat-num">
+          {stats.activeDays}
+        </span>
+        <span className="rd-stat-label">active days</span>
+        <span className="rd-stat-sub">{stats.windowSpan}</span>
       </div>
       <div className="rd-stat-block">
         <span className="rd-stat-num">{stats.lastCommitAge}</span>
-        <span className="rd-stat-label">since last commit</span>
+        <span className="rd-stat-label">last commit</span>
+        <span className="rd-stat-sub">most recent push</span>
       </div>
       {stats.contributors.length > 0 && (
         <div className="rd-stat-block rd-stat-contributors">
-          <span className="rd-stat-label">Top contributors ({commits.length} commits sampled)</span>
+          <span className="rd-stat-label">Top contributors</span>
+          <span className="rd-stat-sub">sampled from the {commits.length} most recent commits</span>
           <div className="rd-contributor-list">
             {stats.contributors.map((c) => (
               <span key={c.login} className="rd-contributor" title={`${c.login} — ${c.count} commit${c.count === 1 ? '' : 's'}`}>
