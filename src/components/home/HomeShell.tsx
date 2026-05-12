@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useMemo } from 'react'
+import { useState, useEffect, useCallback, useMemo, type ReactNode } from 'react'
 import type { Org, Repo, Viewer } from '../../api/github'
 import type { PinnedRepo } from '../../store/db'
 import { snoozePr } from '../../store/db'
@@ -27,6 +27,10 @@ type Props = {
   onScopeChange: (key: ScopeKey) => void
   /** When set, the main column renders the repo detail browser instead of ScopeView; the sidebar stays mounted. */
   selectedRepo?: { owner: string; name: string } | null
+  /** Optional render override for the main column — e.g. ConfigView. When provided
+   *  it replaces the scope content (still overridden by selectedRepo). Lets every
+   *  top-level view share the same shell + sidebar. */
+  mainSlot?: ReactNode
   onOpenRepo: (repo: Repo) => void
   onCloseSelectedRepo?: () => void
   onTogglePinned: (repo: Repo) => void
@@ -35,7 +39,7 @@ type Props = {
 
 export function HomeShell({
   token, viewer, repos, pinned, memberOrgs, scope, onScopeChange,
-  selectedRepo, onOpenRepo, onCloseSelectedRepo,
+  selectedRepo, mainSlot, onOpenRepo, onCloseSelectedRepo,
   onTogglePinned, onLogout
 }: Props) {
   const [collapsed, setCollapsed] = useState<boolean>(() => {
@@ -195,7 +199,7 @@ export function HomeShell({
           onSelect={onOpenRepo}
           onClose={() => onCloseSelectedRepo?.()}
         />
-      ) : (
+      ) : mainSlot ?? (
         <ScopeView
           scope={scope}
           token={token}

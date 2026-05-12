@@ -221,6 +221,14 @@ export function Dashboard({ token, onLogout }: Props) {
     else if (target === 'repos') setScope('repos')
   }
 
+  // Sidebar item clicks always exit config / detail and land on the chosen scope.
+  // Mirrors topbar tab behavior so navigation feels coherent.
+  function handleScopeChange(key: ScopeKey) {
+    setScope(key)
+    setSelected(null)
+    setView(key === 'repos' ? 'repos' : 'home')
+  }
+
   function handleQuickPick(action: QSAction) {
     if (action.kind === 'view') {
       gotoView(action.view)
@@ -339,15 +347,7 @@ export function Dashboard({ token, onLogout }: Props) {
           </div>
         </header>
 
-        {view === 'config' ? (
-          <ConfigView
-            tokenInfo={data.tokenInfo}
-            orgs={data.orgs}
-            repos={data.repos}
-            errors={data.errors}
-            onForceResync={data.refresh}
-          />
-        ) : (data.isLoading || data.progressMsg) && !selected ? (
+        {(data.isLoading || data.progressMsg) && !selected && view !== 'config' ? (
           <HomeSkeleton progressMsg={data.progressMsg} />
         ) : (
           <HomeShell
@@ -357,8 +357,17 @@ export function Dashboard({ token, onLogout }: Props) {
             pinned={pinned}
             memberOrgs={data.orgs}
             scope={scope}
-            onScopeChange={setScope}
+            onScopeChange={handleScopeChange}
             selectedRepo={selected}
+            mainSlot={view === 'config' ? (
+              <ConfigView
+                tokenInfo={data.tokenInfo}
+                orgs={data.orgs}
+                repos={data.repos}
+                errors={data.errors}
+                onForceResync={data.refresh}
+              />
+            ) : undefined}
             onOpenRepo={(repo) => {
               setSelected({ owner: repo.owner.login, name: repo.name })
               setView('repos')
@@ -425,7 +434,7 @@ function ConfigView({
   }, [orgs, repos])
 
   return (
-    <div className="config-view">
+    <main className="hs-main config-view">
       <div className="config-tabs">
         <button className={`config-tab ${section === 'orgs' ? 'active' : ''}`} onClick={() => setSection('orgs')}>
           Orgs
@@ -505,7 +514,7 @@ function ConfigView({
         {section === 'storage' && <SettingsTab panel="storage" onForceResync={onForceResync} />}
         {section === 'pinned' && <SettingsTab panel="pinned" />}
       </div>
-    </div>
+    </main>
   )
 }
 
