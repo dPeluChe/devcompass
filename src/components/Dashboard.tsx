@@ -353,6 +353,7 @@ export function Dashboard({ token, onLogout }: Props) {
             viewer={data.viewer}
             repos={data.repos}
             pinned={pinned}
+            memberOrgs={data.orgs}
             scope={scope}
             onScopeChange={setScope}
             selectedRepo={selected}

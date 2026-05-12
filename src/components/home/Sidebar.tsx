@@ -1,10 +1,29 @@
 import type { ReactNode } from 'react'
 import type { ScopeKey } from './types'
 
-type ItemDef = { key: ScopeKey; label: string; icon: string; count?: number; hasAttn?: boolean }
+type ItemDef = { key: ScopeKey; label: string; icon: string; title?: string; count?: number; hasAttn?: boolean }
 type Group = { title: string; items: ItemDef[] }
 
-export type OrgEntry = { login: string; count: number }
+/**
+ * Per-org affordance shown in the sidebar Orgs group.
+ *   - self          → the viewer's own account ("Personal")
+ *   - member        → org the viewer belongs to (viewer.organizations)
+ *   - collaborator  → org where the viewer has repo access but isn't a member
+ */
+export type OrgKind = 'self' | 'member' | 'collaborator'
+
+export type OrgEntry = { login: string; count: number; kind: OrgKind }
+
+const ORG_KIND_ICON: Record<OrgKind, string> = {
+  self: '◉',
+  member: '◆',
+  collaborator: '◇'
+}
+const ORG_KIND_TITLE: Record<OrgKind, string> = {
+  self: 'Your personal repos',
+  member: 'Member',
+  collaborator: 'Collaborator (repo access without org membership)'
+}
 
 type Props = {
   active: ScopeKey
@@ -52,7 +71,13 @@ export function Sidebar({
   if (orgs && orgs.length > 0) {
     groups.push({
       title: 'Orgs',
-      items: orgs.map((o) => ({ key: `org:${o.login}`, label: o.login, icon: '◆', count: o.count }))
+      items: orgs.map((o) => ({
+        key: `org:${o.login}`,
+        label: o.kind === 'self' ? 'Personal' : o.login,
+        icon: ORG_KIND_ICON[o.kind],
+        title: `${ORG_KIND_TITLE[o.kind]} · @${o.login} · ${o.count} repo${o.count === 1 ? '' : 's'}`,
+        count: o.count
+      }))
     })
   }
   groups.push({
@@ -83,7 +108,7 @@ export function Sidebar({
                 key={item.key}
                 className={`hs-sidebar-item ${active === item.key ? 'active' : ''} ${item.hasAttn ? 'has-attn' : ''}`}
                 onClick={() => onSelect(item.key)}
-                title={item.label}
+                title={item.title ?? item.label}
               >
                 <span className="hs-icon">{item.icon}</span>
                 <span className="hs-label">{item.label}</span>

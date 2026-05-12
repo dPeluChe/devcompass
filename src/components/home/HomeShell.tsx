@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback, useMemo } from 'react'
-import type { Repo, Viewer } from '../../api/github'
+import type { Org, Repo, Viewer } from '../../api/github'
 import type { PinnedRepo } from '../../store/db'
 import { snoozePr } from '../../store/db'
 import { Sidebar, type OrgEntry } from './Sidebar'
@@ -20,6 +20,8 @@ type Props = {
   viewer: Viewer | undefined
   repos: Repo[]
   pinned: PinnedRepo[]
+  /** Membership orgs (viewer.organizations). Used to label sidebar items as member vs collaborator. */
+  memberOrgs: Org[]
   /** Scope is owned by Dashboard so topbar tabs can flip it without re-mounting the shell. */
   scope: ScopeKey
   onScopeChange: (key: ScopeKey) => void
@@ -32,7 +34,7 @@ type Props = {
 }
 
 export function HomeShell({
-  token, viewer, repos, pinned, scope, onScopeChange,
+  token, viewer, repos, pinned, memberOrgs, scope, onScopeChange,
   selectedRepo, onOpenRepo, onCloseSelectedRepo,
   onTogglePinned, onLogout
 }: Props) {
@@ -75,19 +77,27 @@ export function HomeShell({
   // Counts per org for the Orgs sidebar group. Derived from the loaded repos
   // rather than viewer.organizations so we include orgs the user is only a
   // collaborator on (not a formal member) — same source as the All repos
-  // chip row, so the two views stay consistent.
+  // chip row, so the two views stay consistent. `kind` lets the sidebar pick
+  // a different icon + tooltip for self / member / collaborator.
   const orgEntries = useMemo<OrgEntry[]>(() => {
     const counts = new Map<string, number>()
     for (const r of repos) counts.set(r.owner.login, (counts.get(r.owner.login) ?? 0) + 1)
     const viewerLogin = viewer?.login
+    const memberSet = new Set(memberOrgs.map((o) => o.login))
     return Array.from(counts.entries())
-      .map(([login, count]) => ({ login, count }))
+      .map(([login, count]) => {
+        const kind: OrgEntry['kind'] =
+          login === viewerLogin ? 'self' :
+          memberSet.has(login) ? 'member' :
+          'collaborator'
+        return { login, count, kind }
+      })
       .toSorted((a, b) => {
         if (a.login === viewerLogin) return -1
         if (b.login === viewerLogin) return 1
         return b.count - a.count || a.login.localeCompare(b.login)
       })
-  }, [repos, viewer?.login])
+  }, [repos, memberOrgs, viewer?.login])
 
   useEffect(() => {
     try { localStorage.setItem(COLLAPSED_KEY, collapsed ? '1' : '0') } catch {}
