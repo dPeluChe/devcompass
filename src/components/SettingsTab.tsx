@@ -10,7 +10,14 @@ interface DbStats {
 
 type SettingsPanel = 'all' | 'storage' | 'pinned' | 'orgOrder'
 
-export function SettingsTab({ panel = 'all' }: { panel?: SettingsPanel }) {
+type Props = {
+  panel?: SettingsPanel
+  /** Wires Dashboard's loadReposSequentially(true) so the "Hard refresh" button
+   *  can drop the cache and pull a fresh copy without a full page reload. */
+  onForceResync?: () => void
+}
+
+export function SettingsTab({ panel = 'all', onForceResync }: Props) {
   const [stats, setStats] = useState<DbStats | null>(null)
   const [pinned, setPinned] = useState<PinnedRepo[]>([])
   const [orgs, setOrgs] = useState<{ login: string; order: number }[]>([])
@@ -33,10 +40,25 @@ export function SettingsTab({ panel = 'all' }: { panel?: SettingsPanel }) {
     setLoading(false)
   }
 
+  const [busy, setBusy] = useState<'clear' | 'hard' | null>(null)
+
   async function handleClearCache() {
-    if (!confirm('Clear all cached repos? This will force fresh fetches next time.')) return
-    await clearAllRepos()
-    await loadData()
+    if (!confirm('Clear all cached repos? They will be re-fetched on the next sync, but the app won\'t reload now.')) return
+    setBusy('clear')
+    try {
+      await clearAllRepos()
+      await loadData()
+    } finally { setBusy(null) }
+  }
+
+  async function handleHardRefresh() {
+    if (!confirm('Hard refresh: clear all cached repos AND re-fetch from GitHub now.\n\nUse this if you suspect the cache is out of sync (e.g. collaborator-only repos are missing).')) return
+    setBusy('hard')
+    try {
+      await clearAllRepos()
+      await loadData()
+      onForceResync?.()
+    } finally { setBusy(null) }
   }
 
   async function handleClearOld() {
@@ -76,9 +98,23 @@ export function SettingsTab({ panel = 'all' }: { panel?: SettingsPanel }) {
           </div>
         </div>
         <div className="cache-actions">
-          <button onClick={handleClearCache}>Clear All Cache</button>
-          <button onClick={handleClearOld}>Clear Stale Cache</button>
+          <button
+            className="hard-refresh-btn"
+            onClick={handleHardRefresh}
+            disabled={busy !== null || !onForceResync}
+            title="Clear the local cache and re-fetch every repo from GitHub. Useful when collaborator repos go missing or you suspect stale data."
+          >
+            {busy === 'hard' ? 'Refreshing…' : '↻ Hard refresh from GitHub'}
+          </button>
+          <button onClick={handleClearCache} disabled={busy !== null}>
+            {busy === 'clear' ? 'Clearing…' : 'Clear all cache'}
+          </button>
+          <button onClick={handleClearOld} disabled={busy !== null}>Clear stale cache</button>
         </div>
+        <p className="muted cache-actions-hint">
+          <strong>Hard refresh</strong> clears storage <em>and</em> pulls fresh data from GitHub.{' '}
+          <strong>Clear all cache</strong> only empties storage — repos come back on the next sync.
+        </p>
       </section>}
 
       {(panel === 'all' || panel === 'pinned') && <section>
