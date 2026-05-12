@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { getDbStats, clearAllRepos, clearOldRepos, type PinnedRepo, getPinnedRepos, unpinRepo, getOrgsByOrder } from '../store/db'
+import { getDbStats, clearAllRepos, clearOldRepos, type PinnedRepo, getPinnedRepos, unpinRepo, getOrgsByOrder, getStorageBreakdown, type StorageBreakdown } from '../store/db'
 import { ConfirmDialog } from './ConfirmDialog'
 
 interface DbStats {
@@ -7,6 +7,36 @@ interface DbStats {
   orgCount: number
   pinnedCount: number
   tokenCount: number
+}
+
+function formatBytes(bytes: number | null): string {
+  if (bytes == null) return '—'
+  if (bytes < 1024) return `${bytes} B`
+  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`
+  if (bytes < 1024 * 1024 * 1024) return `${(bytes / 1024 / 1024).toFixed(1)} MB`
+  return `${(bytes / 1024 / 1024 / 1024).toFixed(2)} GB`
+}
+
+function timeAgo(ts: number): string {
+  const min = Math.floor((Date.now() - ts) / 60_000)
+  if (min < 1) return 'just now'
+  if (min < 60) return `${min}m ago`
+  const hr = Math.floor(min / 60)
+  if (hr < 24) return `${hr}h ago`
+  const day = Math.floor(hr / 24)
+  if (day < 30) return `${day}d ago`
+  return `${Math.floor(day / 30)}mo ago`
+}
+
+/** Human label + short description for each `prefs:` key family. */
+function describePrefKey(key: string): { label: string; kind: string } {
+  if (key.startsWith('viewer:')) return { label: 'Viewer (login, orgs)', kind: 'API cache · 1h' }
+  if (key.startsWith('tokenInfo:')) return { label: 'Token info (scopes, SSO)', kind: 'API cache · 1h' }
+  if (key.startsWith('userOrgs:')) return { label: '/user/orgs', kind: 'API cache · 1h' }
+  if (key.startsWith('prDetail:')) return { label: `PR detail · ${key.slice('prDetail:'.length)}`, kind: 'API cache · 15m' }
+  if (key.startsWith('branches:')) return { label: `Branches · ${key.slice('branches:'.length)}`, kind: 'API cache · 15m' }
+  if (key.startsWith('visit:')) return { label: 'Since-last-visit snapshot', kind: 'baseline' }
+  return { label: key, kind: 'pref' }
 }
 
 type SettingsPanel = 'all' | 'storage' | 'pinned' | 'orgOrder'
@@ -20,6 +50,7 @@ type Props = {
 
 export function SettingsTab({ panel = 'all', onForceResync }: Props) {
   const [stats, setStats] = useState<DbStats | null>(null)
+  const [breakdown, setBreakdown] = useState<StorageBreakdown | null>(null)
   const [pinned, setPinned] = useState<PinnedRepo[]>([])
   const [orgs, setOrgs] = useState<{ login: string; order: number }[]>([])
   const [loading, setLoading] = useState(true)
@@ -30,12 +61,14 @@ export function SettingsTab({ panel = 'all', onForceResync }: Props) {
 
   async function loadData() {
     setLoading(true)
-    const [s, p, o] = await Promise.all([
+    const [s, b, p, o] = await Promise.all([
       getDbStats(),
+      getStorageBreakdown(),
       getPinnedRepos(),
       getOrgsByOrder()
     ])
     setStats(s)
+    setBreakdown(b)
     setPinned(p)
     setOrgs(o)
     setLoading(false)
@@ -80,25 +113,141 @@ export function SettingsTab({ panel = 'all', onForceResync }: Props) {
   return (
     <div className="settings-tab">
       {(panel === 'all' || panel === 'storage') && <section>
-        <h2>Cache Storage</h2>
-        <div className="stats-grid">
+        <h2>Storage</h2>
+        <p className="muted storage-blurb">
+          Everything below lives <strong>only in your browser</strong>. The app
+          never sends your data to anywhere except <code>api.github.com</code>,
+          and IndexedDB + localStorage are scoped to this origin — other sites
+          can't read it.
+        </p>
+
+        <div className="stats-grid storage-stats">
           <div className="stat">
-            <span className="stat-value">{stats?.repoCount ?? 0}</span>
-            <span className="stat-label">Cached Repos</span>
+            <span className="stat-value">{breakdown?.repos ?? stats?.repoCount ?? 0}</span>
+            <span className="stat-label">Repos</span>
+            <span className="stat-sub muted">cached repos table</span>
           </div>
           <div className="stat">
-            <span className="stat-value">{stats?.orgCount ?? 0}</span>
+            <span className="stat-value">{breakdown?.orgs ?? stats?.orgCount ?? 0}</span>
             <span className="stat-label">Orgs</span>
+            <span className="stat-sub muted">enabled/sync flags</span>
           </div>
           <div className="stat">
-            <span className="stat-value">{stats?.pinnedCount ?? 0}</span>
+            <span className="stat-value">{breakdown?.pinned ?? stats?.pinnedCount ?? 0}</span>
             <span className="stat-label">Pinned</span>
+            <span className="stat-sub muted">workbench-pinned</span>
           </div>
           <div className="stat">
-            <span className="stat-value">{stats?.tokenCount ?? 0}</span>
-            <span className="stat-label">Tokens</span>
+            <span className="stat-value">{breakdown?.snoozed ?? 0}</span>
+            <span className="stat-label">Snoozed</span>
+            <span className="stat-sub muted">PRs hidden until later</span>
+          </div>
+          <div className="stat">
+            <span className="stat-value">{breakdown?.prefs ?? 0}</span>
+            <span className="stat-label">Pref rows</span>
+            <span className="stat-sub muted">api caches + ui prefs</span>
+          </div>
+          <div className="stat">
+            <span className="stat-value">{breakdown?.tokensMeta ?? stats?.tokenCount ?? 0}</span>
+            <span className="stat-label">Token meta</span>
+            <span className="stat-sub muted">scopes, expiry</span>
+          </div>
+          <div className="stat" style={{ gridColumn: 'span 2' }}>
+            <span className="stat-value">{formatBytes(breakdown?.usageBytes ?? null)}</span>
+            <span className="stat-label">On disk</span>
+            <span className="stat-sub muted">
+              {breakdown?.quotaBytes
+                ? `of ~${formatBytes(breakdown.quotaBytes)} quota`
+                : 'browser doesn\'t expose total'}
+            </span>
           </div>
         </div>
+
+        <div className="storage-detail">
+          <h3>Where it lives</h3>
+          <ul className="storage-where">
+            <li>
+              <code>localStorage["ghviewer.pat"]</code>
+              <span className="muted">
+                Your GitHub Personal Access Token — used as the <code>Authorization: Bearer …</code>
+                header on every request to <code>api.github.com</code>. Never sent anywhere else.
+                Wiped by Logout, Clear all cache won't touch it.
+              </span>
+            </li>
+            <li>
+              <code>localStorage["ghviewer-storage"]</code> · <code>"ghviewer-org-config"</code>
+              <span className="muted">
+                UI prefs: sidebar collapsed flag, default merge method, the per-org
+                enabled/sync toggles. Tiny.
+              </span>
+            </li>
+            <li>
+              <code>IndexedDB "ghviewer"</code>
+              <span className="muted">
+                Repos, orgs, pinned items, snoozes, token meta, and the per-API
+                response cache (viewer / tokenInfo / userOrgs / PR detail / branches /
+                since-last-visit snapshot). All scoped to this origin.
+              </span>
+            </li>
+          </ul>
+
+          <h3>Security model</h3>
+          <ul className="storage-where">
+            <li>
+              <strong>No backend.</strong>
+              <span className="muted">
+                The app is a static SPA. Outgoing traffic is exclusively to
+                <code>api.github.com</code>; nothing is sent to any other origin.
+              </span>
+            </li>
+            <li>
+              <strong>Token never leaves your browser.</strong>
+              <span className="muted">
+                It's read from localStorage and attached to GitHub requests as the
+                <code>Authorization</code> header. There's no analytics, telemetry,
+                or third-party SDK that could read it.
+              </span>
+            </li>
+            <li>
+              <strong>Per-origin sandboxing.</strong>
+              <span className="muted">
+                Browsers isolate localStorage + IndexedDB per origin — other sites
+                in other tabs cannot read this data. Clearing browser site data
+                wipes it completely.
+              </span>
+            </li>
+            <li>
+              <strong>Scope your PAT minimally.</strong>
+              <span className="muted">
+                Recommended scopes are <code>repo</code> + <code>read:org</code>.
+                Avoid <code>admin:org</code> or <code>delete_repo</code> unless you
+                need them — a smaller scope limits exposure if the token leaks.
+              </span>
+            </li>
+          </ul>
+
+          {breakdown && breakdown.prefKeys.length > 0 && (
+            <>
+              <h3>Cached API responses ({breakdown.prefKeys.length})</h3>
+              <ul className="storage-pref-list">
+                {breakdown.prefKeys.slice(0, 20).map((p) => {
+                  const desc = describePrefKey(p.key)
+                  return (
+                    <li key={p.key}>
+                      <span className="storage-pref-label">{desc.label}</span>
+                      <span className="muted">{desc.kind}</span>
+                      <span className="muted">cached {timeAgo(p.updatedAt)}</span>
+                    </li>
+                  )
+                })}
+                {breakdown.prefKeys.length > 20 && (
+                  <li className="muted">+ {breakdown.prefKeys.length - 20} more entries</li>
+                )}
+              </ul>
+            </>
+          )}
+        </div>
+
         <div className="cache-actions">
           <button
             className="hard-refresh-btn"
