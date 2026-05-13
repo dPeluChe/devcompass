@@ -104,9 +104,12 @@ function Heatmap({ data }: { data: ContribCalendar }) {
                 return day ? (
                   <span
                     key={day.date}
-                    className={`digest-heatmap-cell level-${bucket(day)}`}
+                    className={`digest-heatmap-cell hs-tip level-${bucket(day)}`}
                     style={{ background: day.color }}
-                    title={`${day.contributionCount} contribution${day.contributionCount === 1 ? '' : 's'} on ${day.date}`}
+                    data-tip={`${day.contributionCount} contribution${day.contributionCount === 1 ? '' : 's'} · ${formatTipDate(day.date)}`}
+                    aria-label={`${day.contributionCount} contributions on ${day.date}`}
+                    role="img"
+                    tabIndex={0}
                   />
                 ) : (
                   <span key={`empty-${wi}-${di}`} className="digest-heatmap-cell digest-heatmap-cell--empty" />
@@ -145,6 +148,17 @@ function monthLabelPositions(weeks: ContribCalendar['weeks']): { label: string; 
     }
   })
   return out
+}
+
+/** Pretty date for tooltip — "Mon, May 13, 2026". */
+function formatTipDate(iso: string): string {
+  try {
+    return new Date(iso + 'T00:00:00').toLocaleDateString(undefined, {
+      weekday: 'short', month: 'short', day: 'numeric', year: 'numeric'
+    })
+  } catch {
+    return iso
+  }
 }
 
 /** Map GitHub color (or count fallback) → 0..4 bucket for level classes. */
