@@ -5,6 +5,13 @@ import { getCachedPref, savePref } from '../../../store/db'
 const CACHE_TTL = 12 * 60 * 60 * 1000 // 12h — matches CACHE_TTLS['contrib:']
 const MONTH_LABELS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
 const DAY_LABELS = ['', 'Mon', '', 'Wed', '', 'Fri', '']
+const LEGEND_TIPS = [
+  'No contributions on that day',
+  'Low activity (1–3 contributions)',
+  'Moderate activity (4–7 contributions)',
+  'High activity (8–15 contributions)',
+  'Peak activity (16+ contributions)'
+]
 
 type Props = {
   token: string
@@ -120,11 +127,21 @@ function Heatmap({ data }: { data: ContribCalendar }) {
         </div>
       </div>
       <div className="digest-heatmap-legend">
-        <span className="muted">Less</span>
+        <span
+          className="muted hs-tip"
+          data-tip="Days with the fewest (or zero) contributions"
+        >Less</span>
         {[0, 1, 2, 3, 4].map((b) => (
-          <span key={b} className={`digest-heatmap-cell legend level-${b}`} />
+          <span
+            key={b}
+            className={`digest-heatmap-cell legend hs-tip level-${b}`}
+            data-tip={LEGEND_TIPS[b]}
+          />
         ))}
-        <span className="muted">More</span>
+        <span
+          className="muted hs-tip"
+          data-tip="Days with the most contributions"
+        >More</span>
       </div>
     </div>
   )

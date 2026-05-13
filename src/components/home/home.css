@@ -1802,20 +1802,43 @@
   border-top-color: var(--border);
   border-right-color: transparent;
 }
-/* Dark-mode adjusted fallbacks; the inline background from GitHub overrides
-   these whenever a real day is rendered, so they only show on legend + skel. */
-.digest-heatmap-cell.level-0 { background: #161b22; }
-.digest-heatmap-cell.level-1 { background: #0e4429; }
-.digest-heatmap-cell.level-2 { background: #006d32; }
-.digest-heatmap-cell.level-3 { background: #26a641; }
-.digest-heatmap-cell.level-4 { background: #39d353; }
+/* GitHub returns light-theme contribution colors via the API regardless of
+   your account theme, so the rendered cells go #ebedf0 → #216e39 (light
+   gray → dark green). The legend swatches use the same palette so the
+   left-to-right "Less → More" reading matches the actual data. */
+.digest-heatmap-cell.level-0 { background: #ebedf0; }
+.digest-heatmap-cell.level-1 { background: #9be9a8; }
+.digest-heatmap-cell.level-2 { background: #40c463; }
+.digest-heatmap-cell.level-3 { background: #30a14e; }
+.digest-heatmap-cell.level-4 { background: #216e39; }
 .digest-heatmap-legend {
   display: flex;
   align-items: center;
+  justify-content: center;
   gap: 4px;
   font-size: 0.72em;
-  margin-top: 4px;
-  padding-left: 36px;
+  margin-top: 8px;
+  padding-left: 0;
+}
+/* Every legend tooltip (Less, swatches, More) anchors above so the bubble
+   doesn't crash against the right edge of the panel. */
+.digest-heatmap-legend .hs-tip::after {
+  left: 50%;
+  top: auto;
+  bottom: calc(100% + 6px);
+  transform: translateX(-50%);
+  margin-left: 0;
+}
+.digest-heatmap-legend .hs-tip::before {
+  left: 50%;
+  top: auto;
+  bottom: 100%;
+  transform: translateX(-50%);
+  margin-left: 0;
+  margin-bottom: -1px;
+  border: 5px solid transparent;
+  border-top-color: var(--border);
+  border-right-color: transparent;
 }
 .digest-heatmap-legend .muted { padding: 0 4px; }
 
