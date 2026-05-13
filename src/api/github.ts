@@ -296,6 +296,57 @@ export async function fetchRateLimit(token: string): Promise<RateLimit> {
   return data.rateLimit
 }
 
+// ---------- Contribution calendar (viewer-scoped, profile-style heatmap) ----------
+
+export type ContribDay = {
+  /** ISO date, e.g. "2026-05-13" */
+  date: string
+  contributionCount: number
+  /** Hex color GitHub computed for this day (e.g. "#9be9a8"). Empty cells use "#ebedf0". */
+  color: string
+  /** 0 = Sunday … 6 = Saturday. */
+  weekday: number
+}
+
+export type ContribCalendar = {
+  totalContributions: number
+  /** Always 53 weeks × ≤7 days. First/last weeks may be partial. */
+  weeks: { contributionDays: ContribDay[]; firstDay: string }[]
+}
+
+/**
+ * Pulls the viewer's GitHub contribution calendar — the same data that powers
+ * the green squares on github.com/<user>. One GraphQL query; the calendar
+ * automatically covers the trailing 53 weeks ending "today" when no date
+ * range is supplied.
+ */
+export async function fetchContributionCalendar(token: string): Promise<ContribCalendar> {
+  const data = await gql<{ viewer: { contributionsCollection: { contributionCalendar: ContribCalendar } } }>(
+    token,
+    `
+    query {
+      viewer {
+        contributionsCollection {
+          contributionCalendar {
+            totalContributions
+            weeks {
+              firstDay
+              contributionDays {
+                date
+                contributionCount
+                color
+                weekday
+              }
+            }
+          }
+        }
+      }
+    }
+  `
+  )
+  return data.viewer.contributionsCollection.contributionCalendar
+}
+
 export type TokenInfo = {
   /** "classic" if X-OAuth-Scopes header present, "fine-grained" otherwise. */
   type: 'classic' | 'fine-grained' | 'unknown'

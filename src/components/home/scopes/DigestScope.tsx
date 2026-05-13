@@ -2,6 +2,7 @@ import { useMemo, useState } from 'react'
 import type { Repo, RepoOpenPR } from '../../../api/github'
 import type { ScopeKey } from '../types'
 import { type ScopeProps } from './common'
+import { ContributionHeatmap } from './ContributionHeatmap'
 
 type Window = '24h' | '7d' | '30d'
 const WINDOW_KEY = 'home.digestWindow'
@@ -32,7 +33,7 @@ function loadWindow(): Window {
  * open-PR contributor breakdown, and "needs attention" all derive from data
  * already loaded for Home / Repos.
  */
-export function DigestScope({ repos, pinned, onOpenRepo, onScopeChange }: ScopeProps) {
+export function DigestScope({ token, viewer, repos, pinned, onOpenRepo, onScopeChange }: ScopeProps) {
   const [window, setWindow] = useState<Window>(loadWindow)
 
   function pickWindow(w: Window) {
@@ -71,6 +72,9 @@ export function DigestScope({ repos, pinned, onOpenRepo, onScopeChange }: ScopeP
         <DigestStat value={stats.stalePRs} label={`Stale PRs (>${STALE_PR_DAYS}d)`} sub="updated long ago" tone={stats.stalePRs > 0 ? 'warn' : undefined} />
         <DigestStat value={pinned.length} label="Pinned" sub="workbench shortcuts" />
       </section>
+
+      {/* Viewer contribution heatmap — independent of window; cached 12h */}
+      <ContributionHeatmap token={token} viewerLogin={viewer?.login} />
 
       {/* Most active repos */}
       <section className="digest-section">

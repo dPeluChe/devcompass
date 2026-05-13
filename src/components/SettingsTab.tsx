@@ -336,6 +336,13 @@ function CachePanel({ breakdown, onChange }: { breakdown: StorageBreakdown; onCh
       blurb: 'Branch list for each repo opened from the Repos grid.'
     },
     {
+      title: 'Contribution calendar',
+      ttl: '12h',
+      prefix: 'contrib:',
+      emphasis: 'primary',
+      blurb: 'Viewer contribution heatmap powering Digest. Cached long because daily activity changes slowly.'
+    },
+    {
       title: 'Since-last-visit snapshot',
       ttl: '∞',
       prefix: 'visit:',
