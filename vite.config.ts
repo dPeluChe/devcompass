@@ -1,7 +1,11 @@
 import { defineConfig } from 'vite'
 import react from '@vitejs/plugin-react'
 
+// `base` honors VITE_BASE so the GitHub Pages workflow can inject the
+// repo subpath (e.g. "/devcompass/") at build time. Locally and on
+// custom domains it stays "/", which is what `npm run dev` needs.
 export default defineConfig({
+  base: process.env.VITE_BASE ?? '/',
   plugins: [react()],
   server: { port: 8099, open: true },
   build: {
