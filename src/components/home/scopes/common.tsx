@@ -16,6 +16,8 @@ export type ScopeProps = {
   onSnoozeItem: (item: AttentionItem) => void
   onOpenRepo: (repo: Repo) => void
   onTogglePinned: (repo: Repo) => void
+  /** Lets a scope navigate to another scope (e.g. Digest's "Show failing CI in Repos →" jump). */
+  onScopeChange?: (key: ScopeKey) => void
 }
 
 export function Header({ title, count, meta }: { title: string; count?: number; meta: string }) {

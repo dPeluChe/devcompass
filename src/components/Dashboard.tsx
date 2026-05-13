@@ -225,7 +225,7 @@ export function Dashboard({ token, onLogout }: Props) {
   // Sidebar scope lives here (not inside HomeShell) so the topbar tabs can flip
   // it without re-mounting the shell — avoids the effect-as-handler smell from
   // syncing an `initialScope` prop into local state.
-  const [scope, setScope] = useState<ScopeKey>('needs')
+  const [scope, setScope] = useState<ScopeKey>('digest')
   const [selected, setSelected] = useState<{ owner: string; name: string } | null>(null)
   const [pinned, setPinned] = useState<PinnedRepo[]>([])
   const [qsOpen, setQsOpen] = useState(false)

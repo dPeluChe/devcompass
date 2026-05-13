@@ -211,6 +211,7 @@ export function HomeShell({
           onSnoozeItem={handleSnooze}
           onOpenRepo={onOpenRepo}
           onTogglePinned={onTogglePinned}
+          onScopeChange={onSelectScope}
         />
       )}
 

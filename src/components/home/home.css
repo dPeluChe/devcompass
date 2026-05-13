@@ -1536,6 +1536,335 @@
   border-bottom-color: var(--border);
 }
 
+/* ===================== Digest scope ===================== */
+.digest-window-picker {
+  margin-left: auto;
+  display: inline-flex;
+  gap: 2px;
+  padding: 2px;
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 7px;
+}
+.digest-window-btn {
+  background: transparent;
+  border: none;
+  color: var(--muted);
+  font: inherit;
+  font-size: 0.78em;
+  padding: 4px 10px;
+  border-radius: 5px;
+  cursor: pointer;
+}
+.digest-window-btn:hover { color: var(--text); }
+.digest-window-btn.active {
+  background: var(--panel-2);
+  color: var(--accent);
+  font-weight: 600;
+}
+
+.digest-stats {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+  gap: 10px;
+  padding: 14px 16px;
+}
+.digest-stat {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 12px;
+  background: var(--panel-2);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  border-left-width: 3px;
+}
+.digest-stat.warn { border-left-color: #d29922; }
+.digest-stat-num {
+  font-size: 1.55em;
+  font-weight: 600;
+  color: var(--text);
+  font-variant-numeric: tabular-nums;
+  line-height: 1.1;
+}
+.digest-stat-label {
+  font-size: 0.82em;
+  color: var(--text);
+  font-weight: 500;
+}
+.digest-stat-sub { font-size: 0.74em; line-height: 1.4; }
+
+.digest-section { padding: 0 18px; margin-top: 18px; }
+.digest-section-title {
+  font-size: 0.82em;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--text);
+  font-weight: 600;
+  margin: 0 0 8px;
+  display: inline-flex;
+  align-items: baseline;
+  gap: 8px;
+}
+.digest-section-title .muted { font-size: 0.92em; text-transform: none; letter-spacing: 0; font-weight: 400; }
+
+.digest-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  overflow: hidden;
+}
+.digest-row {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 14px;
+  width: 100%;
+  background: transparent;
+  border: none;
+  border-bottom: 1px solid var(--border-soft, var(--border));
+  color: var(--text);
+  text-align: left;
+  padding: 9px 14px;
+  font: inherit;
+  cursor: pointer;
+}
+.digest-list li:last-child .digest-row { border-bottom: none; }
+.digest-row:hover { background: var(--panel-2); }
+.digest-row-name { display: inline-flex; align-items: baseline; gap: 4px; font-size: 0.92em; }
+.digest-row-meta { font-size: 0.82em; }
+
+.digest-contributor-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+  gap: 6px;
+}
+.digest-contributor-list li {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 12px;
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  font-size: 0.88em;
+}
+.digest-contributor-list img,
+.digest-contrib-fallback {
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+.digest-contrib-fallback { background: var(--border); }
+.digest-contrib-login {
+  color: var(--text);
+  font-weight: 500;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.digest-contributor-list .muted { margin-left: auto; font-size: 0.85em; }
+
+.digest-attn-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 6px; }
+.digest-attn {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 14px;
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  font-size: 0.9em;
+}
+.digest-attn-ok { border-left: 3px solid #3fb950; }
+.digest-attn-info { border-left: 3px solid var(--accent); }
+.digest-attn-warn { border-left: 3px solid #d29922; }
+.digest-attn-icon { width: 18px; text-align: center; flex-shrink: 0; }
+.digest-attn-ok .digest-attn-icon { color: #7ee787; }
+.digest-attn-warn .digest-attn-icon { color: #f0c239; }
+.digest-attn-info .digest-attn-icon { color: var(--accent); }
+.digest-attn-label { flex: 1; color: var(--text); }
+.digest-attn-btn {
+  background: var(--panel-2);
+  border: 1px solid var(--border);
+  color: var(--text);
+  padding: 4px 10px;
+  border-radius: 6px;
+  font: inherit;
+  font-size: 0.85em;
+  cursor: pointer;
+}
+.digest-attn-btn:hover { border-color: var(--accent); color: var(--accent); }
+
+/* ---- Contribution heatmap (Digest) ----------------------------------
+   Cell size is driven by --heatmap-cell so the whole grid can grow/shrink
+   in lockstep. ~18px gives a wider, more readable grid that fills the
+   roomier Digest content column without overflowing. */
+.digest-heatmap {
+  --heatmap-cell: 18px;
+  --heatmap-gap: 3px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 14px;
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  overflow-x: auto;
+}
+.digest-heatmap-months {
+  display: grid;
+  grid-template-columns: repeat(53, var(--heatmap-cell));
+  gap: var(--heatmap-gap);
+  font-size: 0.74em;
+  color: var(--muted);
+  padding-left: 36px;
+  min-width: 0;
+}
+.digest-heatmap-month {
+  grid-row: 1;
+  white-space: nowrap;
+}
+.digest-heatmap-body {
+  display: flex;
+  gap: 6px;
+  align-items: flex-start;
+}
+.digest-heatmap-days {
+  display: grid;
+  grid-template-rows: repeat(7, var(--heatmap-cell));
+  gap: var(--heatmap-gap);
+  font-size: 0.72em;
+  color: var(--muted);
+  padding-top: 1px;
+}
+.digest-heatmap-day-label {
+  height: var(--heatmap-cell);
+  line-height: var(--heatmap-cell);
+  text-align: right;
+  padding-right: 6px;
+  min-width: 26px;
+}
+.digest-heatmap-grid {
+  display: grid;
+  grid-auto-flow: column;
+  grid-auto-columns: var(--heatmap-cell);
+  gap: var(--heatmap-gap);
+}
+.digest-heatmap-col {
+  display: grid;
+  grid-template-rows: repeat(7, var(--heatmap-cell));
+  gap: var(--heatmap-gap);
+}
+.digest-heatmap-cell {
+  width: var(--heatmap-cell);
+  height: var(--heatmap-cell);
+  border-radius: 3px;
+  background: var(--panel-2);
+  display: inline-block;
+  outline: none;
+}
+.digest-heatmap-cell:focus-visible {
+  box-shadow: 0 0 0 2px var(--accent);
+}
+/* Highlight today's cell with an accent ring + subtle glow so it pops
+   without changing the underlying contribution color. */
+.digest-heatmap-cell.is-today {
+  box-shadow:
+    0 0 0 2px var(--accent),
+    0 0 8px rgba(88, 166, 255, 0.45);
+  border-radius: 3px;
+  position: relative;
+  z-index: 2;
+}
+.digest-heatmap-cell.is-today:focus-visible {
+  box-shadow:
+    0 0 0 2px var(--accent),
+    0 0 12px rgba(88, 166, 255, 0.7);
+}
+.digest-heatmap-cell--empty {
+  background: transparent;
+}
+.digest-heatmap-cell.legend {
+  width: calc(var(--heatmap-cell) - 2px);
+  height: calc(var(--heatmap-cell) - 2px);
+}
+/* Heatmap cells use hs-tip but the default (right-anchored) tooltip would
+   overflow the panel for the rightmost columns and feel cramped between
+   adjacent cells. Anchor the bubble above the cell instead, centered. */
+.digest-heatmap-cell.hs-tip::after {
+  left: 50%;
+  top: auto;
+  bottom: calc(100% + 8px);
+  transform: translateX(-50%);
+  margin-left: 0;
+}
+.digest-heatmap-cell.hs-tip::before {
+  left: 50%;
+  top: auto;
+  bottom: 100%;
+  transform: translateX(-50%);
+  margin-left: 0;
+  margin-bottom: -1px;
+  border: 5px solid transparent;
+  border-top-color: var(--border);
+  border-right-color: transparent;
+}
+/* GitHub returns light-theme contribution colors via the API regardless of
+   your account theme, so the rendered cells go #ebedf0 → #216e39 (light
+   gray → dark green). The legend swatches use the same palette so the
+   left-to-right "Less → More" reading matches the actual data. */
+.digest-heatmap-cell.level-0 { background: #ebedf0; }
+.digest-heatmap-cell.level-1 { background: #9be9a8; }
+.digest-heatmap-cell.level-2 { background: #40c463; }
+.digest-heatmap-cell.level-3 { background: #30a14e; }
+.digest-heatmap-cell.level-4 { background: #216e39; }
+.digest-heatmap-legend {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  font-size: 0.72em;
+  margin-top: 8px;
+  padding-left: 0;
+}
+/* Every legend tooltip (Less, swatches, More) anchors above so the bubble
+   doesn't crash against the right edge of the panel. */
+.digest-heatmap-legend .hs-tip::after {
+  left: 50%;
+  top: auto;
+  bottom: calc(100% + 6px);
+  transform: translateX(-50%);
+  margin-left: 0;
+}
+.digest-heatmap-legend .hs-tip::before {
+  left: 50%;
+  top: auto;
+  bottom: 100%;
+  transform: translateX(-50%);
+  margin-left: 0;
+  margin-bottom: -1px;
+  border: 5px solid transparent;
+  border-top-color: var(--border);
+  border-right-color: transparent;
+}
+.digest-heatmap-legend .muted { padding: 0 4px; }
+
+.digest-heatmap-skel {
+  height: 124px;
+  border-radius: 10px;
+  background: linear-gradient(90deg, var(--panel-2) 0%, var(--border) 50%, var(--panel-2) 100%);
+  background-size: 200% 100%;
+  animation: hs-skeleton 1.2s infinite;
+}
+
 /* skeleton */
 .hs-skeleton-bar {
   height: 10px;

@@ -184,7 +184,8 @@ export const CACHE_TTLS: Record<string, number> = {
   'tokenInfo:': 60 * 60 * 1000,
   'userOrgs:': 60 * 60 * 1000,
   'prDetail:': 15 * 60 * 1000,
-  'branches:': 15 * 60 * 1000
+  'branches:': 15 * 60 * 1000,
+  'contrib:': 12 * 60 * 60 * 1000
 }
 
 /**

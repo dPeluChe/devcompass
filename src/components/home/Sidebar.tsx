@@ -52,6 +52,12 @@ export function Sidebar({
 }: Props) {
   const groups: Group[] = [
     {
+      title: 'Summary',
+      items: [
+        { key: 'digest', label: 'Digest', icon: '∿', title: 'Operational snapshot — week-in-review across all visible repos' }
+      ]
+    },
+    {
       title: 'Inbox',
       items: [
         { key: 'needs', label: 'Needs me', icon: '●', count: needsMeCount, hasAttn: needsMeCount > 0 },
@@ -86,7 +92,6 @@ export function Sidebar({
   groups.push({
     title: 'Insights',
     items: [
-      { key: 'digest', label: 'Digest', icon: '∿' },
       { key: 'rate', label: 'Token & rate', icon: '◎' }
     ]
   })
