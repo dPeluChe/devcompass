@@ -1,203 +1,168 @@
-# GHDevView
+<!-- markdownlint-disable MD033 MD041 -->
 
-GHDevView is a developer workbench for GitHub accounts with many repositories across a personal namespace and multiple organizations. It is designed to make the first screen useful for daily engineering work: find the repo you need, see what is active, jump into pull requests, and keep the most important projects pinned without waiting for a full GitHub sync on every refresh.
+<h1 align="center">devcompass</h1>
 
-## Why This Exists
+<p align="center">
+  <strong>A local-first command center for your GitHub work.</strong><br>
+  See every repo, PR, and signal across all your orgs in one place — without a backend, without trackers, without giving your token to anyone.
+</p>
 
-GitHub is excellent for repository detail, but it gets slow when the question is broader:
+<p align="center">
+  <a href="LICENSE"><img alt="MIT License" src="https://img.shields.io/badge/license-MIT-blue.svg"></a>
+  <img alt="React 19" src="https://img.shields.io/badge/react-19-61dafb.svg">
+  <img alt="Vite 6" src="https://img.shields.io/badge/vite-6-646cff.svg">
+  <img alt="TypeScript" src="https://img.shields.io/badge/typescript-5.7-3178c6.svg">
+  <img alt="No backend" src="https://img.shields.io/badge/backend-none-success.svg">
+</p>
 
-- Which repos across my orgs are active right now?
-- Which projects have open pull requests?
-- Which repos do I touch every day?
-- Which orgs should I include or hide from my current workspace?
-- Did my token actually have access to the orgs I expected?
-- Can I refresh the page without losing the current repo list?
+<!-- TODO: replace with a real screenshot. Recommended: capture the Digest scope landing page on a dark theme, ~1600x1000, save as docs/screenshots/digest.png -->
+<p align="center">
+  <img src="docs/screenshots/digest.png" alt="devcompass Digest scope — heatmap + operational snapshot" width="900">
+</p>
 
-GHDevView answers those questions from one compact UI built for developers who switch contexts often.
+---
 
-## What We Built
+## Why devcompass
 
-The current implementation focuses on the repository dashboard and the supporting configuration system.
+GitHub is great at one repo at a time. It is **slow** at the questions developers actually ask every morning:
 
-- A repo dashboard that merges personal repositories and organization repositories.
-- A compact filter row with All, Pinned, personal account, organization chips, search, activity window, sort order, archived toggle, and fork toggle.
-- A Pinned scope and a dedicated pinned section for active projects.
-- Stable organization chips that do not resize or change counts while typing in search.
-- Repo cards with useful engineering signals: owner, description, language, private/fork/archived state, default branch, open PR count, and last activity.
-- PR inbox and PR detail views for review work.
-- A Config tab for org visibility, token access, local cache, pinned repos, and org ordering.
-- IndexedDB caching so repositories hydrate locally before fresh GitHub data finishes loading.
-- Personal account repositories included through the viewer repository query, not only org repositories.
-- Sanitized markdown rendering for PR content.
+- Which of my repos got activity yesterday?
+- Where are PRs waiting on me?
+- Which open PRs across all my orgs have failing CI?
+- Did my token authorize the org I expected, or did SSO silently block it?
+- Can I reload the page without waiting 30 seconds for a full GitHub sync?
 
-## Who It Is For
+devcompass answers those from one dense, fast UI built for people who work across many GitHub orgs and switch context often.
 
-GHDevView is for developers who:
+## Highlights
 
-- Work across several GitHub organizations.
-- Maintain many repos and need fast scanning.
-- Want a local-first dashboard instead of waiting for a full API reload every time.
-- Need to validate token access and org visibility quickly.
-- Prefer dense, work-focused UI over a marketing-style dashboard.
+- **Digest scope** — operational snapshot of the last 24h / 7d / 30d. Top stat tiles, GitHub-style contribution heatmap, most active repos, open-PR contributors, "needs attention" rows.
+- **Needs me** — every PR where you are a requested reviewer or co-author, with snooze.
+- **Since last visit** — diff feed of what changed since you last marked the home as seen.
+- **All repos** — every visible repo (yours + member orgs + collaborator orgs), filtered by org chip, language, activity window, search.
+- **Repo detail** — Overview / Commits / PRs / Issues / Releases, with branch chips on each commit and merged-PR history.
+- **Local-first** — IndexedDB caches repos, PR detail, branches, orgs, viewer info, and the contribution calendar (TTL-bound, auto-pruned). Reloads paint instantly.
+- **Privacy by design** — your Personal Access Token lives in `localStorage`, nothing is sent to any server we control. No analytics. No tracking. No cookies.
 
-## Main Workflow
+## Screenshots
 
-1. Sign in with a GitHub token.
-2. GHDevView loads your viewer profile, token info, organizations, rate limit, personal repositories, and org repositories.
-3. Cached repositories are shown immediately when available.
-4. Fresh GitHub data syncs in the background and updates the local cache.
-5. Use chips to switch between All, Pinned, personal repos, and individual orgs.
-6. Pin the repos you touch often so the dashboard opens around your active work.
-7. Use Config when you need to manage org visibility, token access, or cache state.
+<!-- TODO: capture each of these and replace the placeholders below.
+     Recommended size: 1600x1000, dark theme, after a fresh sync so counts are populated. -->
 
-## Screens
+| View | Screenshot |
+| --- | --- |
+| **Digest** — operational snapshot + heatmap | ![Digest](docs/screenshots/digest.png) |
+| **All repos** — chip filters + scan grid | ![All repos](docs/screenshots/repos.png) |
+| **Repo detail** — tabs + commit branches | ![Repo detail](docs/screenshots/repo-detail.png) |
+| **Login** — token entry + scope explainer | ![Login](docs/screenshots/login.png) |
+| **Settings → Cache** — TTL-bound IDB inspector | ![Cache panel](docs/screenshots/config-cache.png) |
 
-### Repos
+## Privacy & Security
 
-The Repos screen is the main workbench. It is optimized for scanning:
+This is a **single-page app that talks directly to GitHub from your browser**. There is no backend. There is no analytics. There is no telemetry.
 
-- `All` shows every loaded repo from personal and organization sources.
-- `Pinned` shows locally pinned repos and is the preferred starting scope when pins exist.
-- Personal and organization chips filter by owner.
-- Search filters repositories by name, description, owner, and language without changing the chip layout.
-- Activity and sort controls help surface recent work.
-- Archived and fork toggles keep noisy repos out of the default scan.
+| What | Where | Why |
+| --- | --- | --- |
+| Your GitHub PAT | `localStorage` under `ghviewer.pat` | Needed to call the GitHub API on every reload. Never sent anywhere except `api.github.com`. |
+| Cached repos / PR detail / branches | IndexedDB (`ghviewer` database, Dexie) | Lets the UI render instantly on reload before the next sync finishes. TTL-bound, auto-pruned. |
+| Per-org visibility flags | `localStorage` (Zustand persist, key `ghviewer-org-config`) | Remembers which orgs you have toggled off in Settings. |
+| Snoozed PRs, pinned repos, visit snapshot | IndexedDB | Persist your workbench state between sessions. |
 
-### PRs
+You can wipe all local state from **Settings → Storage → Clear all cache**. The token UI also masks the PAT (`***`) so it never paints to the DOM.
 
-The PR area helps review active pull request work. PR details render markdown safely through DOMPurify.
+## Token requirements
 
-### Config
-
-Config keeps operational controls out of the main dashboard:
-
-- `Orgs`: enable, disable, and inspect synced organizations.
-- `Token`: review token type, scopes, SSO/org visibility, and rate context.
-- `Storage`: inspect and clear local IndexedDB cache.
-- `Pinned`: review and unpin pinned repositories.
-- `Org Order`: manage organization display order.
-
-## GitHub Token Requirements
-
-Use a GitHub classic token with:
+devcompass needs a **GitHub classic Personal Access Token** with:
 
 - `repo`
 - `read:org`
 
-Create one at:
+Create one at <https://github.com/settings/tokens>. If an org appears missing after login, check Settings → Token — the panel surfaces `X-OAuth-Scopes` and `X-GitHub-SSO` from the API response so you can see whether SSO authorization is missing for that org.
 
-```text
-https://github.com/settings/tokens
-```
+> Fine-grained tokens work for personal repos but currently miss organization repos due to GraphQL `viewer.organizations` requiring `read:org` (a classic scope). Classic tokens are recommended.
 
-If an organization is missing, check:
-
-- The token includes `read:org`.
-- The token has SSO authorization for that organization.
-- The organization is enabled in Config.
-- The repository cache has synced after login.
-
-## Local Cache
-
-GHDevView uses Dexie over IndexedDB for local storage.
-
-Cached data includes:
-
-- Repository lists.
-- Pinned repository full names.
-- Organization visibility and ordering.
-
-This cache is intentionally local to the browser. It makes reloads faster and keeps the dashboard useful before the next GitHub API sync finishes.
-
-Use `Config -> Storage` to clear stale cache or all cache.
-
-## Tech Stack
-
-- React 19
-- Vite
-- TypeScript
-- TanStack Query
-- React Router
-- Zustand
-- Dexie / IndexedDB
-- Framer Motion
-- React Icons
-- Lucide React
-- DOMPurify
-
-## Getting Started
-
-Install dependencies:
+## Quick start
 
 ```bash
+git clone https://github.com/dPeluChe/devcompass.git
+cd devcompass
 npm install
-```
-
-Start the local dev server:
-
-```bash
 npm run dev
 ```
 
-Open:
+Open <http://localhost:8099>, paste your token, done.
 
-```text
-http://localhost:8099
-```
-
-Build for production:
+To build a static bundle you can drop on Netlify / Vercel / GitHub Pages / S3:
 
 ```bash
 npm run build
+# outputs to dist/
 ```
 
-## Development Notes
+There is no backend — `dist/` is everything.
 
-There is no lint script configured yet. Use the production build as the current TypeScript and bundling verification step.
+## Try the demo
 
-Recommended checks before merging:
+A live demo is published from `main` to GitHub Pages: **<https://dPeluChe.github.io/devcompass/>**
 
-```bash
-npm run build
-spark audit --offline
-npm audit --audit-level=moderate
-```
+> First time visiting? You will be asked for a PAT. The page never sends it anywhere except `api.github.com` — verify in your browser DevTools → Network if you want to confirm.
 
-## Project Structure
+## Architecture
 
 ```text
-src/
-  api/
-    github.ts           GitHub GraphQL and REST helpers
-  components/
-    Dashboard.tsx       Main repo dashboard and filters
-    SettingsTab.tsx     Config screen
-    OrgManager.tsx      Organization visibility controls
-    PRInbox.tsx         Pull request inbox
-    PRDetail.tsx        Pull request detail
-    RepoDetail.tsx      Repository detail
-    BranchExplorer.tsx  Branch browser
-    SanitizedMarkdown.tsx
-    TokenSetup.tsx
-    ui.tsx
-  hooks/
-    useRepos.ts
-    usePRs.ts
-    useRepo.ts
-  store/
-    app.ts
-    cache.ts
-    db.ts
-    orgConfig.ts
-    queries.ts
-  main.tsx
+┌─ React 19 + Vite 6 SPA ──────────────────────────────────────┐
+│                                                                │
+│  ┌─ TanStack Query ─────┐    ┌─ Zustand (persist) ──────────┐ │
+│  │ in-memory cache     │    │ per-org enabled / syncEnabled │ │
+│  │ react-renderer key   │    │ stored in localStorage         │ │
+│  └──────────────────────┘    └────────────────────────────────┘ │
+│                                                                │
+│  ┌─ Dexie / IndexedDB (db name: ghviewer) ───────────────────┐ │
+│  │ repos · orgs · prefs · tokens · pinnedRepos · snoozedPRs  │ │
+│  │ TTL-bound prefs cache with auto-prune                      │ │
+│  └────────────────────────────────────────────────────────────┘ │
+│                                                                │
+│  ┌─ src/api/github.ts (one file, no SDK) ───────────────────┐ │
+│  │ GraphQL + REST against api.github.com                     │ │
+│  │ retries 3x on transient failures                          │ │
+│  └────────────────────────────────────────────────────────────┘ │
+└────────────────────────────────────────────────────────────────┘
 ```
 
-## Internal Documentation
+For a deeper tour of the source tree, see [`docs/README.md`](docs/README.md).
 
-- [Project documentation](docs/README.md)
-- [Task tracking](docs/TASK_TODO.md)
+## Tech stack
 
-## Current Status
+- **React 19** + **Vite 6** + **TypeScript 5.7** (strict)
+- **TanStack Query 5** for server-state caching
+- **Dexie** for IndexedDB persistence
+- **Zustand** for UI/config state
+- **React Router 7** for nested routes
+- **DOMPurify** for safe PR markdown
+- **Framer Motion** (lazy-loaded) for animations
+- **react-icons** + **lucide-react** for iconography
 
-The repository dashboard, pinned workflow, Config tab, personal repo loading, and IndexedDB hydration are implemented. The next focus is functionality improvements: richer repo actions, stronger config UX, explicit refresh controls, tests, mobile refinements, and a lint setup.
+## Roadmap
+
+devcompass started as a GitHub-only workbench, but the scope/digest concepts are designed to grow. On the near horizon:
+
+- **Watching scope** — auto-derived: PRs you authored awaiting reviewers, PRs you review-requested that went draft, pinned repos with no recent activity.
+- **Digest v2** — sparklines per repo, PRs merged in window, avg time-to-merge, top commit-contributors.
+- **Cross-platform** — once the GitHub story is solid, plug GitLab / Bitbucket / Linear into the same scope model.
+
+The full backlog lives in [`docs/TASK_TODO.md`](docs/TASK_TODO.md). Issues and PRs welcome.
+
+## Contributing
+
+PRs and issues are welcome. Before opening a PR:
+
+1. Run `npm run build` — it is the only verification gate (0 errors, 0 warnings).
+2. Follow the commit-message style in recent history (`feat(scope): …`, `fix(scope): …`).
+3. Keep PRs focused: one logical change per PR.
+4. No backend, no analytics, no telemetry — privacy is a core feature.
+5. Use `<ConfirmDialog>` instead of native `confirm()` / `alert()` / `prompt()`.
+6. Render any GitHub-supplied HTML through `<SanitizedMarkdown>` (DOMPurify).
+
+## License
+
+[MIT](LICENSE) © 2026 Antonio Martinez Quintero. Use it, fork it, ship it.
