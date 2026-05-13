@@ -30,8 +30,11 @@ export function ContributionHeatmap({ token, viewerLogin }: Props) {
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
+    // Wait until we know which login owns this token — otherwise the cache
+    // key would be "contrib:session" and survive an account switch.
+    if (!viewerLogin) return
     let alive = true
-    const key = `contrib:${viewerLogin ?? 'session'}`
+    const key = `contrib:${viewerLogin}`
     ;(async () => {
       setLoading(true)
       setError(null)
