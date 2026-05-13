@@ -88,6 +88,7 @@ export function ContributionHeatmap({ token, viewerLogin }: Props) {
 
 function Heatmap({ data }: { data: ContribCalendar }) {
   const months = monthLabelPositions(data.weeks)
+  const todayIso = todayLocalIso()
   return (
     <div className="digest-heatmap" role="img" aria-label="GitHub-style contribution calendar">
       <div className="digest-heatmap-months">
@@ -111,10 +112,10 @@ function Heatmap({ data }: { data: ContribCalendar }) {
                 return day ? (
                   <span
                     key={day.date}
-                    className={`digest-heatmap-cell hs-tip level-${bucket(day)}`}
+                    className={`digest-heatmap-cell hs-tip level-${bucket(day)} ${day.date === todayIso ? 'is-today' : ''}`}
                     style={{ background: day.color }}
-                    data-tip={`${day.contributionCount} contribution${day.contributionCount === 1 ? '' : 's'} · ${formatTipDate(day.date)}`}
-                    aria-label={`${day.contributionCount} contributions on ${day.date}`}
+                    data-tip={`${day.date === todayIso ? 'Today · ' : ''}${day.contributionCount} contribution${day.contributionCount === 1 ? '' : 's'} · ${formatTipDate(day.date)}`}
+                    aria-label={`${day.contributionCount} contributions on ${day.date}${day.date === todayIso ? ' (today)' : ''}`}
                     role="img"
                     tabIndex={0}
                   />
@@ -165,6 +166,15 @@ function monthLabelPositions(weeks: ContribCalendar['weeks']): { label: string; 
     }
   })
   return out
+}
+
+/** Local-time YYYY-MM-DD (matches GitHub's calendar `date` field). */
+function todayLocalIso(): string {
+  const d = new Date()
+  const y = d.getFullYear()
+  const m = String(d.getMonth() + 1).padStart(2, '0')
+  const day = String(d.getDate()).padStart(2, '0')
+  return `${y}-${m}-${day}`
 }
 
 /** Pretty date for tooltip — "Mon, May 13, 2026". */

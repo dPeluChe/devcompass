@@ -1774,6 +1774,21 @@
 .digest-heatmap-cell:focus-visible {
   box-shadow: 0 0 0 2px var(--accent);
 }
+/* Highlight today's cell with an accent ring + subtle glow so it pops
+   without changing the underlying contribution color. */
+.digest-heatmap-cell.is-today {
+  box-shadow:
+    0 0 0 2px var(--accent),
+    0 0 8px rgba(88, 166, 255, 0.45);
+  border-radius: 3px;
+  position: relative;
+  z-index: 2;
+}
+.digest-heatmap-cell.is-today:focus-visible {
+  box-shadow:
+    0 0 0 2px var(--accent),
+    0 0 12px rgba(88, 166, 255, 0.7);
+}
 .digest-heatmap-cell--empty {
   background: transparent;
 }
