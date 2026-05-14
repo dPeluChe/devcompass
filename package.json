@@ -1,12 +1,38 @@
 {
-  "name": "labs-ghviewer",
-  "private": true,
-  "version": "0.0.1",
+  "name": "devcompass",
+  "version": "0.1.0",
+  "private": false,
+  "description": "Local-first command center for your GitHub repos, PRs, and activity. No backend — your token stays in your browser.",
   "type": "module",
+  "license": "MIT",
+  "author": "Antonio Martinez Quintero",
+  "homepage": "https://github.com/dPeluChe/devcompass#readme",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/dPeluChe/devcompass.git"
+  },
+  "bugs": {
+    "url": "https://github.com/dPeluChe/devcompass/issues"
+  },
+  "keywords": [
+    "github",
+    "dashboard",
+    "developer-tools",
+    "react",
+    "vite",
+    "local-first",
+    "indexeddb",
+    "graphql",
+    "pull-requests",
+    "command-center"
+  ],
   "scripts": {
     "dev": "vite",
     "build": "tsc -b && vite build",
     "preview": "vite preview"
+  },
+  "engines": {
+    "node": ">=20"
   },
   "dependencies": {
     "@tanstack/react-query": "^5.62.0",

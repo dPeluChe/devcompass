@@ -1,155 +1,147 @@
-# GHDevView Documentation
+# devcompass — architecture notes
 
-GHDevView is a local-first GitHub workbench for developers who manage many repositories across personal accounts and organizations.
+This is the internal architecture guide for contributors. For the user-facing intro, see the [root README](../README.md).
 
-## Product Scope
+## High level
 
-The app is optimized for fast repo triage:
+devcompass is a single-page app that runs entirely in the browser. There is no backend, no server-side rendering, no analytics. All state — the user's PAT, cached repos, pinned repos, snoozes, the contribution heatmap — lives in `localStorage` and IndexedDB.
 
-- See personal repositories and organization repositories in one dashboard.
-- Start on pinned work when pinned repos exist.
-- Switch quickly between All, Pinned, and individual org scopes.
-- Search repositories without changing org chip layout or counts.
-- Detect active repos, open PRs, language stack, private/fork/archived status, branch, and last update.
-- Use Config to manage org visibility, token access, local cache, pinned repos, and org ordering.
+The app is structured around the **HomeShell**: a persistent sidebar + main column that hosts every scope (Digest, Needs me, Since last visit, Watching, Pinned, Active 7d, All repos, per-org views, Token & rate). Repo detail and Config also render inside HomeShell so the sidebar is always present.
 
-## Main Views
-
-### Repos
-
-- Compact filter row with scope chips, search, activity window, sort order, archived toggle, and fork toggle.
-- Scope chips include All, Pinned, personal account, and each synced org.
-- Pinned section highlights selected repos above the normal repo grid.
-- Repo cards show owner, description, language icon, branch, PR count, private/fork/archived badges, and relative activity.
-
-### PRs
-
-- Pull request inbox for review and follow-up work.
-- PR detail view with sanitized markdown rendering.
-
-### Config
-
-Config is split into sections:
-
-- Orgs: choose which organizations are available and synced.
-- Token: show token type, scopes, SSO/org visibility, and rate context.
-- Storage: inspect and clear local IndexedDB cache.
-- Pinned: review and unpin pinned repositories.
-
-## Data Loading
-
-Initial app data is loaded from GitHub and IndexedDB:
-
-1. Load viewer, token info, org access, and rate limit.
-2. Hydrate cached repositories from IndexedDB immediately when available.
-3. Fetch fresh or missing repositories from GitHub.
-4. Merge personal repositories from `viewer.repositories` with organization repositories.
-5. Dedupe repositories by GitHub id.
-6. Persist the merged repository list back into IndexedDB.
-
-This keeps refreshes useful even before the network sync finishes.
-
-## Local Storage
-
-Dexie stores local app data in IndexedDB:
-
-- Cached repositories.
-- Pinned repository full names.
-- Organization visibility/order configuration.
-
-Use `Config -> Storage` to clear all cache or stale cache.
-
-## GitHub Access
-
-Recommended token:
-
-- Type: classic token.
-- Scopes: `repo`, `read:org`.
-
-Missing org data usually means one of:
-
-- The token cannot see that org.
-- SSO authorization is missing for that org.
-- The org is disabled in Config.
-- Cache was cleared and the GitHub sync has not completed.
-
-## Architecture
-
-### Query Keys
-
-TanStack Query keys are centralized in `src/store/queries.ts`.
-
-```typescript
-viewer
-viewerRepos
-orgRepos(login)
-allRepos
-rateLimit
-tokenInfo
-userOrgs
-prSearch(query)
-pr(owner, name, number)
-repoDetail(owner, name)
-branches(owner, name)
-```
-
-### Important Modules
+## Source tree
 
 ```text
 src/
   api/
-    github.ts           GitHub GraphQL and REST helpers
+    github.ts             GitHub GraphQL + REST, retry, fragments. Single source of API truth.
   components/
-    Dashboard.tsx       Repo dashboard and filters
-    SettingsTab.tsx     Config view
-    OrgManager.tsx      Org visibility controls
-    PRInbox.tsx         Pull request inbox
-    PRDetail.tsx        Pull request detail
-    RepoDetail.tsx      Repo detail
-    BranchExplorer.tsx  Branch browser
-    SanitizedMarkdown.tsx
-    TokenSetup.tsx
-    ui.tsx
-  hooks/
-    useRepos.ts
-    usePRs.ts
-    useRepo.ts
+    Dashboard.tsx         Top-level workbench shell. Owns view + scope state, drives HomeShell.
+    SettingsTab.tsx       Config view: Orgs, Token, Storage, Cache, Pinned, Org order.
+    RepoBrowser.tsx       Wrapper around repo-detail when navigating in-app.
+    SanitizedMarkdown.tsx DOMPurify wrapper for PR / repo markdown.
+    TokenSetup.tsx        Login screen.
+    ConfirmDialog.tsx     In-app modal replacing native confirm/alert/prompt.
+    OrgManager.tsx        Per-org toggle in Settings.
+
+    home/
+      HomeShell.tsx       Persistent layout (sidebar + main + detail modal). Reused by every view.
+      Sidebar.tsx         Sidebar groups: Summary, Inbox, Workbench, Orgs (Member / Collaborator), Insights.
+      DetailModal.tsx     PR detail overlay opened from any scope.
+      ScopeView.tsx       Router that picks the right scope renderer based on scope key.
+      home.css            Per-component styles for HomeShell, scopes, sidebar, heatmap.
+      useNeedsMe.ts       Needs-me derivation + snooze refresh hook.
+      useSinceLastVisit.ts Since-last-visit diff hook + baseline snapshot save.
+
+      scopes/
+        common.tsx        Shared ScopeProps + helper components (Header, CompactRow, shortAgo).
+        DigestScope.tsx   Operational snapshot (stats, heatmap, most active, contributors, attn).
+        ContributionHeatmap.tsx  GitHub-style 53-week heatmap, 12h IDB cache.
+        NeedsScope.tsx, SinceScope.tsx, WatchingScope.tsx, PinnedScope.tsx, ActiveScope.tsx,
+        ReposScope.tsx, OrgScope.tsx, RateScope.tsx
+
+    repo-detail/
+      Header.tsx          Repo title bar with metadata + actions.
+      OverviewTab.tsx     Description + languages + recent activity.
+      CommitsTab.tsx      Paginated history with associated PR branch chips.
+      PRsTab.tsx          PR list with state filters (Open / Merged / Closed).
+      IssuesReleases.tsx  Issues + Releases combined tab.
+      Checks.tsx          PR checks log with copy button.
+      common.tsx, utils.ts
+
   store/
-    app.ts
-    cache.ts
-    db.ts
-    orgConfig.ts
-    queries.ts
-  main.tsx
+    auth.ts               Token in localStorage["ghviewer.pat"]. ASCII-sanitized to avoid header bugs.
+    queries.ts            TanStack Query client + queryKeys registry.
+    orgConfig.ts          Zustand persist store. Per-org enabled / syncEnabled / lastSyncedAt.
+    db.ts                 Dexie schema + helpers. TTL-bound prefs cache + auto-prune.
+
+  hooks/
+    useGlobalShortcuts.ts Keyboard shortcuts (cmd+k, ? for help, etc).
+
+  main.tsx                Router + QueryClient + auth gate.
+  App.tsx                 Auth-gated wrapper around <Dashboard>.
 ```
+
+## Data flow
+
+The load sequence Dashboard depends on:
+
+1. Read cached repos from IndexedDB (`getAllCachedRepos`) → paint immediately.
+2. In parallel: `fetchViewer` → REST `/user/orgs` (orgs GraphQL misses) → merge org lists → `fetchAllRepos`.
+3. Persist the fresh result back to IndexedDB via `cacheRepos`.
+4. `orgConfigStore.setAllOrgs` reconciles new orgs with existing per-org config.
+
+`getAllCachedRepos` (not the per-org variant) is used because collaborator repos come through `affiliations: COLLABORATOR` but are owned by orgs the user is not a member of. The per-org filter would miss them on cold reload.
+
+## State layers
+
+| Layer | File | Lifetime | Purpose |
+| --- | --- | --- | --- |
+| Auth token | `store/auth.ts` | localStorage | Bearer token for every API call. Sanitized to printable ASCII. |
+| Server cache | `store/queries.ts` | in-memory + IDB | TanStack Query (`5min staleTime`, 1 retry, refetch on focus). |
+| Org config | `store/orgConfig.ts` | localStorage (Zustand persist) | Per-org enabled / syncEnabled flags. |
+| Persistent data | `store/db.ts` | IndexedDB (Dexie) | Repos, orgs, prefs, tokens, pinnedRepos, snoozedPRs. |
+
+When adding new state, pick the **lowest layer that survives long enough** — most things either belong in TanStack Query (refetchable) or as a prefs key in IDB (cheap to evict, TTL-bound).
+
+## IndexedDB schema
+
+Database name: `ghviewer`. Current version: 3.
+
+```text
+repos        id, nameWithOwner, owner.login, pushedAt, cachedAt
+orgs         login, order
+prefs        key (TTL-bound entries keyed by prefix; see CACHE_TTLS)
+tokens       id (only 'current')
+pinnedRepos  repoId, pinnedAt
+snoozedPRs   prId, untilTs
+```
+
+Schema upgrades happen in `store/db.ts`. **Always bump the version + write an upgrade** when changing shape.
+
+## TTL-bound prefs cache
+
+`CACHE_TTLS` in `store/db.ts` is the single source of truth for which prefs prefixes are caches and how long they live. The current map:
+
+| Prefix | TTL | Purpose |
+| --- | --- | --- |
+| `viewer:` | 1h | Viewer GraphQL query (login + memberships) |
+| `tokenInfo:` | 1h | REST `/user` headers (scopes, SSO) |
+| `userOrgs:` | 1h | REST `/user/orgs` (catches orgs GraphQL misses) |
+| `prDetail:` | 15m | Per-PR detail (lazy, on modal open) |
+| `branches:` | 15m | Per-repo branch list |
+| `contrib:` | 12h | Viewer contribution calendar (Digest heatmap) |
+
+`pruneExpiredCachePrefs()` runs at boot from `main.tsx` and evicts every expired row. The Cache tab in Settings shows live counts per group and lets users evict individually.
+
+## GitHub API
+
+`src/api/github.ts` is the only file that talks to `api.github.com`. Everything else consumes typed responses from there.
+
+- GraphQL endpoint with the `REPO_FIELDS` fragment shared between viewer and org queries.
+- Retries: 3 attempts, 2s delay on any GraphQL or network failure.
+- REST helpers for endpoints GraphQL can't expose: `/user` (for response headers), `/user/orgs` (broader org list), Actions runs/jobs/logs.
+- `fetchAllRepos` dedupes by repo `id` so a repo accessible via both viewer and org appears once. Returns `{ repos, errors }` so org-level access failures don't kill the whole sync.
 
 ## Commands
 
 ```bash
-npm run dev
-npm run build
+npm run dev       # Vite dev server on :8099, auto-opens
+npm run build     # tsc -b && vite build — the only verification gate
+npm run preview   # serve the built bundle locally
 ```
 
-There is no lint command configured in `package.json` yet.
+There is **no lint command** yet. `npm run build` is what merges go through.
 
-## Verification
+## GitHub Pages deploy
 
-Before merging UI or data-loading changes:
+The Pages workflow (`.github/workflows/pages.yml`) builds with `VITE_BASE=/devcompass/` so assets resolve under the project subpath. If you fork to a different repo name, override `VITE_BASE` accordingly or use a custom domain.
 
-```bash
-npm run build
-spark audit --offline
-npm audit --audit-level=moderate
-```
+## Token requirements
 
-## Current UI Direction
+Classic PAT with `repo` and `read:org`. SSO orgs need explicit token authorization. The Token tab in Settings surfaces `X-OAuth-Scopes` and `X-GitHub-SSO` so users can self-diagnose missing orgs.
 
-Next changes should keep the tool dense and developer-focused:
+## Markdown safety
 
-- Prefer one-row controls where possible.
-- Avoid oversized cards for config screens.
-- Keep repo filters stable while typing search text.
-- Keep org and personal scopes visible.
-- Surface actionable repo signals before decorative content.
+`SanitizedMarkdown.tsx` renders any GitHub-supplied `bodyHTML` through DOMPurify. Never inject GitHub HTML directly — always go through this component.
 
-<!-- Updated: 2026-05-06 -->
+<!-- Updated: 2026-05-13 -->

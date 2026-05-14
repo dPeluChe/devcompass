@@ -1,72 +1,59 @@
-# TASK TODO - labs-ghviewer
+# Task backlog — devcompass
 
-## Completed Features
+Living list of what is done and what is next. Newest entries up top within each section.
 
-### UI/UX
+## Recently shipped
 
-- [x] React Router and TanStack Query integration.
-- [x] Skeleton loaders and loading states.
-- [x] Framer Motion animations.
-- [x] Login page redesign.
-- [x] English UI copy.
-- [x] Dev server port set to 8099.
-- [x] Compact repo toolbar with scope chips, search, activity, sort, archived, and fork filters.
-- [x] Stable org chip widths while searching.
-- [x] All, Pinned, personal, and organization chips in the main filter row.
-- [x] Pinned repositories section above the repo grid.
-- [x] Repo card badge icons for language, private, fork, archived, branch, and PR signals.
-- [x] Config tab moved into primary navigation.
-- [x] Config sections for Orgs, Token, Storage, Pinned, and Org Order.
+- [x] **OSS-ready docs pass** — LICENSE (MIT), README rewrite with privacy section, GitHub issue/PR templates, Pages workflow, screenshot placeholders, rebrand to `devcompass`.
+- [x] **Digest scope v1** — operational snapshot from `data.repos` (no extra API calls): stat tiles, most active repos, open-PR contributors, needs-attention rows. Window selector (24h/7d/30d).
+- [x] **Contribution heatmap** — viewer.contributionsCollection, 12h IDB cache, GitHub-light palette, today highlight, hs-tip tooltips per cell + legend.
+- [x] **Digest as default landing** — sidebar Summary group at top, scope defaults to `digest`.
+- [x] **Cache UI rich detail** — Storage + Cache tabs separated; cache chips with TTL groups, token masked, auto-prune of expired rows.
+- [x] **TTL-bound IDB cache for hot reads** — viewer / tokenInfo / userOrgs (1h), prDetail / branches (15m), contrib (12h). `pruneExpiredCachePrefs` runs at boot.
+- [x] **ConfirmDialog** replaces native `confirm` / `alert` / `prompt` everywhere (Clear cache, Hard refresh, etc).
+- [x] **Hard-refresh button** in Settings — invalidates viewer / tokenInfo / userOrgs cache and triggers full sync.
+- [x] **Sidebar split: Member vs Collaborator orgs** — two groups with custom tooltip and per-kind icon.
+- [x] **All repos collaborator preservation** — switched from per-org `getCachedRepos` to `getAllCachedRepos` so collab repos survive normal reloads.
+- [x] **Refactor pass**: DetailModal 1211→623 LOC, RepoDetail 624→67 LOC, ScopeView 511→17 LOC. LazyMotion saves ~43KB raw.
+- [x] **Repo detail rich** — Overview / Commits (paginated, with PR branch chips) / PRs (state filter) / Issues / Releases / Checks (copy log button). Sidebar persists in repo view.
+- [x] **Home redesign** — list-only home + centered modal, scopes architecture, PRs view removed (replaced by Needs me + Detail modal).
+- [x] **Local-first hydration** — paint cached repos instantly while the fresh sync runs in the background.
 
-### Data Management
+## Pending — near term
 
-- [x] TanStack Query hooks for repos, PRs, rate limit, token info, and orgs.
-- [x] Zustand store for app state.
-- [x] Dexie IndexedDB cache for repositories and pinned repos.
-- [x] Hydrate repositories from IndexedDB before network refresh.
-- [x] Sequential organization repo loading with progress.
-- [x] Include personal account repositories from `viewer.repositories`.
-- [x] Dedupe merged repositories by GitHub id.
-- [x] Retry logic for GitHub API 504 errors.
+- [ ] **Watching scope (auto-derived)** — PRs you authored awaiting reviewers, PRs you review-requested that went draft, pinned repos with no recent activity.
+- [ ] **Since-last-visit polish** — group by day, filter chips by event kind, optional window selector.
+- [ ] **Digest v2** — sparkline per repo in Most active, PRs merged in window, avg time-to-merge, top commit-contributors (cached time-bucketed queries).
+- [ ] **Layout polish for ultrawide** — responsive heatmap cells (`clamp(14px, 1.2vw, 24px)`), 2-column lists at >1800px, soft cap at ~2200px.
+- [ ] **Error boundaries** for Dashboard, repo-detail, PR detail.
+- [ ] **Mobile / narrow viewport** improvements beyond current sidebar drawer.
 
-### Components
+## Pending — longer term
 
-- [x] Branch Explorer.
-- [x] PR Inbox.
-- [x] PR Detail with sanitized markdown.
-- [x] Repo Detail.
-- [x] Org Manager.
-- [x] Settings / Config tab.
-- [x] UI components: Skeleton, Spinner, FadeIn, Pulse.
+- [ ] **Lint setup** — ESLint + the existing TypeScript strict mode as the floor.
+- [ ] **Tests** around repo merge, cache hydration, TTL prune, snooze, since-last-visit diff.
+- [ ] **Density modes** for repo cards (scan vs detail).
+- [ ] **Command menu** for repo actions (cmd+k extension).
+- [ ] **Fine-grained PAT support** — currently classic only because GraphQL `viewer.organizations` is stricter.
+- [ ] **Multi-account** — switch between PATs without clearing cache.
+- [ ] **GitLab / Bitbucket / Linear adapters** — share the scope model across platforms.
 
-## Pending Tasks
+## Query keys (TanStack Query)
 
-- [ ] Add a lint script and ESLint config.
-- [ ] Add error boundaries for dashboard, PR detail, and repo detail views.
-- [ ] Improve mobile and narrow viewport behavior.
-- [ ] Split large files into smaller modules.
-- [ ] Add explicit refresh actions per source: all repos, personal repos, and individual org.
-- [ ] Add repo card density modes for scan vs detail.
-- [ ] Add right-click or command menu repo actions.
-- [ ] Improve Config density and token guidance.
-- [ ] Add tests around repo merge, cache hydration, pinned scope, and org filtering.
-
-## Query Keys
-
-```typescript
+```ts
 const queryKeys = {
   viewer: ['viewer'],
   viewerRepos: ['viewer', 'repos'],
-  orgRepos: (login) => ['org', login, 'repos'],
-  repo: (owner, name) => ['repo', owner, name],
-  repoDetail: (owner, name) => ['repo', owner, name, 'detail'],
-  branches: (owner, name) => ['repo', owner, name, 'branches'],
-  prSearch: (query) => ['prs', 'search', query],
-  pr: (owner, name, number) => ['pr', owner, name, number],
+  orgRepos: (login: string) => ['org', login, 'repos'],
+  repo: (owner: string, name: string) => ['repo', owner, name],
+  repoDetail: (owner: string, name: string) => ['repo', owner, name, 'detail'],
+  branches: (owner: string, name: string) => ['repo', owner, name, 'branches'],
+  prSearch: (q: string) => ['prs', 'search', q],
+  pr: (owner: string, name: string, number: number) => ['pr', owner, name, number],
   rateLimit: ['rateLimit'],
   tokenInfo: ['tokenInfo'],
-  userOrgs: ['user', 'orgs'],
+  userOrgs: ['user', 'orgs']
 }
 ```
 
-<!-- Updated: 2026-05-06 -->
+<!-- Updated: 2026-05-13 -->
