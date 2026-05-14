@@ -132,9 +132,18 @@ npm run preview   # serve the built bundle locally
 
 There is **no lint command** yet. `npm run build` is what merges go through.
 
-## GitHub Pages deploy
+## Hosting split
 
-The Pages workflow (`.github/workflows/pages.yml`) builds with `VITE_BASE=/devcompass/` so assets resolve under the project subpath. If you fork to a different repo name, override `VITE_BASE` accordingly or use a custom domain.
+The repo deploys two surfaces from the same `main`:
+
+| Surface | Source | Host | URL |
+| --- | --- | --- | --- |
+| Landing page | `landing/` (static HTML/CSS) | GitHub Pages | <https://dpeluche.github.io/devcompass/> |
+| Live app | Vite build of `src/` | Vercel | <https://devcompass.vercel.app> |
+
+`.github/workflows/pages.yml` only assembles the landing site (no Node build) and copies the screenshots from `docs/screenshots/`. It runs on push to `main` only when files under `landing/`, `docs/screenshots/`, or the workflow itself change.
+
+Vercel reads `vercel.json` for the SPA rewrite (everything → `/index.html`) and runs `npm run build` on push to `main`. There is no `VITE_BASE` override on Vercel — the app serves from the root.
 
 ## Token requirements
 

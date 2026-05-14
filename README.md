@@ -103,9 +103,12 @@ There is no backend — `dist/` is everything.
 
 ## Try the demo
 
-A live demo is published from `main` to GitHub Pages: **<https://dPeluChe.github.io/devcompass/>**
+| | URL | What it is |
+| --- | --- | --- |
+| 🌐 | **<https://dpeluche.github.io/devcompass/>** | Project landing page (what / why / screenshots) |
+| 🚀 | **<https://devcompass.vercel.app>** | Live app — paste a PAT and use it |
 
-> First time visiting? You will be asked for a PAT. The page never sends it anywhere except `api.github.com` — verify in your browser DevTools → Network if you want to confirm.
+> First time visiting? The app will ask for a Personal Access Token. The page never sends it anywhere except `api.github.com` — verify in your browser DevTools → Network if you want to confirm.
 
 ## Architecture
 
