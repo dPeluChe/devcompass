@@ -1,8 +1,12 @@
-name: Deploy to GitHub Pages
+name: Deploy landing to GitHub Pages
 
 on:
   push:
     branches: [main]
+    paths:
+      - 'landing/**'
+      - 'docs/screenshots/**'
+      - '.github/workflows/pages.yml'
   workflow_dispatch:
 
 permissions:
@@ -20,23 +24,22 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - uses: actions/setup-node@v4
-        with:
-          node-version: 20
-          cache: npm
-
-      - run: npm ci
-
-      - name: Build with Pages base
-        env:
-          VITE_BASE: /devcompass/
-        run: npm run build
+      - name: Assemble landing site
+        run: |
+          mkdir -p _site
+          cp -r landing/* _site/
+          mkdir -p _site/screenshots
+          if compgen -G "docs/screenshots/*.png" > /dev/null; then
+            cp docs/screenshots/*.png _site/screenshots/
+          else
+            echo "No screenshots in docs/screenshots yet — landing will show broken images until they are added."
+          fi
 
       - uses: actions/configure-pages@v5
 
       - uses: actions/upload-pages-artifact@v3
         with:
-          path: dist
+          path: _site
 
   deploy:
     needs: build
