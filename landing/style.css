@@ -14,7 +14,7 @@
   --purple: #bc8cff;
   --pink: #ff7b72;
 
-  --accent: #3fb950;
+  --accent: #58a6ff;
 
   --radius: 14px;
   --radius-sm: 10px;
@@ -69,10 +69,7 @@ code {
 .brand-mark {
   display: inline-flex; align-items: center; justify-content: center;
   width: 30px; height: 30px;
-  border-radius: 8px;
-  background: linear-gradient(140deg, var(--green) 0%, var(--blue) 100%);
-  color: #0a0d11;
-  font-size: 18px; font-weight: 700;
+  flex-shrink: 0;
 }
 .brand-name { letter-spacing: -0.01em; }
 
@@ -139,15 +136,16 @@ h1 .h1-strong {
   margin-right: 0.18em;
 }
 .h1-mark-brand {
-  background: linear-gradient(140deg, var(--green) 0%, var(--blue) 100%);
-  color: #0a0d11;
+  background: linear-gradient(140deg, #161b22 0%, #1f3a5f 100%);
+  border: 1px solid var(--blue);
+  color: var(--blue);
   border-radius: 0.16em;
   text-align: center;
-  font-weight: 800;
-  font-size: 0.7em;
-  line-height: 1.25em;
-  width: 1em;
-  height: 1em;
+  font-weight: 700;
+  font-size: 0.65em;
+  line-height: 1.3em;
+  width: 1.05em;
+  height: 1.05em;
   vertical-align: 0.08em;
   margin-right: 0.22em;
 }
@@ -173,7 +171,7 @@ h1 .h1-strong {
   background: var(--line);
 }
 .grad {
-  background: linear-gradient(90deg, var(--green) 0%, var(--blue) 100%);
+  background: linear-gradient(90deg, var(--blue) 0%, var(--purple) 100%);
   -webkit-background-clip: text;
   background-clip: text;
   color: transparent;
@@ -235,9 +233,9 @@ section + section { border-top: 1px solid var(--line-soft); }
 .hero-bg {
   position: absolute; inset: 0;
   background-image:
-    radial-gradient(circle at 18% 20%, rgba(63, 185, 80, 0.10), transparent 45%),
-    radial-gradient(circle at 88% 0%, rgba(88, 166, 255, 0.10), transparent 50%),
-    radial-gradient(circle at 12% 95%, rgba(188, 140, 255, 0.06), transparent 50%);
+    radial-gradient(circle at 18% 20%, rgba(88, 166, 255, 0.10), transparent 45%),
+    radial-gradient(circle at 88% 0%, rgba(88, 166, 255, 0.08), transparent 50%),
+    radial-gradient(circle at 12% 95%, rgba(188, 140, 255, 0.07), transparent 50%);
   z-index: 0;
 }
 .hero-bg::before {
@@ -306,7 +304,7 @@ section + section { border-top: 1px solid var(--line-soft); }
   box-shadow:
     0 0 0 1px rgba(255,255,255,0.02),
     0 40px 80px -30px rgba(0,0,0,0.6),
-    0 0 60px rgba(63, 185, 80, 0.08);
+    0 0 60px rgba(88, 166, 255, 0.08);
 }
 .shot-bar {
   display: flex; align-items: center; gap: 8px;
@@ -362,15 +360,16 @@ section + section { border-top: 1px solid var(--line-soft); }
   color: var(--muted);
   margin: 0 0 18px;
 }
-.vs-col-strong h3 { color: var(--green); }
+.vs-col-strong h3 { color: var(--blue); }
 .vs-mark {
   width: 18px;
   height: 18px;
   display: inline-block;
 }
 .vs-mark-brand {
-  background: linear-gradient(140deg, var(--green) 0%, var(--blue) 100%);
-  color: #0a0d11;
+  background: linear-gradient(140deg, #161b22 0%, #1f3a5f 100%);
+  border: 1px solid var(--blue);
+  color: var(--blue);
   border-radius: 5px;
   font-family: var(--sans);
   font-weight: 800;
@@ -390,7 +389,7 @@ section + section { border-top: 1px solid var(--line-soft); }
 .vs-col li:last-child { border-bottom: none; }
 .vs-col-strong li::before {
   content: "→ ";
-  color: var(--green);
+  color: var(--blue);
   font-weight: 600;
   margin-right: 4px;
 }
@@ -484,7 +483,7 @@ section + section { border-top: 1px solid var(--line-soft); }
   background: var(--bg-soft);
   border: 1px solid var(--line);
   margin-bottom: 18px;
-  color: var(--green);
+  color: var(--blue);
 }
 .feature-icon svg {
   width: 18px;
@@ -546,9 +545,9 @@ section + section { border-top: 1px solid var(--line-soft); }
   font-weight: 500;
   letter-spacing: 0.08em;
   text-transform: uppercase;
-  color: var(--green);
-  background: rgba(63, 185, 80, 0.10);
-  border: 1px solid rgba(63, 185, 80, 0.25);
+  color: var(--blue);
+  background: rgba(88, 166, 255, 0.10);
+  border: 1px solid rgba(88, 166, 255, 0.25);
   padding: 4px 10px;
   border-radius: 999px;
   margin-bottom: 18px;
