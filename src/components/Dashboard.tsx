@@ -317,6 +317,9 @@ export function Dashboard({ token, onLogout }: Props) {
     <div className="dashboard">
       <div className="main-col">
         <header className="topbar topbar-sticky">
+          <a className="topbar-brand" href="https://github.com/dPeluChe/devcompass" target="_blank" rel="noreferrer" title="devcompass">
+            <img src="/favicon.svg" width="26" height="26" alt="devcompass" />
+          </a>
           <div className="user">
             {data.viewer && <img src={data.viewer.avatarUrl} alt="" width={24} height={24} />}
             <strong>@{data.viewer?.login ?? '...'}</strong>

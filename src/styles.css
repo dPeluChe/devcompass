@@ -209,6 +209,8 @@ button:disabled { opacity: 0.5; cursor: not-allowed; }
   border-bottom: 1px solid var(--border);
   margin-bottom: 12px;
 }
+.topbar-brand { display: flex; align-items: center; flex-shrink: 0; opacity: 0.85; transition: opacity 0.15s; }
+.topbar-brand:hover { opacity: 1; }
 .dashboard .user { display: flex; gap: 6px; align-items: center; font-size: 0.9em; }
 .dashboard .user img { border-radius: 50%; }
 .dashboard .meta { display: flex; gap: 8px; align-items: center; margin-left: auto; font-size: 0.85em; }
