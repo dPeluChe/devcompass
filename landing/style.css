@@ -137,10 +137,10 @@ h1 .h1-strong {
 }
 .h1-mark-brand {
   display: inline-block;
-  width: 0.72em;
-  height: 0.72em;
-  vertical-align: -0.02em;
-  margin-right: 0.18em;
+  width: 1.0em;
+  height: 1.0em;
+  vertical-align: -0.18em;
+  margin-right: 0.16em;
 }
 .h1-mark-brand img { display: block; width: 100%; height: 100%; }
 .h1-vs {
@@ -269,13 +269,25 @@ section + section { border-top: 1px solid var(--line-soft); }
 }
 
 .meta-row {
-  display: flex; flex-wrap: wrap; gap: 22px;
+  display: flex; flex-wrap: wrap; gap: 10px;
+  margin: 24px 0 0;
+}
+.meta-badge {
+  display: inline-flex; align-items: center; gap: 8px;
+  padding: 7px 14px;
+  border-radius: 999px;
   font-family: var(--mono);
   font-size: 13px;
-  color: var(--muted);
-  margin: 8px 0 0;
+  font-weight: 500;
+  letter-spacing: -0.01em;
+  color: var(--text);
+  border: 1px solid;
+  transition: transform 0.15s ease;
 }
-.meta-row span { display: inline-flex; align-items: center; gap: 8px; }
+.meta-badge:hover { transform: translateY(-1px); }
+.meta-badge.green  { background: rgba(63,185,80,0.08);   border-color: rgba(63,185,80,0.35); }
+.meta-badge.blue   { background: rgba(88,166,255,0.08);  border-color: rgba(88,166,255,0.35); }
+.meta-badge.purple { background: rgba(188,140,255,0.08); border-color: rgba(188,140,255,0.35); }
 .dot {
   width: 6px; height: 6px; border-radius: 50%;
   display: inline-block;
@@ -591,13 +603,13 @@ section + section { border-top: 1px solid var(--line-soft); }
   background:
     radial-gradient(ellipse at 50% 0%, rgba(88, 166, 255, 0.08), transparent 60%);
 }
-.cta-brand { display: inline-flex; align-items: center; gap: 0.18em; }
-.cta-mark { display: block; height: 0.72em; width: 0.72em; flex-shrink: 0; }
+.cta-brand { display: inline-flex; align-items: center; gap: 0.22em; }
+.cta-mark { display: block; height: 1.6em; width: 1.6em; flex-shrink: 0; }
 .cta-band h2 {
-  margin: 0 auto 14px;
-  max-width: 720px;
-  font-size: clamp(32px, 5vw, 56px);
-  line-height: 1.05;
+  margin: 0 auto 18px;
+  max-width: 640px;
+  font-size: clamp(36px, 5.5vw, 64px);
+  line-height: 1.1;
 }
 .cta-band-sub {
   font-family: var(--mono);
