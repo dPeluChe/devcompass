@@ -133,8 +133,15 @@ code {
 }
 .hero .lede {
   font-size: 18px;
+  color: var(--text);
+  margin: 0 0 14px;
+  max-width: 560px;
+}
+.hero .lede strong { color: var(--text); font-weight: 600; }
+.hero .lede-sub {
+  font-size: 15px;
   color: var(--text-muted);
-  margin: 0 0 28px;
+  margin: 0 0 26px;
   max-width: 540px;
 }
 .cta-row {
@@ -188,9 +195,11 @@ code {
 /* ── sections ─────────────────────────────────────── */
 
 section.why,
+section.onboarding,
 section.features,
 section.screenshots,
 section.privacy,
+section.selfhost,
 section.cta-band {
   padding: 80px 0;
   border-top: 1px solid var(--border);
@@ -216,6 +225,135 @@ h2 {
 }
 .why-list li { margin: 6px 0; }
 .closer { color: var(--text); font-weight: 500; }
+
+/* ── vs grid ──────────────────────────────────────── */
+
+.vs-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 18px;
+  margin-top: 40px;
+}
+.vs-col {
+  background: var(--bg-elev);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 22px 24px;
+}
+.vs-col-strong {
+  border-color: var(--green-soft);
+  background: linear-gradient(180deg, rgba(46, 160, 67, 0.06), var(--bg-elev) 60%);
+}
+.vs-col h3 {
+  margin: 0 0 12px;
+  font-size: 15px;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--text-muted);
+  font-weight: 600;
+}
+.vs-col-strong h3 { color: var(--green); }
+.vs-list {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+.vs-list li {
+  padding: 8px 0;
+  border-bottom: 1px solid var(--border);
+  font-size: 14.5px;
+  color: var(--text);
+}
+.vs-list li:last-child { border-bottom: none; }
+.vs-col-strong .vs-list li { color: var(--text); }
+.vs-col-strong .vs-list li::before {
+  content: "+ ";
+  color: var(--green);
+  font-weight: 600;
+  margin-right: 4px;
+}
+
+/* ── onboarding ───────────────────────────────────── */
+
+.onboarding {
+  background: linear-gradient(180deg, rgba(31, 111, 235, 0.05), transparent);
+}
+.onboarding-lede {
+  font-size: 16px;
+  color: var(--text-muted);
+  margin: 0 0 36px;
+  max-width: 640px;
+}
+.step-grid {
+  list-style: none;
+  padding: 0;
+  margin: 0 0 36px;
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 20px;
+}
+.step {
+  background: var(--bg-elev);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 24px;
+}
+.step-num {
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  background: var(--accent-strong);
+  color: #fff;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 600;
+  font-size: 16px;
+  margin-bottom: 14px;
+}
+.step h3 {
+  margin: 0 0 8px;
+  font-size: 17px;
+}
+.step p {
+  margin: 0;
+  color: var(--text-muted);
+  font-size: 14.5px;
+}
+.step code { font-size: 12.5px; }
+
+/* ── self-host ────────────────────────────────────── */
+
+.selfhost-grid {
+  display: grid;
+  grid-template-columns: 1fr 1.2fr;
+  gap: 40px;
+  align-items: center;
+}
+.selfhost h2 {
+  font-size: clamp(22px, 2.4vw, 28px);
+  margin: 8px 0 14px;
+}
+.selfhost p {
+  color: var(--text-muted);
+  margin: 0 0 18px;
+  max-width: 460px;
+}
+.selfhost .kicker { margin-bottom: 6px; }
+.codeblock {
+  background: #010409;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 18px 22px;
+  margin: 0;
+  overflow-x: auto;
+  font-family: ui-monospace, SFMono-Regular, "SF Mono", Menlo, monospace;
+  font-size: 13.5px;
+  line-height: 1.7;
+  color: var(--text);
+}
+.codeblock .c-c { color: var(--text-muted); user-select: none; }
+.codeblock .c-m { color: var(--green); }
 
 /* ── feature grid ─────────────────────────────────── */
 
@@ -363,8 +501,17 @@ h2 {
   .feature-grid { grid-template-columns: 1fr 1fr; }
   .shot-grid { grid-template-columns: 1fr; }
   .bottom-grid { grid-template-columns: 1fr; }
+  .vs-grid { grid-template-columns: 1fr; }
+  .step-grid { grid-template-columns: 1fr; }
+  .selfhost-grid { grid-template-columns: 1fr; gap: 28px; }
   .top-nav a:not(.cta):not(.ghost) { display: none; }
-  section.why, section.features, section.screenshots, section.privacy, section.cta-band {
+  section.why,
+  section.onboarding,
+  section.features,
+  section.screenshots,
+  section.privacy,
+  section.selfhost,
+  section.cta-band {
     padding: 56px 0;
   }
 }
@@ -374,4 +521,5 @@ h2 {
   .link-cols { grid-template-columns: 1fr 1fr; }
   .top-nav { gap: 10px; }
   .top-nav a.ghost { display: none; }
+  .codeblock { font-size: 12px; padding: 14px 16px; }
 }

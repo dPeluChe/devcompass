@@ -37,12 +37,16 @@
   <section class="hero">
     <div class="wrap hero-grid">
       <div>
-        <p class="kicker">Local-first · MIT · No backend</p>
+        <p class="kicker">For tech leads · OSS maintainers · contractors juggling orgs</p>
         <h1>Your GitHub work, on one fast screen.</h1>
         <p class="lede">
-          devcompass is a single-page app for developers who live across many GitHub orgs.
-          See every repo, every PR waiting on you, and every signal that matters today —
-          without giving your token to anyone.
+          GitHub.com shows you notifications. <strong>devcompass shows you the
+          actual state</strong> — which PRs are blocked on you, which orgs went
+          silent, what changed since yesterday, across every repo you can see.
+        </p>
+        <p class="lede-sub">
+          Local-first single-page app. Self-host in 30 seconds, or use the
+          hosted demo — your token never leaves your browser either way.
         </p>
         <div class="cta-row">
           <a class="cta primary" href="https://devcompass.vercel.app" target="_blank" rel="noopener">Try the live demo →</a>
@@ -74,6 +78,55 @@
         <li>Can I reload the page without waiting 30 seconds for a full GitHub sync?</li>
       </ul>
       <p class="closer">devcompass answers those from one dense, fast UI.</p>
+
+      <div class="vs-grid">
+        <div class="vs-col">
+          <h3>What github.com gives you</h3>
+          <ul class="vs-list">
+            <li>Notifications inbox (one event at a time)</li>
+            <li>Pinned repos on your profile</li>
+            <li>Per-repo dashboards</li>
+            <li>Search if you know what to type</li>
+          </ul>
+        </div>
+        <div class="vs-col vs-col-strong">
+          <h3>What devcompass adds</h3>
+          <ul class="vs-list">
+            <li><strong>Cross-org PR inbox</strong> — every PR waiting on you, all orgs, one list</li>
+            <li><strong>Operational digest</strong> — heatmap + 24h/7d/30d activity snapshot</li>
+            <li><strong>Since-last-visit diff</strong> — what changed while you were away</li>
+            <li><strong>Local-first cache</strong> — reloads paint instantly, no 30-second wait</li>
+          </ul>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section class="onboarding">
+    <div class="wrap">
+      <h2>Up and running in 30 seconds</h2>
+      <p class="onboarding-lede">No signup. No backend account. No credit card. Bring a GitHub PAT and go.</p>
+      <ol class="step-grid">
+        <li class="step">
+          <div class="step-num">1</div>
+          <h3>Open the app</h3>
+          <p>Use the hosted demo or run <code>npm run dev</code> on your own machine. The <code>dist/</code> folder is a complete deployable bundle — no server needed.</p>
+        </li>
+        <li class="step">
+          <div class="step-num">2</div>
+          <h3>Paste your PAT</h3>
+          <p>A GitHub classic Personal Access Token with <code>repo</code> + <code>read:org</code>. The token is stored in your browser&rsquo;s <code>localStorage</code>, never sent to any server we operate.</p>
+        </li>
+        <li class="step">
+          <div class="step-num">3</div>
+          <h3>See everything</h3>
+          <p>The Digest scope loads your activity snapshot, heatmap, and the PRs waiting on you. Reloads are instant from then on — IndexedDB caches everything locally.</p>
+        </li>
+      </ol>
+      <div class="cta-row center">
+        <a class="cta primary" href="https://devcompass.vercel.app" target="_blank" rel="noopener">Open the hosted demo →</a>
+        <a class="cta ghost" href="https://github.com/dPeluChe/devcompass#quick-start" target="_blank" rel="noopener">Self-host instructions</a>
+      </div>
     </div>
   </section>
 
@@ -173,6 +226,25 @@
         Everything lives on your machine. <strong>Settings → Storage → Clear all cache</strong>
         wipes it whenever you want.
       </p>
+    </div>
+  </section>
+
+  <section class="selfhost">
+    <div class="wrap selfhost-grid">
+      <div>
+        <p class="kicker">Don&rsquo;t want to trust a hosted demo?</p>
+        <h2>Run it on your own machine.</h2>
+        <p>
+          devcompass is MIT-licensed and ships as a static bundle. No server,
+          no database, no DevOps. Clone, install, run.
+        </p>
+        <a class="cta ghost" href="https://github.com/dPeluChe/devcompass#quick-start" target="_blank" rel="noopener">Quick-start guide →</a>
+      </div>
+      <pre class="codeblock"><code><span class="c-c">$ </span>git clone https://github.com/dPeluChe/devcompass.git
+<span class="c-c">$ </span>cd devcompass
+<span class="c-c">$ </span>npm install
+<span class="c-c">$ </span>npm run dev
+<span class="c-m">  → http://localhost:8099</span></code></pre>
     </div>
   </section>
 
