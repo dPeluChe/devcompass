@@ -4,15 +4,19 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>devcompass — local-first command center for your GitHub work</title>
-  <meta name="description" content="Local-first command center for your GitHub repos, PRs, and activity. No backend — your token stays in your browser." />
+  <meta name="description" content="See every repo, PR and signal across all your GitHub orgs in one fast UI. Local-first, no backend, no analytics." />
   <meta name="theme-color" content="#0d1117" />
 
-  <meta property="og:title" content="devcompass — local-first command center for your GitHub work" />
-  <meta property="og:description" content="See every repo, PR, and signal across all your orgs in one fast UI. No backend, no analytics, your PAT never leaves your browser." />
+  <meta property="og:title" content="devcompass — your GitHub work, on one fast screen" />
+  <meta property="og:description" content="Local-first command center for developers across many GitHub orgs. No backend, your token never leaves your browser." />
   <meta property="og:type" content="website" />
   <meta property="og:url" content="https://dpeluche.github.io/devcompass/" />
   <meta property="og:image" content="https://dpeluche.github.io/devcompass/screenshots/digest.png" />
   <meta name="twitter:card" content="summary_large_image" />
+
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
 
   <link rel="stylesheet" href="style.css" />
 </head>
@@ -25,77 +29,69 @@
         <span class="brand-name">devcompass</span>
       </a>
       <nav class="top-nav">
+        <a href="#why">Why</a>
         <a href="#features">Features</a>
         <a href="#privacy">Privacy</a>
-        <a href="#screenshots">Screenshots</a>
-        <a class="ghost" href="https://github.com/dPeluChe/devcompass" target="_blank" rel="noopener">GitHub</a>
-        <a class="cta" href="https://devcompass.vercel.app" target="_blank" rel="noopener">Try the demo</a>
+        <a class="ghost" href="https://github.com/dPeluChe/devcompass" target="_blank" rel="noopener">GitHub ↗</a>
+        <a class="cta" href="https://devcompass.vercel.app" target="_blank" rel="noopener">Open the app</a>
       </nav>
     </div>
   </header>
 
   <section class="hero">
-    <div class="wrap hero-grid">
-      <div>
-        <p class="kicker">For tech leads · OSS maintainers · contractors juggling orgs</p>
-        <h1>Your GitHub work, on one fast screen.</h1>
-        <p class="lede">
-          GitHub.com shows you notifications. <strong>devcompass shows you the
-          actual state</strong> — which PRs are blocked on you, which orgs went
-          silent, what changed since yesterday, across every repo you can see.
-        </p>
-        <p class="lede-sub">
-          Local-first single-page app. Self-host in 30 seconds, or use the
-          hosted demo — your token never leaves your browser either way.
-        </p>
-        <div class="cta-row">
-          <a class="cta primary" href="https://devcompass.vercel.app" target="_blank" rel="noopener">Try the live demo →</a>
-          <a class="cta ghost" href="https://github.com/dPeluChe/devcompass" target="_blank" rel="noopener">View on GitHub</a>
-        </div>
-        <p class="fineprint">
-          Bring a GitHub classic PAT with <code>repo</code> + <code>read:org</code>. The token
-          stays in your browser. <a href="#privacy">How that works ↓</a>
-        </p>
+    <div class="hero-bg" aria-hidden="true"></div>
+    <div class="wrap">
+      <span class="badge">v0.1 · MIT · No backend</span>
+      <h1>Your GitHub work,<br><span class="grad">on one fast screen.</span></h1>
+      <p class="lede">
+        github.com shows notifications. <strong>devcompass shows the actual state</strong> —
+        every PR blocked on you, every org that went silent, across all your repos.
+      </p>
+      <div class="cta-row">
+        <a class="cta primary" href="https://devcompass.vercel.app" target="_blank" rel="noopener">Open the app →</a>
+        <a class="cta ghost" href="https://github.com/dPeluChe/devcompass" target="_blank" rel="noopener">Star on GitHub</a>
       </div>
-      <div class="hero-shot">
-        <img src="screenshots/digest.png" alt="devcompass Digest scope — heatmap and operational snapshot" loading="eager" />
+      <p class="meta-row">
+        <span><span class="dot dot-green"></span> Local-first</span>
+        <span><span class="dot dot-blue"></span> Token in your browser</span>
+        <span><span class="dot dot-purple"></span> Zero analytics</span>
+      </p>
+    </div>
+  </section>
+
+  <section class="shot-band">
+    <div class="wrap">
+      <div class="shot-frame">
+        <div class="shot-bar">
+          <span class="dot d-r"></span><span class="dot d-y"></span><span class="dot d-g"></span>
+          <span class="shot-url">devcompass.vercel.app</span>
+        </div>
+        <img src="screenshots/digest.png" alt="Digest scope — heatmap and operational snapshot" loading="eager" />
       </div>
     </div>
   </section>
 
-  <section class="why">
+  <section id="why" class="why">
     <div class="wrap">
-      <h2>GitHub is great at one repo. devcompass is great at all of them.</h2>
-      <p>
-        GitHub is fast for repository detail. It is slow for the questions developers actually
-        ask every morning:
-      </p>
-      <ul class="why-list">
-        <li>Which of my repos got activity yesterday?</li>
-        <li>Where are PRs waiting on me?</li>
-        <li>Which open PRs across all my orgs have failing CI?</li>
-        <li>Did my token authorize the org I expected, or did SSO silently block it?</li>
-        <li>Can I reload the page without waiting 30 seconds for a full GitHub sync?</li>
-      </ul>
-      <p class="closer">devcompass answers those from one dense, fast UI.</p>
-
+      <p class="eyebrow">Why</p>
+      <h2>One page can&rsquo;t answer your morning&rsquo;s questions.</h2>
       <div class="vs-grid">
         <div class="vs-col">
-          <h3>What github.com gives you</h3>
-          <ul class="vs-list">
-            <li>Notifications inbox (one event at a time)</li>
-            <li>Pinned repos on your profile</li>
+          <h3>github.com</h3>
+          <ul>
             <li>Per-repo dashboards</li>
+            <li>Notifications inbox</li>
+            <li>Pinned repos on profile</li>
             <li>Search if you know what to type</li>
           </ul>
         </div>
         <div class="vs-col vs-col-strong">
-          <h3>What devcompass adds</h3>
-          <ul class="vs-list">
-            <li><strong>Cross-org PR inbox</strong> — every PR waiting on you, all orgs, one list</li>
-            <li><strong>Operational digest</strong> — heatmap + 24h/7d/30d activity snapshot</li>
-            <li><strong>Since-last-visit diff</strong> — what changed while you were away</li>
-            <li><strong>Local-first cache</strong> — reloads paint instantly, no 30-second wait</li>
+          <h3>devcompass</h3>
+          <ul>
+            <li>Cross-org PR inbox</li>
+            <li>Operational digest with heatmap</li>
+            <li>Since-last-visit diff feed</li>
+            <li>Instant reloads — local cache</li>
           </ul>
         </div>
       </div>
@@ -104,89 +100,87 @@
 
   <section class="onboarding">
     <div class="wrap">
-      <h2>Up and running in 30 seconds</h2>
-      <p class="onboarding-lede">No signup. No backend account. No credit card. Bring a GitHub PAT and go.</p>
+      <p class="eyebrow">30 seconds</p>
+      <h2>No signup. No backend account. Bring a PAT.</h2>
       <ol class="step-grid">
         <li class="step">
-          <div class="step-num">1</div>
+          <span class="step-num">01</span>
           <h3>Open the app</h3>
-          <p>Use the hosted demo or run <code>npm run dev</code> on your own machine. The <code>dist/</code> folder is a complete deployable bundle — no server needed.</p>
+          <p>Hosted demo, or <code>npm run dev</code> on your own machine.</p>
         </li>
         <li class="step">
-          <div class="step-num">2</div>
-          <h3>Paste your PAT</h3>
-          <p>A GitHub classic Personal Access Token with <code>repo</code> + <code>read:org</code>. The token is stored in your browser&rsquo;s <code>localStorage</code>, never sent to any server we operate.</p>
+          <span class="step-num">02</span>
+          <h3>Paste your token</h3>
+          <p>Classic PAT with <code>repo</code> + <code>read:org</code>. Stays in your browser.</p>
         </li>
         <li class="step">
-          <div class="step-num">3</div>
+          <span class="step-num">03</span>
           <h3>See everything</h3>
-          <p>The Digest scope loads your activity snapshot, heatmap, and the PRs waiting on you. Reloads are instant from then on — IndexedDB caches everything locally.</p>
+          <p>Digest loads your activity, heatmap, and PRs waiting on you.</p>
         </li>
       </ol>
-      <div class="cta-row center">
-        <a class="cta primary" href="https://devcompass.vercel.app" target="_blank" rel="noopener">Open the hosted demo →</a>
-        <a class="cta ghost" href="https://github.com/dPeluChe/devcompass#quick-start" target="_blank" rel="noopener">Self-host instructions</a>
-      </div>
     </div>
   </section>
 
   <section id="features" class="features">
     <div class="wrap">
-      <h2>What you get</h2>
+      <p class="eyebrow">What you get</p>
+      <h2>Every signal you need, in one screen.</h2>
       <div class="feature-grid">
         <div class="feature">
-          <div class="feature-icon">∿</div>
-          <h3>Digest scope</h3>
-          <p>Operational snapshot of the last 24h / 7d / 30d. Stat tiles, GitHub-style contribution heatmap, most active repos, open-PR contributors.</p>
+          <span class="feature-icon">∿</span>
+          <h3>Digest</h3>
+          <p>Heatmap, stat tiles, most active repos — last 24h / 7d / 30d.</p>
         </div>
         <div class="feature">
-          <div class="feature-icon">⚡</div>
+          <span class="feature-icon">⚡</span>
           <h3>Needs me</h3>
-          <p>Every PR where you are a requested reviewer or co-author, with snooze. The inbox you actually want.</p>
+          <p>Every PR awaiting your review or approval. With snooze.</p>
         </div>
         <div class="feature">
-          <div class="feature-icon">⏱</div>
+          <span class="feature-icon">⏱</span>
           <h3>Since last visit</h3>
-          <p>Diff feed of what changed since you last marked the home as seen. Catch up in one scroll.</p>
+          <p>Diff feed of what changed while you were away.</p>
         </div>
         <div class="feature">
-          <div class="feature-icon">📌</div>
-          <h3>All repos &amp; pinned</h3>
-          <p>Every visible repo across yours, member orgs, and collaborator orgs. Pin the ones you live in.</p>
+          <span class="feature-icon">📌</span>
+          <h3>Pinned repos</h3>
+          <p>Your daily-driver repos always on top.</p>
         </div>
         <div class="feature">
-          <div class="feature-icon">🔍</div>
+          <span class="feature-icon">🔍</span>
           <h3>Repo detail</h3>
-          <p>Overview, Commits with branch chips, PRs filtered by state, Issues, Releases, and Checks log.</p>
+          <p>Commits with branch chips, PRs, Issues, Releases, Checks.</p>
         </div>
         <div class="feature">
-          <div class="feature-icon">⚙️</div>
-          <h3>Local-first cache</h3>
-          <p>IndexedDB stores repos, PR detail, branches, and the contribution calendar with TTL eviction. Reloads paint instantly.</p>
+          <span class="feature-icon">⚙️</span>
+          <h3>Local cache</h3>
+          <p>IndexedDB stores everything. Reloads paint instantly.</p>
         </div>
       </div>
     </div>
   </section>
 
-  <section id="screenshots" class="screenshots">
+  <section class="screenshots">
     <div class="wrap">
-      <h2>Screenshots</h2>
+      <p class="eyebrow">Screenshots</p>
+      <h2>Built for scanning, not for scrolling.</h2>
       <div class="shot-grid">
         <figure>
           <img src="screenshots/digest.png" alt="Digest scope" loading="lazy" />
-          <figcaption><strong>Digest</strong> — your morning overview.</figcaption>
+          <figcaption>Digest</figcaption>
         </figure>
         <figure>
           <img src="screenshots/repos.png" alt="All repos scope" loading="lazy" />
-          <figcaption><strong>All repos</strong> — chip filters, scan grid.</figcaption>
+          <figcaption>All repos</figcaption>
         </figure>
         <figure>
-          <img src="screenshots/repo-detail.png" alt="Repo detail view" loading="lazy" />
-          <figcaption><strong>Repo detail</strong> — commits with branch chips.</figcaption>
+          <img src="screenshots/repo-detail.png" alt="Repo detail" loading="lazy" />
+          <figcaption>Repo detail</figcaption>
         </figure>
         <figure>
-          <img src="screenshots/config-cache.png" alt="Settings cache panel" loading="lazy" />
-          <figcaption><strong>Cache panel</strong> — TTL-bound, auto-pruned, transparent.</figcaption>
+          <img src="screenshots/config-cache.png" alt="Cache panel" loading="lazy" />
+          <figcaption>Cache panel</figcaption>
         </figure>
       </div>
     </div>
@@ -194,53 +188,37 @@
 
   <section id="privacy" class="privacy">
     <div class="wrap">
-      <h2>Privacy is a feature, not a default</h2>
-      <p>
-        devcompass is a <strong>browser-only single-page app</strong>. There is no backend
-        operator. There is no analytics. There is no third-party network call outside the
-        GitHub API itself.
-      </p>
-      <table class="privacy-table">
-        <thead>
-          <tr><th>What</th><th>Where it lives</th><th>Why</th></tr>
-        </thead>
-        <tbody>
-          <tr>
-            <td>Your GitHub PAT</td>
-            <td><code>localStorage</code></td>
-            <td>Sent only to <code>api.github.com</code> as a bearer token. Never to a server we operate.</td>
-          </tr>
-          <tr>
-            <td>Cached repos &amp; PRs</td>
-            <td>IndexedDB (<code>ghviewer</code> DB)</td>
-            <td>Lets the UI render instantly on reload before the next sync finishes. TTL-bound and auto-pruned.</td>
-          </tr>
-          <tr>
-            <td>Per-org visibility flags</td>
-            <td><code>localStorage</code></td>
-            <td>Remembers which orgs you toggled off in Settings.</td>
-          </tr>
-        </tbody>
-      </table>
-      <p class="closer">
-        Everything lives on your machine. <strong>Settings → Storage → Clear all cache</strong>
-        wipes it whenever you want.
-      </p>
+      <p class="eyebrow">Privacy</p>
+      <h2>Your token. Your machine. Our problem to keep it that way.</h2>
+      <div class="privacy-grid">
+        <div class="privacy-card">
+          <span class="pc-tag">PAT</span>
+          <h3>Lives in <code>localStorage</code></h3>
+          <p>Sent only to <code>api.github.com</code>. Never to a server we operate.</p>
+        </div>
+        <div class="privacy-card">
+          <span class="pc-tag">Cache</span>
+          <h3>IndexedDB on your machine</h3>
+          <p>TTL-bound, auto-pruned, fully transparent in the Cache panel.</p>
+        </div>
+        <div class="privacy-card">
+          <span class="pc-tag">Analytics</span>
+          <h3>None. Zero. Ever.</h3>
+          <p>No trackers, no telemetry, no third-party scripts.</p>
+        </div>
+      </div>
     </div>
   </section>
 
   <section class="selfhost">
     <div class="wrap selfhost-grid">
       <div>
-        <p class="kicker">Don&rsquo;t want to trust a hosted demo?</p>
-        <h2>Run it on your own machine.</h2>
-        <p>
-          devcompass is MIT-licensed and ships as a static bundle. No server,
-          no database, no DevOps. Clone, install, run.
-        </p>
-        <a class="cta ghost" href="https://github.com/dPeluChe/devcompass#quick-start" target="_blank" rel="noopener">Quick-start guide →</a>
+        <p class="eyebrow">Self-host</p>
+        <h2>Don&rsquo;t want a hosted demo? Run it yourself.</h2>
+        <p class="subtle">MIT-licensed. Static bundle. No server, no DB, no DevOps.</p>
+        <a class="cta ghost" href="https://github.com/dPeluChe/devcompass#quick-start" target="_blank" rel="noopener">Self-host docs →</a>
       </div>
-      <pre class="codeblock"><code><span class="c-c">$ </span>git clone https://github.com/dPeluChe/devcompass.git
+      <pre class="codeblock"><code><span class="c-c">$ </span>git clone github.com/dPeluChe/devcompass
 <span class="c-c">$ </span>cd devcompass
 <span class="c-c">$ </span>npm install
 <span class="c-c">$ </span>npm run dev
@@ -250,11 +228,10 @@
 
   <section class="cta-band">
     <div class="wrap">
-      <h2>Ready to try it?</h2>
-      <p>Bring a GitHub classic PAT and see your repos in one screen.</p>
+      <h2>See your GitHub work in one screen.</h2>
       <div class="cta-row center">
-        <a class="cta primary" href="https://devcompass.vercel.app" target="_blank" rel="noopener">Open the live demo →</a>
-        <a class="cta ghost" href="https://github.com/dPeluChe/devcompass#readme" target="_blank" rel="noopener">Read the docs</a>
+        <a class="cta primary" href="https://devcompass.vercel.app" target="_blank" rel="noopener">Open the app →</a>
+        <a class="cta ghost" href="https://github.com/dPeluChe/devcompass" target="_blank" rel="noopener">View source</a>
       </div>
     </div>
   </section>
@@ -263,28 +240,15 @@
     <div class="wrap bottom-grid">
       <div>
         <p class="brand"><span class="brand-mark">∿</span> <span class="brand-name">devcompass</span></p>
-        <p class="muted">MIT licensed. Built by <a href="https://github.com/dPeluChe" target="_blank" rel="noopener">dPeluChe</a>.</p>
+        <p class="muted">MIT · built by <a href="https://github.com/dPeluChe" target="_blank" rel="noopener">dPeluChe</a></p>
       </div>
-      <div class="link-cols">
-        <div>
-          <h4>Project</h4>
-          <a href="https://github.com/dPeluChe/devcompass" target="_blank" rel="noopener">Repository</a>
-          <a href="https://github.com/dPeluChe/devcompass/blob/main/README.md" target="_blank" rel="noopener">README</a>
-          <a href="https://github.com/dPeluChe/devcompass/blob/main/docs/README.md" target="_blank" rel="noopener">Architecture</a>
-        </div>
-        <div>
-          <h4>Use it</h4>
-          <a href="https://devcompass.vercel.app" target="_blank" rel="noopener">Live demo</a>
-          <a href="https://github.com/dPeluChe/devcompass#quick-start" target="_blank" rel="noopener">Self-host</a>
-          <a href="https://github.com/dPeluChe/devcompass/blob/main/SECURITY.md" target="_blank" rel="noopener">Security</a>
-        </div>
-        <div>
-          <h4>Get involved</h4>
-          <a href="https://github.com/dPeluChe/devcompass/issues" target="_blank" rel="noopener">Issues</a>
-          <a href="https://github.com/dPeluChe/devcompass/pulls" target="_blank" rel="noopener">Pull requests</a>
-          <a href="https://github.com/dPeluChe/devcompass/blob/main/docs/TASK_TODO.md" target="_blank" rel="noopener">Roadmap</a>
-        </div>
-      </div>
+      <nav class="link-cols">
+        <a href="https://devcompass.vercel.app" target="_blank" rel="noopener">Demo</a>
+        <a href="https://github.com/dPeluChe/devcompass" target="_blank" rel="noopener">Repo</a>
+        <a href="https://github.com/dPeluChe/devcompass/blob/main/docs/README.md" target="_blank" rel="noopener">Docs</a>
+        <a href="https://github.com/dPeluChe/devcompass/blob/main/SECURITY.md" target="_blank" rel="noopener">Security</a>
+        <a href="https://github.com/dPeluChe/devcompass/issues" target="_blank" rel="noopener">Issues</a>
+      </nav>
     </div>
   </footer>
 
