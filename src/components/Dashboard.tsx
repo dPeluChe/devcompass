@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState, useCallback } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { fetchRateLimit, fetchTokenInfo, fetchUserOrgsRest, fetchViewer, fetchOrgReposSimple, fetchViewerReposSimple, type Repo, type TokenInfo, type Org } from '../api/github'
+import { DEMO_TOKEN } from '../api/demo-data'
 import type { ScopeKey } from './home/types'
 import { OrgManager } from './OrgManager'
 import { SettingsTab } from './SettingsTab'
@@ -117,7 +118,9 @@ function useViewerData(token: string) {
     // repos that came in via the viewer's COLLABORATOR affiliation — owned by
     // orgs we never iterate explicitly — survive reloads. The per-org buckets
     // still drive the "needs sync" check below.
-    const allCached = await getAllCachedRepos()
+    // Demo mode bypasses the cache entirely — its data is static and the DB may
+    // hold the real user's repos from a previous session.
+    const allCached = token === DEMO_TOKEN ? [] : await getAllCachedRepos()
     for (const r of allCached) byId.set(r.id, r)
     for (const login of sourcesToSync) cachedByOrg.set(login, [])
     for (const r of allCached) {
@@ -155,7 +158,7 @@ function useViewerData(token: string) {
       
       try {
         const orgRepos = login === v.login ? await fetchViewerReposSimple(token) : await fetchOrgReposSimple(token, login)
-        await cacheRepos(login, orgRepos)
+        if (token !== DEMO_TOKEN) await cacheRepos(login, orgRepos)
         markOrgSynced(login)
         for (const r of orgRepos) byId.set(r.id, r)
         setRepos(sortRepos([...byId.values()]))
@@ -323,6 +326,7 @@ export function Dashboard({ token, onLogout }: Props) {
           <div className="user">
             {data.viewer && <img src={data.viewer.avatarUrl} alt="" width={24} height={24} />}
             <strong>@{data.viewer?.login ?? '...'}</strong>
+            {token === DEMO_TOKEN && <span className="demo-badge">demo</span>}
           </div>
 
           <nav className="view-tabs" aria-label="Primary">

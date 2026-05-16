@@ -1,10 +1,10 @@
 import { useEffect, useRef, useState } from 'react'
+import { DEMO_TOKEN } from '../api/demo-data'
 
 type Props = { onSubmit: (token: string) => void }
 
 export function TokenSetup({ onSubmit }: Props) {
   const [token, setToken] = useState('')
-  const [showDemoNote, setShowDemoNote] = useState(false)
   const inputRef = useRef<HTMLInputElement>(null)
   useEffect(() => { inputRef.current?.focus() }, [])
 
@@ -56,13 +56,10 @@ export function TokenSetup({ onSubmit }: Props) {
             <button
               type="button"
               className="btn-demo"
-              onClick={() => setShowDemoNote(true)}
+              onClick={() => onSubmit(DEMO_TOKEN)}
             >
               Try demo
             </button>
-            {showDemoNote && (
-              <p className="demo-note">Demo mode coming soon — paste a PAT to connect for now.</p>
-            )}
           </div>
 
         </div>
