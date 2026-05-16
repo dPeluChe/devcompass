@@ -261,6 +261,7 @@ body.fancy-bg {
 .topbar-brand:hover { opacity: 1; }
 .dashboard .user { display: flex; gap: 6px; align-items: center; font-size: 0.9em; }
 .dashboard .user img { border-radius: 50%; }
+.demo-badge { font-size: 0.72em; font-weight: 600; letter-spacing: 0.06em; text-transform: uppercase; color: #f0a500; background: rgba(240,165,0,0.12); border: 1px solid rgba(240,165,0,0.35); border-radius: 4px; padding: 1px 6px; }
 .dashboard .meta { display: flex; gap: 8px; align-items: center; margin-left: auto; font-size: 0.85em; }
 .link-btn {
   background: transparent;

@@ -1,3 +1,9 @@
+import {
+  DEMO_TOKEN, DEMO_VIEWER, DEMO_REPOS, DEMO_ORGS_REST, DEMO_CALENDAR,
+  DEMO_TOKEN_INFO, DEMO_RATE_LIMIT, DEMO_PRS_REVIEW_REQUESTED, DEMO_PRS_AUTHORED,
+  DEMO_PRS_MENTIONED, DEMO_PRS_ASSIGNED, getDemoPRDetail
+} from './demo-data'
+
 const GH_GRAPHQL = 'https://api.github.com/graphql'
 
 export type RepoOpenPR = {
@@ -142,6 +148,7 @@ async function gql<T>(token: string, query: string, variables: Record<string, un
 }
 
 export async function fetchViewer(token: string): Promise<Viewer> {
+  if (token === DEMO_TOKEN) return DEMO_VIEWER
   const data = await gql<{ viewer: Viewer }>(token, `
     query {
       viewer {
@@ -185,6 +192,7 @@ async function fetchViewerReposPage(token: string, after: string | null): Promis
 }
 
 export async function fetchViewerReposSimple(token: string): Promise<Repo[]> {
+  if (token === DEMO_TOKEN) return DEMO_REPOS.filter((r) => r.owner.login === DEMO_VIEWER.login)
   const repos: Repo[] = []
   let after: string | null = null
   for (;;) {
@@ -221,6 +229,7 @@ async function fetchOrgReposPage(token: string, login: string, after: string | n
 }
 
 export async function fetchOrgReposSimple(token: string, login: string): Promise<Repo[]> {
+  if (token === DEMO_TOKEN) return DEMO_REPOS.filter((r) => r.owner.login === login)
   const repos: Repo[] = []
   let after: string | null = null
   for (;;) {
@@ -254,6 +263,10 @@ export async function fetchAllRepos(
   viewer: Viewer,
   onProgress?: (e: ProgressEvent) => void
 ): Promise<{ repos: Repo[]; errors: { source: string; message: string }[] }> {
+  if (token === DEMO_TOKEN) {
+    onProgress?.({ kind: 'done', total: DEMO_REPOS.length })
+    return { repos: DEMO_REPOS, errors: [] }
+  }
   const byId = new Map<string, Repo>()
   const errors: { source: string; message: string }[] = []
 
@@ -292,6 +305,7 @@ export async function fetchAllRepos(
 }
 
 export async function fetchRateLimit(token: string): Promise<RateLimit> {
+  if (token === DEMO_TOKEN) return DEMO_RATE_LIMIT
   const data = await gql<{ rateLimit: RateLimit }>(token, `query { rateLimit { remaining limit resetAt } }`)
   return data.rateLimit
 }
@@ -321,6 +335,7 @@ export type ContribCalendar = {
  * range is supplied.
  */
 export async function fetchContributionCalendar(token: string): Promise<ContribCalendar> {
+  if (token === DEMO_TOKEN) return DEMO_CALENDAR
   const data = await gql<{ viewer: { contributionsCollection: { contributionCalendar: ContribCalendar } } }>(
     token,
     `
@@ -364,6 +379,7 @@ export type TokenInfo = {
  * token can actually do — and crucially, whether SSO authorization is missing.
  */
 export async function fetchTokenInfo(token: string): Promise<TokenInfo> {
+  if (token === DEMO_TOKEN) return DEMO_TOKEN_INFO
   const res = await fetch('https://api.github.com/user', {
     headers: { Authorization: `Bearer ${token}` }
   })
@@ -422,6 +438,13 @@ type RawPR = Omit<PullRequest, 'ciState'> & {
 }
 
 export async function searchPRs(token: string, query: string, first = 50): Promise<PullRequest[]> {
+  if (token === DEMO_TOKEN) {
+    if (query.includes('review-requested:')) return DEMO_PRS_REVIEW_REQUESTED
+    if (query.includes('author:'))           return DEMO_PRS_AUTHORED
+    if (query.includes('mentions:'))         return DEMO_PRS_MENTIONED
+    if (query.includes('assignee:'))         return DEMO_PRS_ASSIGNED
+    return []
+  }
   const data = await gql<{ search: { nodes: RawPR[] } }>(
     token,
     `
@@ -560,6 +583,7 @@ export async function fetchPullRequestDetail(
   name: string,
   number: number
 ): Promise<PRDetail> {
+  if (token === DEMO_TOKEN) return getDemoPRDetail(owner, name, number)
   const data = await gql<{
     repository: {
       pullRequest: Omit<PRDetail, 'ciState' | 'checks' | 'commits'> & {
@@ -731,6 +755,7 @@ export async function submitReview(
   event: ReviewEvent,
   body?: string
 ): Promise<void> {
+  if (token === DEMO_TOKEN) return
   await rest(token, 'POST', `/repos/${owner}/${name}/pulls/${number}/reviews`, {
     event,
     body: body ?? ''
@@ -739,11 +764,13 @@ export async function submitReview(
 
 /** Posts an issue-level comment on the PR (the same endpoint used by GitHub's "Comment" button). */
 export async function addIssueComment(token: string, owner: string, name: string, number: number, body: string): Promise<void> {
+  if (token === DEMO_TOKEN) return
   await rest(token, 'POST', `/repos/${owner}/${name}/issues/${number}/comments`, { body })
 }
 
 /** Re-runs only the failed jobs of a workflow run. Cheaper than re-running everything. */
 export async function rerunFailedJobs(token: string, owner: string, name: string, runId: number): Promise<void> {
+  if (token === DEMO_TOKEN) return
   await rest(token, 'POST', `/repos/${owner}/${name}/actions/runs/${runId}/rerun-failed-jobs`)
 }
 
@@ -762,6 +789,7 @@ export async function mergePullRequest(
   method: MergeMethod,
   options?: { commit_title?: string; commit_message?: string; sha?: string }
 ): Promise<void> {
+  if (token === DEMO_TOKEN) return
   await rest(token, 'PUT', `/repos/${owner}/${name}/pulls/${number}/merge`, {
     merge_method: method,
     ...(options ?? {})
@@ -780,6 +808,7 @@ export type WorkflowJob = {
 
 /** Lists jobs in a workflow run. Used to map a CheckRun.name to a job_id so we can fetch its logs. */
 export async function fetchWorkflowRunJobs(token: string, owner: string, name: string, runId: number): Promise<WorkflowJob[]> {
+  if (token === DEMO_TOKEN) return []
   const data = await rest(token, 'GET', `/repos/${owner}/${name}/actions/runs/${runId}/jobs?per_page=100`) as { jobs: WorkflowJob[] }
   return data.jobs ?? []
 }
@@ -790,6 +819,7 @@ export async function fetchWorkflowRunJobs(token: string, owner: string, name: s
  * so callers should truncate before rendering.
  */
 export async function fetchJobLogs(token: string, owner: string, name: string, jobId: number): Promise<string> {
+  if (token === DEMO_TOKEN) return '(no logs in demo mode)'
   const res = await fetch(`https://api.github.com/repos/${owner}/${name}/actions/jobs/${jobId}/logs`, {
     headers: {
       Authorization: `Bearer ${token}`,
@@ -805,6 +835,7 @@ export async function fetchJobLogs(token: string, owner: string, name: string, j
  * than `viewer.organizations` (the GraphQL field is stricter about visibility).
  */
 export async function fetchUserOrgsRest(token: string): Promise<{ login: string; avatar_url: string; url: string }[]> {
+  if (token === DEMO_TOKEN) return DEMO_ORGS_REST
   const res = await fetch('https://api.github.com/user/orgs?per_page=100', {
     headers: { Authorization: `Bearer ${token}` }
   })
@@ -896,6 +927,39 @@ export type RepoDetail = {
 }
 
 export async function fetchRepoDetail(token: string, owner: string, name: string): Promise<RepoDetail> {
+  if (token === DEMO_TOKEN) {
+    const repo = DEMO_REPOS.find((r) => r.owner.login === owner && r.name === name)
+    if (!repo) throw new Error(`Demo: repo ${owner}/${name} not found`)
+    const prnodes = (repo.openPRs.nodes ?? []).map((n) => ({
+      number: n.number, title: n.title, url: n.url,
+      state: 'OPEN' as const, isDraft: n.isDraft,
+      createdAt: n.updatedAt, updatedAt: n.updatedAt,
+      mergedAt: null, closedAt: null, author: n.author,
+    }))
+    return {
+      id: repo.id, nameWithOwner: repo.nameWithOwner, url: repo.url,
+      description: repo.description, homepageUrl: null,
+      isPrivate: repo.isPrivate, isArchived: false, isFork: repo.isFork, isTemplate: false,
+      diskUsage: null, forkCount: 0, stargazerCount: repo.stargazerCount,
+      watchers: { totalCount: 0 }, createdAt: repo.updatedAt,
+      pushedAt: repo.pushedAt, updatedAt: repo.updatedAt, licenseInfo: { name: 'MIT', spdxId: 'MIT' },
+      primaryLanguage: repo.primaryLanguage,
+      repositoryTopics: { nodes: [] },
+      owner: { ...repo.owner, url: `https://github.com/${repo.owner.login}` },
+      defaultBranchRef: repo.defaultBranchRef ? {
+        name: repo.defaultBranchRef.name,
+        target: { __typename: 'Commit', oid: 'abc123', history: { totalCount: 0, nodes: [] }, statusCheckRollup: null }
+      } : null,
+      pullRequests: { totalCount: repo.openPRs.totalCount, nodes: prnodes },
+      issues: { totalCount: repo.openIssues.totalCount, nodes: [] },
+      releases: { totalCount: 0, nodes: [] },
+      languages: {
+        totalSize: 100,
+        edges: repo.primaryLanguage ? [{ size: 100, node: repo.primaryLanguage }] : [],
+      },
+      mentionableUsers: { totalCount: 0 },
+    }
+  }
   const data = await gql<{ repository: RepoDetail }>(
     token,
     `
@@ -986,6 +1050,7 @@ export type Branch = {
 }
 
 export async function fetchBranches(token: string, owner: string, name: string): Promise<Branch[]> {
+  if (token === DEMO_TOKEN) return []
   // The Repository type has no "branches" field — branches are refs under
   // refs/heads/. RefOrder doesn't expose a commit-date sort either, so we
   // pull alphabetically and sort by the underlying commit date client-side.
