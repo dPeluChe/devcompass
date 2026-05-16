@@ -15,7 +15,6 @@
   <img alt="No backend" src="https://img.shields.io/badge/backend-none-success.svg">
 </p>
 
-<!-- TODO: replace with a real screenshot. Recommended: capture the Digest scope landing page on a dark theme, ~1600x1000, save as docs/screenshots/digest.png -->
 <p align="center">
   <img src="docs/screenshots/digest.png" alt="devcompass Digest scope — heatmap + operational snapshot" width="900">
 </p>
@@ -45,9 +44,6 @@ devcompass answers those from one dense, fast UI built for people who work acros
 - **Privacy by design** — your Personal Access Token lives in `localStorage`, nothing is sent to any server we control. No analytics. No tracking. No cookies.
 
 ## Screenshots
-
-<!-- TODO: capture each of these and replace the placeholders below.
-     Recommended size: 1600x1000, dark theme, after a fresh sync so counts are populated. -->
 
 | View | Screenshot |
 | --- | --- |

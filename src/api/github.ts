@@ -354,6 +354,8 @@ export type TokenInfo = {
   scopes: string[]
   /** SSO orgs that require token authorization. Pulled from X-GitHub-SSO header. */
   ssoRequired: { url: string; orgIds: string[] } | null
+  /** ISO expiration date from GitHub-Authentication-Token-Expiration header. Null = no expiry or not reported. */
+  expiresAt: string | null
 }
 
 /**
@@ -368,6 +370,7 @@ export async function fetchTokenInfo(token: string): Promise<TokenInfo> {
   if (!res.ok) throw new Error(`GitHub API ${res.status}: ${await res.text()}`)
   const scopesHeader = res.headers.get('X-OAuth-Scopes')
   const ssoHeader = res.headers.get('X-GitHub-SSO')
+  const expiryHeader = res.headers.get('GitHub-Authentication-Token-Expiration')
   let sso: TokenInfo['ssoRequired'] = null
   if (ssoHeader) {
     // Format: "required; url=https://github.com/orgs/.../sso?...; partial-results"
@@ -382,7 +385,8 @@ export async function fetchTokenInfo(token: string): Promise<TokenInfo> {
   return {
     type: scopesHeader === null ? 'fine-grained' : scopesHeader === '' ? 'unknown' : 'classic',
     scopes: scopesHeader ? scopesHeader.split(',').flatMap((s) => { const t = s.trim(); return t ? [t] : [] }) : [],
-    ssoRequired: sso
+    ssoRequired: sso,
+    expiresAt: expiryHeader ?? null
   }
 }
 

@@ -9,6 +9,27 @@ type Props = {
 export function UserFooter({ viewer, collapsed, onLogout }: Props) {
   return (
     <div className="hs-sidebar-footer">
+      {!collapsed && (
+        <div className="hs-about">
+          <a
+            href="https://github.com/dPeluChe/devcompass/issues/new?template=bug.md"
+            target="_blank"
+            rel="noreferrer"
+            className="hs-about-link"
+          >
+            Report a bug ↗
+          </a>
+          <a
+            href="https://github.com/dPeluChe/devcompass"
+            target="_blank"
+            rel="noreferrer"
+            className="hs-about-link"
+          >
+            GitHub ↗
+          </a>
+          <span className="hs-about-version">v0.5.0 · MIT</span>
+        </div>
+      )}
       <button
         className="hs-user-btn"
         title={viewer ? `@${viewer.login} — click to log out` : 'Not signed in'}

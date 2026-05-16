@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { db, getDbStats, clearAllRepos, clearOldRepos, type PinnedRepo, getPinnedRepos, unpinRepo, getOrgsByOrder, getStorageBreakdown, pruneExpiredCachePrefs, type StorageBreakdown } from '../store/db'
 import { ConfirmDialog } from './ConfirmDialog'
+import { uiPrefsStore } from '../store/uiPrefs'
 
 interface DbStats {
   repoCount: number
@@ -29,7 +30,7 @@ function timeAgo(ts: number): string {
 }
 
 
-type SettingsPanel = 'all' | 'storage' | 'cache' | 'pinned' | 'orgOrder'
+type SettingsPanel = 'all' | 'storage' | 'cache' | 'pinned' | 'orgOrder' | 'appearance'
 
 type Props = {
   panel?: SettingsPanel
@@ -296,7 +297,30 @@ export function SettingsTab({ panel = 'all', onForceResync }: Props) {
           </ul>
         )}
       </section>}
+
+      {(panel === 'all' || panel === 'appearance') && <AppearanceSection />}
     </div>
+  )
+}
+
+function AppearanceSection() {
+  const { fancyBg, toggleFancyBg } = uiPrefsStore()
+  return (
+    <section>
+      <h2>Appearance</h2>
+      <label className="toggle-row">
+        <span className="toggle-label">
+          Atmospheric background
+          <span className="muted toggle-hint">Subtle gradient behind the app</span>
+        </span>
+        <button
+          role="switch"
+          aria-checked={fancyBg}
+          className={`toggle-switch ${fancyBg ? 'on' : ''}`}
+          onClick={toggleFancyBg}
+        />
+      </label>
+    </section>
   )
 }
 

@@ -2,7 +2,7 @@
 
 ## Reporting an issue
 
-If you find a problem that affects token safety or the privacy guarantees described in the README, please **email antonio@feedby.ai** instead of opening a public issue. I will respond within a week.
+If you find a problem that affects token safety or the privacy guarantees described in the README, please use [GitHub's private vulnerability reporting](https://github.com/dPeluChe/devcompass/security/advisories/new) instead of opening a public issue. This keeps the disclosure confidential until a fix is ready.
 
 For non-sensitive bugs, the regular [issue tracker](https://github.com/dPeluChe/devcompass/issues) is fine.
 
@@ -19,7 +19,7 @@ devcompass is a browser-only single-page app. There is no backend that we operat
 | Your Personal Access Token is stored in `localStorage` and only sent to `api.github.com`. | The browser environment itself is safe. A malicious extension can read `localStorage`. |
 | No analytics, no telemetry, no third-party network calls outside the GitHub API. | The token will never appear in screenshots / logs you take of your own DevTools. Mask it yourself before sharing. |
 | GitHub-supplied HTML (PR / issue bodies) is rendered through DOMPurify before insertion. | A new GitHub markdown feature could expose a sanitizer gap before we update. Please report it. |
-| The PAT is masked (`***`) in every UI surface, including the Cache and Storage panels. | We cannot stop you from pasting your raw PAT into a screenshot. |
+| The PAT is masked (`***`) in every UI surface, including the Cache and Storage panels. | Before sharing screenshots of the Settings or Token panel, ensure any sensitive values are masked. |
 
 ## Where the token lives
 
