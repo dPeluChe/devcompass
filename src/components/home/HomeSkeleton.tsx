@@ -37,7 +37,7 @@ export function HomeSkeleton({ progressMsg }: { progressMsg?: string }) {
         </div>
       </aside>
 
-      <main aria-busy="true" aria-live="polite">
+      <main className="hs-main" aria-busy="true" aria-live="polite">
         <div className="hs-skeleton-block">
           <span className="hs-skeleton-bar" style={{ width: 180, height: 14 }} />
           {progressMsg && <span className="muted">{progressMsg}</span>}

@@ -1,6 +1,6 @@
 {
   "name": "devcompass",
-  "version": "0.1.0",
+  "version": "0.5.0",
   "private": false,
   "description": "Local-first command center for your GitHub repos, PRs, and activity. No backend — your token stays in your browser.",
   "type": "module",

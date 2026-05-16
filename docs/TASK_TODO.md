@@ -55,5 +55,3 @@ const queryKeys = {
   userOrgs: ['user', 'orgs']
 }
 ```
-
-<!-- Updated: 2026-05-13 -->

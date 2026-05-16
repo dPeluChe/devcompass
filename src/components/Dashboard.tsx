@@ -379,7 +379,9 @@ export function Dashboard({ token, onLogout }: Props) {
               </span>
             )}
 
-            <button className="link-btn" onClick={() => setHelpOpen(true)} title="Keyboard shortcuts (?)">?</button>
+            <button className="link-btn" onClick={() => setHelpOpen(true)} title="Keyboard shortcuts (?)">
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><rect x="2" y="4" width="20" height="16" rx="2"/><path d="M6 8h.01M10 8h.01M14 8h.01M18 8h.01M8 12h.01M12 12h.01M16 12h.01M7 16h10"/></svg>
+            </button>
             <button className="link-btn" onClick={onLogout}>Logout</button>
           </div>
         </header>
@@ -452,7 +454,7 @@ function ConfigView({
   errors: { source: string; message: string }[]
   onForceResync: () => void
 }) {
-  const [section, setSection] = useState<'orgs' | 'token' | 'storage' | 'cache' | 'pinned'>('orgs')
+  const [section, setSection] = useState<'orgs' | 'token' | 'storage' | 'cache' | 'pinned' | 'appearance'>('orgs')
 
   // Collaborator-only orgs: own at least one repo that arrived via the viewer's
   // COLLABORATOR affiliation but aren't in viewer.organizations / /user/orgs.
@@ -487,6 +489,9 @@ function ConfigView({
         </button>
         <button className={`config-tab ${section === 'pinned' ? 'active' : ''}`} onClick={() => setSection('pinned')}>
           Pinned
+        </button>
+        <button className={`config-tab ${section === 'appearance' ? 'active' : ''}`} onClick={() => setSection('appearance')}>
+          Appearance
         </button>
       </div>
 
@@ -554,6 +559,7 @@ function ConfigView({
         {section === 'storage' && <SettingsTab panel="storage" onForceResync={onForceResync} />}
         {section === 'cache' && <SettingsTab panel="cache" onForceResync={onForceResync} />}
         {section === 'pinned' && <SettingsTab panel="pinned" />}
+        {section === 'appearance' && <SettingsTab panel="appearance" />}
       </div>
     </main>
   )
@@ -568,6 +574,13 @@ function TokenAccessPanel({ tokenInfo, orgs }: { tokenInfo: TokenInfo; orgs: Org
   const ssoIssue = !!tokenInfo.ssoRequired
   const hasIssue = missingReadOrg || ssoIssue || (noOrgs && tokenInfo.type === 'fine-grained')
   const ok = !hasIssue
+
+  const expiryDate = tokenInfo.expiresAt ? new Date(tokenInfo.expiresAt) : null
+  const daysLeft = expiryDate ? Math.ceil((expiryDate.getTime() - Date.now()) / 86_400_000) : null
+  const expiryLabel = expiryDate
+    ? expiryDate.toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric' })
+    : 'No expiry'
+  const expiryWarn = daysLeft !== null && daysLeft <= 14
 
   return (
     <div className="token-panel">
@@ -587,6 +600,14 @@ function TokenAccessPanel({ tokenInfo, orgs }: { tokenInfo: TokenInfo; orgs: Org
         <div>
           <span className="stat-value">{tokenInfo.scopes.length || '0'}</span>
           <span className="stat-label">Scopes</span>
+        </div>
+        <div title={expiryDate?.toISOString()}>
+          <span className={`stat-value ${expiryWarn ? 'text-danger' : ''}`}>
+            {daysLeft !== null ? `${daysLeft}d` : '∞'}
+          </span>
+          <span className={`stat-label ${expiryWarn ? 'text-danger' : ''}`}>
+            {expiryWarn ? `Expires ${expiryLabel}` : expiryDate ? `Expires ${expiryLabel}` : 'No expiry'}
+          </span>
         </div>
       </div>
 

@@ -3,16 +3,49 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>devcompass — local-first command center for your GitHub work</title>
-  <meta name="description" content="See every repo, PR and signal across all your GitHub orgs in one fast UI. Local-first, no backend, no analytics." />
+  <title>devcompass — GitHub dashboard for multiple orgs, local-first</title>
+  <meta name="description" content="Local-first GitHub command center for developers across multiple orgs. No backend — your token never leaves your browser." />
+  <meta name="robots" content="index, follow, max-snippet:-1, max-image-preview:large, max-video-preview:-1" />
   <meta name="theme-color" content="#0d1117" />
+  <link rel="canonical" href="https://dpeluche.github.io/devcompass/" />
 
-  <meta property="og:title" content="devcompass — your GitHub work, on one fast screen" />
-  <meta property="og:description" content="Local-first command center for developers across many GitHub orgs. No backend, your token never leaves your browser." />
+  <meta property="og:site_name" content="devcompass" />
+  <meta property="og:title" content="devcompass — GitHub dashboard for multiple orgs, local-first" />
+  <meta property="og:description" content="Local-first GitHub command center for developers across multiple orgs. No backend — your token never leaves your browser." />
   <meta property="og:type" content="website" />
   <meta property="og:url" content="https://dpeluche.github.io/devcompass/" />
   <meta property="og:image" content="https://dpeluche.github.io/devcompass/screenshots/digest.png" />
+  <meta property="og:image:width" content="1200" />
+  <meta property="og:image:height" content="630" />
+  <meta property="og:image:alt" content="devcompass digest showing cross-org GitHub activity heatmap and PR inbox" />
+
   <meta name="twitter:card" content="summary_large_image" />
+  <meta name="twitter:title" content="devcompass — GitHub dashboard for multiple orgs, local-first" />
+  <meta name="twitter:description" content="Local-first GitHub command center. No backend — your token never leaves your browser." />
+  <meta name="twitter:image" content="https://dpeluche.github.io/devcompass/screenshots/digest.png" />
+
+  <script type="application/ld+json">
+  {
+    "@context": "https://schema.org",
+    "@type": "SoftwareApplication",
+    "name": "devcompass",
+    "description": "Local-first GitHub command center for developers across multiple orgs. See every repo, PR, and activity signal in one fast dashboard. No backend required.",
+    "url": "https://dpeluche.github.io/devcompass/",
+    "applicationCategory": "DeveloperApplication",
+    "operatingSystem": "Web",
+    "offers": {
+      "@type": "Offer",
+      "price": "0",
+      "priceCurrency": "USD"
+    },
+    "author": {
+      "@type": "Person",
+      "name": "dPeluChe",
+      "url": "https://github.com/dPeluChe"
+    },
+    "license": "https://opensource.org/licenses/MIT"
+  }
+  </script>
 
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -40,10 +73,12 @@
     </div>
   </header>
 
+  <main>
+
   <section class="hero">
     <div class="hero-bg" aria-hidden="true"></div>
     <div class="wrap">
-      <span class="badge">v0.1 · MIT · No backend</span>
+      <span class="badge">v0.5.0 · MIT · No backend</span>
       <h1>
         <span class="h1-soft">
           <svg class="h1-mark" viewBox="0 0 24 24" fill="currentColor" aria-label="GitHub" role="img"><path d="M12 0C5.37 0 0 5.37 0 12c0 5.3 3.44 9.8 8.21 11.39.6.11.82-.26.82-.58 0-.29-.01-1.04-.02-2.05-3.34.73-4.04-1.61-4.04-1.61-.55-1.39-1.34-1.76-1.34-1.76-1.09-.74.08-.73.08-.73 1.21.08 1.85 1.24 1.85 1.24 1.07 1.84 2.81 1.31 3.5 1 .11-.78.42-1.31.76-1.61-2.66-.3-5.47-1.33-5.47-5.93 0-1.31.47-2.38 1.24-3.22-.13-.3-.54-1.52.11-3.17 0 0 1.01-.32 3.3 1.23.96-.27 1.98-.4 3-.4s2.04.13 3 .4c2.29-1.55 3.3-1.23 3.3-1.23.65 1.65.24 2.87.12 3.17.77.84 1.24 1.91 1.24 3.22 0 4.61-2.81 5.63-5.49 5.93.43.37.82 1.1.82 2.22 0 1.6-.01 2.89-.01 3.29 0 .32.22.7.83.58C20.57 21.79 24 17.3 24 12c0-6.63-5.37-12-12-12z"/></svg>
@@ -56,15 +91,16 @@
         </span>
       </h1>
       <p class="lede">Your cross-org GitHub workbench. Local-first. No backend.</p>
-      <div class="cta-row">
-        <a class="cta primary" href="https://devcompass.vercel.app" target="_blank" rel="noopener">Open the app →</a>
-        <a class="cta ghost" href="https://github.com/dPeluChe/devcompass" target="_blank" rel="noopener">Star on GitHub</a>
-      </div>
       <p class="meta-row">
         <span class="meta-badge green"><span class="dot dot-green"></span> Local-first</span>
         <span class="meta-badge blue"><span class="dot dot-blue"></span> Token in your browser</span>
         <span class="meta-badge purple"><span class="dot dot-purple"></span> Zero analytics</span>
+        <span class="meta-badge yellow"><span class="dot dot-yellow"></span> No external storage</span>
       </p>
+      <div class="cta-row">
+        <a class="cta primary" href="https://devcompass.vercel.app" target="_blank" rel="noopener">Open the app →</a>
+        <a class="cta ghost" href="https://github.com/dPeluChe/devcompass" target="_blank" rel="noopener">Star on GitHub</a>
+      </div>
     </div>
   </section>
 
@@ -75,7 +111,7 @@
           <span class="dot d-r"></span><span class="dot d-y"></span><span class="dot d-g"></span>
           <span class="shot-url">devcompass.vercel.app</span>
         </div>
-        <img src="screenshots/digest.png" alt="Digest" loading="eager" />
+        <img src="screenshots/digest.png" alt="devcompass digest view with cross-org activity heatmap and PR inbox" loading="eager" />
       </div>
     </div>
   </section>
@@ -83,7 +119,7 @@
   <section id="why" class="why">
     <div class="wrap">
       <p class="eyebrow">Why</p>
-      <h2>One page can&rsquo;t answer your morning&rsquo;s questions.</h2>
+      <h2>One GitHub dashboard can&rsquo;t answer your morning&rsquo;s questions.</h2>
       <div class="vs-grid">
         <div class="vs-col">
           <h3>
@@ -140,7 +176,7 @@
   <section id="features" class="features">
     <div class="wrap">
       <p class="eyebrow">What you get</p>
-      <h2>Every signal you need, in one screen.</h2>
+      <h2>Every GitHub workflow signal you need, in one screen.</h2>
       <div class="feature-grid">
         <div class="feature">
           <span class="feature-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 12h-4l-3 9L9 3l-3 9H2"/></svg></span>
@@ -182,19 +218,19 @@
       <h2>Built for scanning, not for scrolling.</h2>
       <div class="shot-grid">
         <figure>
-          <img src="screenshots/digest.png" alt="Digest scope" loading="lazy" />
+          <img src="screenshots/digest.png" alt="devcompass digest with activity heatmap, stat tiles and 24h/7d/30d filters" loading="lazy" />
           <figcaption>Digest</figcaption>
         </figure>
         <figure>
-          <img src="screenshots/repos.png" alt="All repos scope" loading="lazy" />
+          <img src="screenshots/repos.png" alt="All repos view showing pinned repos and cross-org repository list" loading="lazy" />
           <figcaption>All repos</figcaption>
         </figure>
         <figure>
-          <img src="screenshots/repo-detail.png" alt="Repo detail" loading="lazy" />
+          <img src="screenshots/repo-detail.png" alt="Repo detail with commits, open PRs, issues, releases and CI checks" loading="lazy" />
           <figcaption>Repo detail</figcaption>
         </figure>
         <figure>
-          <img src="screenshots/config-cache.png" alt="Cache panel" loading="lazy" />
+          <img src="screenshots/config-cache.png" alt="Cache panel showing IndexedDB storage, TTL settings and token config" loading="lazy" />
           <figcaption>Cache panel</figcaption>
         </figure>
       </div>
@@ -251,6 +287,8 @@
       </div>
     </div>
   </section>
+
+  </main>
 
   <footer class="bottom">
     <div class="wrap bottom-grid">

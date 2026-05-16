@@ -152,5 +152,3 @@ Classic PAT with `repo` and `read:org`. SSO orgs need explicit token authorizati
 ## Markdown safety
 
 `SanitizedMarkdown.tsx` renders any GitHub-supplied `bodyHTML` through DOMPurify. Never inject GitHub HTML directly — always go through this component.
-
-<!-- Updated: 2026-05-13 -->

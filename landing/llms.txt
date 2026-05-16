@@ -1,0 +1,58 @@
+# devcompass
+
+> Local-first GitHub command center for developers working across multiple orgs and repos.
+
+devcompass is a browser-based dashboard that aggregates all your GitHub activity — repos, PRs, commits, issues, and CI checks — across every organization you belong to, in one fast UI. There is no backend server. Your GitHub Personal Access Token never leaves your browser.
+
+## What it does
+
+- **Digest view**: Activity heatmap + stat tiles (24h / 7d / 30d) across all your repos
+- **Needs-me inbox**: Every PR waiting on your review or approval, with snooze support
+- **Since-last-visit feed**: Diff of what changed in your repos while you were away
+- **All repos view**: Full list of repos across all orgs, with pinning and filtering
+- **Repo detail**: Commits with branch chips, open PRs, issues, releases, and CI check status
+- **PR detail**: Full PR view with markdown rendering and review actions
+- **Local cache**: IndexedDB stores everything — reloads paint instantly without re-fetching
+
+## How to use it
+
+1. Open the hosted demo at https://devcompass.vercel.app or self-host (see below)
+2. Generate a GitHub Classic PAT with `repo` and `read:org` scopes
+3. Paste the token in the app — it is stored in `localStorage` and sent only to `api.github.com`
+4. The digest loads immediately; repos and orgs sync in the background
+
+If orgs appear missing, the token likely needs explicit SSO authorization for those orgs. The Config → Token tab shows the SSO header to help diagnose this.
+
+## Requirements
+
+- A GitHub Classic Personal Access Token (PAT) with scopes: `repo`, `read:org`
+- A modern browser (Chrome, Firefox, Safari, Edge)
+- No account, no signup, no server
+
+## Self-hosting
+
+```bash
+git clone https://github.com/dPeluChe/devcompass
+cd devcompass
+npm install
+npm run dev        # dev server at http://localhost:8099
+npm run build      # production bundle
+```
+
+v0.5.0 · MIT licensed. Static bundle — no server, no database, no DevOps.
+
+## Privacy
+
+- Token stored in `localStorage` — sent only to `api.github.com`
+- Repo and PR data cached in IndexedDB on your machine (TTL-bound, auto-pruned)
+- No analytics, no telemetry, no third-party tracking scripts
+- No external storage of any kind
+
+## Links
+
+- Demo: https://devcompass.vercel.app
+- Source: https://github.com/dPeluChe/devcompass
+- Docs: https://github.com/dPeluChe/devcompass/blob/main/docs/README.md
+- Issues: https://github.com/dPeluChe/devcompass/issues
+- Security policy: https://github.com/dPeluChe/devcompass/blob/main/SECURITY.md
+- License: MIT

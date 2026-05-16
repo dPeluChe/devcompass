@@ -116,6 +116,25 @@
   padding: 8px 10px;
   flex-shrink: 0;
 }
+.hs-about {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 4px 6px 8px;
+}
+.hs-about-link {
+  font-size: 0.78em;
+  color: var(--muted);
+  text-decoration: none;
+  transition: color 0.15s;
+}
+.hs-about-link:hover { color: var(--text); text-decoration: none; }
+.hs-about-version {
+  font-size: 0.72em;
+  color: var(--muted);
+  opacity: 0.6;
+  margin-top: 2px;
+}
 .hs-user-btn {
   display: flex;
   align-items: center;
@@ -170,7 +189,7 @@
 .hs-sidebar-toggle:hover { background: var(--panel-2); color: var(--text); border-color: var(--border); }
 
 /* ----- Main pane ----- */
-.hs-main { padding: 16px 22px 60px; min-width: 0; }
+.hs-main { padding: 16px 22px 60px; min-width: 0; background: rgba(13, 17, 23, 0.65); }
 .hs-main-head {
   display: flex;
   align-items: baseline;
