@@ -14,6 +14,8 @@ export function relativeTime(iso: string, suffix = true): string {
   const day = Math.floor(hr  / 24)
   if (day < 30)  return suffix ? `${day}d ago`   : `${day}d`
   const mo  = Math.floor(day / 30)
-  if (mo  < 12)  return suffix ? `${mo}mo ago`   : `${mo}mo`
+  // Guard on `day < 365`, not `mo < 12`: at 360-364d mo rounds to 12, which
+  // failed the `< 12` check and fell through to floor(day/365)=0 → "0y ago".
+  if (day < 365) return suffix ? `${mo}mo ago`   : `${mo}mo`
   return suffix ? `${Math.floor(day / 365)}y ago` : `${Math.floor(day / 365)}y`
 }

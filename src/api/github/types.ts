@@ -47,11 +47,6 @@ export type RateLimit = {
   resetAt: string
 }
 
-export type ProgressEvent =
-  | { kind: 'viewer'; count: number }
-  | { kind: 'org'; login: string; count: number }
-  | { kind: 'done'; total: number }
-
 export type ContribDay = {
   /** ISO date, e.g. "2026-05-13" */
   date: string

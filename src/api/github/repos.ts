@@ -1,6 +1,6 @@
 import { DEMO_TOKEN, DEMO_VIEWER, DEMO_REPOS } from '../demo-data'
 import { gql } from './client'
-import type { Repo, RepoOpenPR, Viewer, ProgressEvent, RepoDetail, Branch } from './types'
+import type { Repo, RepoOpenPR, Viewer, RepoDetail, Branch } from './types'
 
 const REPO_FIELDS = `
   id
@@ -146,69 +146,6 @@ export async function fetchOrgReposSimple(token: string, login: string): Promise
     after = page.pageInfo.endCursor
   }
   return repos
-}
-
-async function paginate(fetchPage: (after: string | null) => Promise<Page>, onPage?: (n: number) => void): Promise<Repo[]> {
-  const all: Repo[] = []
-  let after: string | null = null
-  for (;;) {
-    const page = await fetchPage(after)
-    all.push(...page.nodes)
-    onPage?.(all.length)
-    if (!page.pageInfo.hasNextPage) break
-    after = page.pageInfo.endCursor
-  }
-  return all
-}
-
-/**
- * Aggregates repos from the viewer + every org the viewer belongs to.
- * Dedupes by repo id (a repo can appear via both viewer and org).
- */
-export async function fetchAllRepos(
-  token: string,
-  viewer: Viewer,
-  onProgress?: (e: ProgressEvent) => void
-): Promise<{ repos: Repo[]; errors: { source: string; message: string }[] }> {
-  if (token === DEMO_TOKEN) {
-    onProgress?.({ kind: 'done', total: DEMO_REPOS.length })
-    return { repos: DEMO_REPOS, errors: [] }
-  }
-  const byId = new Map<string, Repo>()
-  const errors: { source: string; message: string }[] = []
-
-  try {
-    const viewerRepos = await paginate(
-      (after) => fetchViewerReposPage(token, after),
-      (n) => onProgress?.({ kind: 'viewer', count: n })
-    )
-    for (const r of viewerRepos) byId.set(r.id, r)
-  } catch (e) {
-    errors.push({ source: 'viewer', message: e instanceof Error ? e.message : String(e) })
-  }
-
-  // Sync orgs in parallel — each org is independent. Map.set is safe from any one
-  // microtask at a time; later writes overwrite earlier ones for the same repo id,
-  // which is fine because they carry the same data.
-  await Promise.all(
-    viewer.organizations.nodes.map(async (org) => {
-      try {
-        const orgRepos = await paginate(
-          (after) => fetchOrgReposPage(token, org.login, after),
-          (n) => onProgress?.({ kind: 'org', login: org.login, count: n })
-        )
-        for (const r of orgRepos) byId.set(r.id, r)
-      } catch (e) {
-        errors.push({ source: `org:${org.login}`, message: e instanceof Error ? e.message : String(e) })
-      }
-    })
-  )
-
-  const repos = Array.from(byId.values()).toSorted(
-    (a, b) => new Date(b.pushedAt).getTime() - new Date(a.pushedAt).getTime()
-  )
-  onProgress?.({ kind: 'done', total: repos.length })
-  return { repos, errors }
 }
 
 export async function fetchRepoDetail(token: string, owner: string, name: string): Promise<RepoDetail> {
