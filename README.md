@@ -13,6 +13,7 @@
   <img alt="Vite 6" src="https://img.shields.io/badge/vite-6-646cff.svg">
   <img alt="TypeScript" src="https://img.shields.io/badge/typescript-5.7-3178c6.svg">
   <img alt="No backend" src="https://img.shields.io/badge/backend-none-success.svg">
+  <img alt="CI" src="https://github.com/dPeluChe/devcompass/actions/workflows/app.yml/badge.svg">
 </p>
 
 <p align="center">
@@ -155,7 +156,7 @@ The full backlog lives in [`docs/TASK_TODO.md`](docs/TASK_TODO.md). Issues and P
 
 PRs and issues are welcome. Before opening a PR:
 
-1. Run `npm run build` — it is the only verification gate (0 errors, 0 warnings).
+1. Run `npm run check` — lint + tests + build must all pass (0 errors).
 2. Follow the commit-message style in recent history (`feat(scope): …`, `fix(scope): …`).
 3. Keep PRs focused: one logical change per PR.
 4. No backend, no analytics, no telemetry — privacy is a core feature.

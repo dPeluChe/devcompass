@@ -2,7 +2,8 @@ import { useState } from 'react'
 import { OrgChip } from '../OrgChip'
 import { useSinceLastVisit, type SinceEvent } from '../useSinceLastVisit'
 import type { AttentionItem } from '../types'
-import { shortAgo, type ScopeProps } from './common'
+import { relativeTime } from '../../../utils/time'
+import { type ScopeProps } from './common'
 
 export function SinceScope({ repos, onOpenItem, onOpenRepo }: ScopeProps) {
   const { events, isFirstRun, snapshot, markSeen } = useSinceLastVisit(repos)
@@ -32,7 +33,7 @@ export function SinceScope({ repos, onOpenItem, onOpenRepo }: ScopeProps) {
         <span className="hs-h-count">{showEvents.length}</span>
         <span className="hs-h-meta">
           {isFirstRun ? 'No baseline yet' :
-            snapshot ? `Snapshot from ${shortAgo(new Date(snapshot.takenAt).toISOString())} ago` : '—'}
+            snapshot ? `Snapshot from ${relativeTime(new Date(snapshot.takenAt).toISOString(), false)} ago` : '—'}
         </span>
         <button className="hs-mark-seen" onClick={handleMarkSeen}>
           {seen ? '✓ Saved' : 'Mark as seen'}
@@ -49,7 +50,7 @@ export function SinceScope({ repos, onOpenItem, onOpenRepo }: ScopeProps) {
       ) : showEvents.length === 0 ? (
         <div className="hs-empty">
           <strong>Nothing changed since you last looked.</strong>
-          {snapshot && <span>You were last here {shortAgo(new Date(snapshot.takenAt).toISOString())} ago.</span>}
+          {snapshot && <span>You were last here {relativeTime(new Date(snapshot.takenAt).toISOString(), false)} ago.</span>}
         </div>
       ) : (
         <section className="hs-surface">
@@ -77,7 +78,7 @@ function SinceRow({ event, onClick }: { event: SinceEvent; onClick: () => void }
         </div>
         <div className="hs-row-meta">
           <span className={`hs-since-kind k-${event.kind}`}>{kindLabel(event.kind)}</span>
-          <span className="hs-row-time">{shortAgo(event.time)}</span>
+          <span className="hs-row-time">{relativeTime(event.time, false)}</span>
         </div>
       </div>
     </div>

@@ -1,4 +1,5 @@
 import { useState, type MouseEvent, type ReactNode } from 'react'
+import { relativeTime } from '../../utils/time'
 import { OrgChip } from './OrgChip'
 import type { AttentionItem, Reason } from './types'
 
@@ -40,7 +41,7 @@ function ReasonChips({ item, failingCheckName, changesRequestedBy, reviewerCount
   if (r.includes('mentioned')) out.push(<span key="m" className="hs-reason r-mentioned">mentioned in review</span>)
   if (r.includes('assigned')) out.push(<span key="a" className="hs-reason r-assigned">assigned</span>)
   if (r.includes('my-pr')) out.push(<span key="my" className="hs-reason r-my-pr">my PR</span>)
-  if (r.includes('stale')) out.push(<span key="s" className="hs-reason r-stale">stale {timeAgo(item.updatedAt)}</span>)
+  if (r.includes('stale')) out.push(<span key="s" className="hs-reason r-stale">stale {relativeTime(item.updatedAt, false)}</span>)
   if (r.includes('new-pr')) out.push(<span key="n" className="hs-reason r-new-pr">new</span>)
   if (r.includes('merged')) out.push(<span key="mg" className="hs-reason r-merged">merged</span>)
 
@@ -75,18 +76,6 @@ function actionsFor(reasons: Reason[]): ActionDef[] {
   return [{ label: 'Open', kbd: '↵', kind: 'primary', action: 'open' }]
 }
 
-function timeAgo(iso: string): string {
-  const ms = Date.now() - new Date(iso).getTime()
-  const min = Math.floor(ms / 60_000)
-  if (min < 60) return `${min}m`
-  const hr = Math.floor(min / 60)
-  if (hr < 24) return `${hr}h`
-  const day = Math.floor(hr / 24)
-  if (day < 30) return `${day}d`
-  const mo = Math.floor(day / 30)
-  if (mo < 12) return `${mo}mo`
-  return `${Math.floor(day / 365)}y`
-}
 
 export function AttentionRow(props: Props) {
   const { item, onOpen, onSnooze } = props
@@ -129,7 +118,7 @@ export function AttentionRow(props: Props) {
         </div>
         <div className="hs-row-meta">
           <ReasonChips {...props} />
-          <span className="hs-row-time">{timeAgo(item.updatedAt)}</span>
+          <span className="hs-row-time">{relativeTime(item.updatedAt, false)}</span>
         </div>
       </div>
       <div

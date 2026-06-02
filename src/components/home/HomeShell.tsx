@@ -104,7 +104,7 @@ export function HomeShell({
   }, [repos, memberOrgs, viewer?.login])
 
   useEffect(() => {
-    try { localStorage.setItem(COLLAPSED_KEY, collapsed ? '1' : '0') } catch {}
+    try { localStorage.setItem(COLLAPSED_KEY, collapsed ? '1' : '0') } catch { return }
   }, [collapsed])
 
   // On first mount, if the URL carries ?pr=owner/repo/number open the modal

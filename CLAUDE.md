@@ -30,7 +30,7 @@ GHDevView is a single-page React app that talks directly to GitHub from the brow
 All GitHub access lives here — GraphQL via `https://api.github.com/graphql` plus a couple of REST hops for things GraphQL can't expose.
 
 - `gql()` is the shared GraphQL client. It retries 3× with a 2s delay on any failure (network or GraphQL `errors` array). Don't add a separate retry layer on top.
-- `fetchAllRepos(token, viewer, onProgress)` is the core sync. It paginates `viewer.repositories` AND every org's repos in `viewer.organizations`, then dedupes by repo `id`. A repo accessible via both viewer and an org appears once. It returns `{ repos, errors }` — partial failures are reported, not thrown, so org access issues don't kill the whole sync.
+- The repo sync lives in `useViewerData` (`src/hooks/useViewerData.ts`), not the API layer. `loadRepos` there merges viewer + org logins, then fetches each via `fetchViewerReposSimple` / `fetchOrgReposSimple` through a bounded-concurrency pool, dedupes by repo `id`, and reports per-org partial failures instead of throwing. The API layer just exposes the per-source paginating fetchers; orchestration/caching is the hook's job.
 - `fetchTokenInfo()` hits REST `/user` specifically to read `X-OAuth-Scopes` and `X-GitHub-SSO` response headers. GraphQL can't expose these, and SSO authorization gaps are the most common reason orgs appear missing.
 - The `REPO_FIELDS` GraphQL fragment is shared between viewer and org queries; keep them aligned when adding fields.
 
@@ -52,7 +52,7 @@ Only `useGlobalShortcuts` lives in `src/hooks/`. Domain hooks (`useNeedsMe`, `us
 This is the load sequence Dashboard relies on; preserve it when refactoring:
 
 1. Read cached repos from IndexedDB (`getCachedRepos`) → render immediately.
-2. In parallel, run `useViewerWithOrgs` which calls `fetchViewer` → REST `/user/orgs` (to catch orgs GraphQL misses) → merges org lists → `fetchAllRepos`.
+2. In parallel, `useViewerData` calls `fetchViewer` → REST `/user/orgs` via `fetchUserOrgsRest` (to catch orgs GraphQL misses) → merges org lists → `loadRepos` syncs each source.
 3. Persist the fresh result back to IndexedDB via `cacheRepos`.
 4. `orgConfigStore.setAllOrgs` reconciles new orgs with existing per-org config (preserves `enabled`/`syncEnabled` flags across syncs).
 

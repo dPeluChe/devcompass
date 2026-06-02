@@ -1,4 +1,5 @@
 import type { Repo, RepoOpenPR, Viewer } from '../../../api/github'
+import { relativeTime } from '../../../utils/time'
 import type { PinnedRepo } from '../../../store/db'
 import { OrgChip } from '../OrgChip'
 import type { AttentionItem, ScopeKey } from '../types'
@@ -55,18 +56,8 @@ export function CompactRow({ repo, onClick }: { repo: Repo; onClick: () => void 
       </div>
       <span className="hs-pr-mini">{repo.openPRs.totalCount > 0 ? `${repo.openPRs.totalCount} PR` : '—'}</span>
       <span className={ciClass}>{ciLabel}</span>
-      <span className="hs-time">{shortAgo(repo.pushedAt)}</span>
+      <span className="hs-time">{relativeTime(repo.pushedAt, false)}</span>
     </div>
   )
 }
 
-export function shortAgo(iso: string): string {
-  const ms = Date.now() - new Date(iso).getTime()
-  const min = Math.floor(ms / 60_000)
-  if (min < 60) return `${min}m`
-  const hr = Math.floor(min / 60)
-  if (hr < 24) return `${hr}h`
-  const day = Math.floor(hr / 24)
-  if (day < 30) return `${day}d`
-  return `${Math.floor(day / 30)}mo`
-}

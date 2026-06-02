@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react'
+import { useEffect, useState } from 'react'
 import { type Org } from '../api/github'
 import { orgConfigStore, type OrgConfig } from '../store/orgConfig'
 import { FadeIn, Button, Badge } from './ui'
@@ -12,7 +12,7 @@ export function OrgManager({ orgs, variant = 'dropdown' }: Props) {
   const [isOpen, setIsOpen] = useState(false)
   const { orgs: config, setAllOrgs, toggleOrg, toggleOrgSync, getEnabledOrgs } = orgConfigStore()
   
-  useMemo(() => {
+  useEffect(() => {
     if (orgs.length > 0) {
       setAllOrgs(orgs.map(o => ({
         login: o.login,
