@@ -52,6 +52,7 @@ export function DetailModal({ token, viewerLogin, item, onClose, onSnooze }: Pro
       setBody('')
       setStatus(null)
     }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [item?.id])
 
   // Lock background scroll while modal is open
@@ -203,6 +204,7 @@ export function DetailModal({ token, viewerLogin, item, onClose, onSnooze }: Pro
     }
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open, item, body, detail])
 
   return (

@@ -1,8 +1,8 @@
 import { useMemo } from 'react'
 import type { PRDetail } from '../../../api/github'
 import { mergeChecksLine } from './Checks'
-import { buildConversation } from './Conversation'
-import { relativeTime, reviewStateClass, reviewStateLabel } from './utils'
+import { AuthorAvatar, buildConversation } from './Conversation'
+import { relativeTime, reviewStateClass, reviewStateLabel, stripHtmlExcerpt } from './utils'
 
 export type ReviewerEntry = {
   login: string
@@ -60,20 +60,11 @@ type Props = {
 export function SummaryTab({ detail, onReadFull, onOpenCommits, onOpenChecks, onOpenComments }: Props) {
   // detail.commits.nodes is PRCommit[] after the fetch flattening — no .commit access.
   const head = detail.commits.nodes[detail.commits.nodes.length - 1]
-  const bodyExcerpt = useMemo(() => {
-    if (!detail.bodyHTML) return ''
-    // Strip HTML tags + collapse whitespace, then take first ~280 chars.
-    const text = detail.bodyHTML.replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim()
-    return text.length > 280 ? text.slice(0, 280) + '…' : text
-  }, [detail.bodyHTML])
+  const bodyExcerpt = useMemo(() => detail.bodyHTML ? stripHtmlExcerpt(detail.bodyHTML, 280) : '', [detail.bodyHTML])
   const checksLine = mergeChecksLine(detail)
   const conv = useMemo(() => buildConversation(detail), [detail])
   const latest = conv[conv.length - 1]
-  const latestExcerpt = useMemo(() => {
-    if (!latest?.bodyHTML) return ''
-    const text = latest.bodyHTML.replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim()
-    return text.length > 240 ? text.slice(0, 240) + '…' : text
-  }, [latest])
+  const latestExcerpt = useMemo(() => latest?.bodyHTML ? stripHtmlExcerpt(latest.bodyHTML, 240) : '', [latest])
 
   return (
     <div className="hs-summary">
@@ -127,11 +118,7 @@ export function SummaryTab({ detail, onReadFull, onOpenCommits, onOpenChecks, on
             <button className="hs-summary-readmore" onClick={onOpenComments}>View all {conv.length} →</button>
           </div>
           <div className="hs-summary-latest-row">
-            {latest.author?.avatarUrl ? (
-              <img className="hs-conv-avatar" src={latest.author.avatarUrl} alt="" />
-            ) : (
-              <span className="hs-conv-avatar hs-conv-avatar-fallback">·</span>
-            )}
+            <AuthorAvatar avatarUrl={latest.author?.avatarUrl} login={latest.author?.login} />
             <div className="hs-summary-latest-body">
               <div className="hs-conv-head">
                 <strong>@{latest.author?.login ?? 'ghost'}</strong>

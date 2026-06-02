@@ -33,11 +33,18 @@ src/
       useSinceLastVisit.ts Since-last-visit diff hook + baseline snapshot save.
 
       scopes/
-        common.tsx        Shared ScopeProps + helper components (Header, CompactRow, shortAgo).
+        common.tsx        Shared ScopeProps + helper components (Header, CompactRow).
         DigestScope.tsx   Operational snapshot (stats, heatmap, most active, contributors, attn).
         ContributionHeatmap.tsx  GitHub-style 53-week heatmap, 12h IDB cache.
         NeedsScope.tsx, SinceScope.tsx, WatchingScope.tsx, PinnedScope.tsx, ActiveScope.tsx,
         ReposScope.tsx, OrgScope.tsx, RateScope.tsx
+
+      detail/
+        Checks.tsx
+        Conversation.tsx  ConvItem list + AuthorAvatar component.
+        Footer.tsx
+        Summary.tsx       SummaryTab — uses AuthorAvatar + stripHtmlExcerpt.
+        utils.ts          relativeTime (re-export), stripHtmlExcerpt, reviewState helpers.
 
     repo-detail/
       Header.tsx          Repo title bar with metadata + actions.
@@ -50,12 +57,18 @@ src/
 
   store/
     auth.ts               Token in localStorage["ghviewer.pat"]. ASCII-sanitized to avoid header bugs.
+    auth.test.ts          Unit tests for sanitizeToken + auth helpers.
     queries.ts            TanStack Query client + queryKeys registry.
     orgConfig.ts          Zustand persist store. Per-org enabled / syncEnabled / lastSyncedAt.
     db.ts                 Dexie schema + helpers. TTL-bound prefs cache + auto-prune.
+    db.test.ts            Unit tests for getCachedPref + pruneExpiredCachePrefs.
 
   hooks/
     useGlobalShortcuts.ts Keyboard shortcuts (cmd+k, ? for help, etc).
+    useViewerData.ts      Viewer + org + repo loading hook (extracted from Dashboard).
+
+  utils/
+    time.ts               Shared relativeTime(iso, suffix?) helper (replaces timeAgo/shortAgo).
 
   main.tsx                Router + QueryClient + auth gate.
   App.tsx                 Auth-gated wrapper around <Dashboard>.
@@ -125,12 +138,16 @@ Schema upgrades happen in `store/db.ts`. **Always bump the version + write an up
 ## Commands
 
 ```bash
-npm run dev       # Vite dev server on :8099, auto-opens
-npm run build     # tsc -b && vite build — the only verification gate
-npm run preview   # serve the built bundle locally
+npm run dev        # Vite dev server on :8099, auto-opens
+npm run lint       # ESLint (flat config) — 0 errors required
+npm run typecheck  # tsc -b without emit
+npm run test       # Vitest unit tests (run once, no watch)
+npm run check      # lint + test + build — the full gate for PRs
+npm run build      # tsc -b && vite build
+npm run preview    # serve the built bundle locally
 ```
 
-There is **no lint command** yet. `npm run build` is what merges go through.
+`npm run check` is the **single gate** for every PR. GitHub Actions runs it automatically on pull requests and pushes to `main` via `.github/workflows/app.yml`.
 
 ## Hosting split
 

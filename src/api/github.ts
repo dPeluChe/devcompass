@@ -700,10 +700,16 @@ export async function fetchPullRequestDetail(
   const head = pr.commits.nodes[pr.commits.nodes.length - 1]?.commit
   const rollup = head?.statusCheckRollup ?? null
   // Strip statusCheckRollup off each commit before exposing as PRCommit.
-  const commitNodes: PRCommit[] = pr.commits.nodes.map((n) => {
-    const { statusCheckRollup: _, ...rest } = n.commit
-    return rest
-  })
+  const commitNodes: PRCommit[] = pr.commits.nodes.map((n) => ({
+    oid: n.commit.oid,
+    abbreviatedOid: n.commit.abbreviatedOid,
+    url: n.commit.url,
+    messageHeadline: n.commit.messageHeadline,
+    messageBody: n.commit.messageBody,
+    committedDate: n.commit.committedDate,
+    authoredDate: n.commit.authoredDate,
+    author: n.commit.author
+  }))
   return {
     ...pr,
     commits: { totalCount: pr.commits.totalCount, nodes: commitNodes },
@@ -731,7 +737,7 @@ async function rest(token: string, method: string, path: string, body?: unknown)
     body: body == null ? undefined : JSON.stringify(body)
   })
   if (!res.ok) {
-    let detail = ''
+    let detail: string
     try {
       const j = await res.json()
       detail = (j && (j.message ?? j.error)) ? `: ${j.message ?? j.error}` : ''

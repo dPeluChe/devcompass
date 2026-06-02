@@ -2,6 +2,11 @@ import type { PRDetail, Review } from '../../../api/github'
 import { SanitizedMarkdown } from '../../SanitizedMarkdown'
 import { relativeTime, reviewStateClass, reviewStateLabel } from './utils'
 
+export function AuthorAvatar({ avatarUrl, login }: { avatarUrl?: string; login?: string }) {
+  if (avatarUrl) return <img className="hs-conv-avatar" src={avatarUrl} alt="" />
+  return <span className="hs-conv-avatar hs-conv-avatar-fallback">{login ? login[0] : '·'}</span>
+}
+
 export type ConvItem = {
   kind: 'review' | 'comment'
   state?: Review['state']
@@ -34,11 +39,7 @@ export function ConversationList({ items }: { items: ConvItem[] }) {
     <div className="hs-conv-list">
       {items.map((item) => (
         <article className="hs-conv-item" key={`${item.kind}:${item.time}:${item.author?.login ?? '?'}`}>
-          {item.author?.avatarUrl ? (
-            <img className="hs-conv-avatar" src={item.author.avatarUrl} alt="" />
-          ) : (
-            <span className="hs-conv-avatar hs-conv-avatar-fallback">·</span>
-          )}
+          <AuthorAvatar avatarUrl={item.author?.avatarUrl} login={item.author?.login} />
           <div className="hs-conv-main">
             <div className="hs-conv-head">
               <strong>@{item.author?.login ?? 'ghost'}</strong>
