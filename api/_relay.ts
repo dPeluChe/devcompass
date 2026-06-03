@@ -21,9 +21,10 @@ export const ALLOWED_HOST_PATTERNS: RegExp[] = [
 const FORWARD_REQUEST_HEADERS = ['authorization', 'content-type', 'accept']
 
 // Response headers stripped before handing back to the browser (the runtime
-// re-derives length/encoding; hop-by-hop headers must not be relayed).
+// re-derives length/encoding; hop-by-hop and set-cookie must not be relayed —
+// the browser must never receive an upstream cookie under this origin).
 const STRIP_RESPONSE_HEADERS = new Set([
-  'content-encoding', 'content-length', 'transfer-encoding', 'connection',
+  'content-encoding', 'content-length', 'transfer-encoding', 'connection', 'set-cookie',
 ])
 
 export type RelayHeaders = Headers | Record<string, string | string[] | undefined>
@@ -82,7 +83,11 @@ export async function relay(input: RelayInput): Promise<RelayResult> {
     method: input.method,
     headers: fwd,
     body: input.body ?? undefined,
-    redirect: 'follow',
+    // 'manual', not 'follow': the allowlist is only checked on the initial URL,
+    // so following a redirect could reach a non-allowlisted host (SSRF) with the
+    // forwarded token. Sentry's REST endpoints answer 200 directly; a 3xx
+    // surfaces to the caller instead of being chased.
+    redirect: 'manual',
   })
 
   const headers: Record<string, string> = {}

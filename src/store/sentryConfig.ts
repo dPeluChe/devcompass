@@ -1,12 +1,7 @@
 import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
 import type { SentryAuth } from '../api/sentry'
-
-// Same ASCII sanitation as the GitHub PAT — pasted tokens often pick up NBSP /
-// zero-width chars that break fetch headers. See store/auth.ts.
-function sanitizeToken(token: string): string {
-  return token.replace(/[^\x20-\x7e]/g, '').trim()
-}
+import { sanitizeToken } from './sanitizeToken'
 
 export interface SentryConfig {
   /** BYO Sentry auth token (sentry.io → Settings → Auth Tokens). */
@@ -20,9 +15,9 @@ export interface SentryConfig {
   proxyBase: string
   enabled: boolean
   /**
-   * Homologation map: Sentry project slug → GitHub `nameWithOwner`. Lets a
-   * Sentry issue render alongside its repo. Seeded from Sentry's own GitHub
-   * code-mappings, with manual override. Not yet consumed by views (PR 1).
+   * Homologation map: Sentry project slug → GitHub `nameWithOwner`. Seeded from
+   * Sentry's GitHub code-mappings on Validate; consumed by RepoDetail's Sentry
+   * tab (reverse lookup repo → project).
    */
   projectRepoMap: Record<string, string>
 }

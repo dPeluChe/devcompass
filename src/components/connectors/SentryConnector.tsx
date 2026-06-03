@@ -36,11 +36,12 @@ export function SentryConnector() {
     try {
       const auth = cfg.getAuth()
       const org = cfg.orgSlug.trim()
-      // 1) token check + which orgs it can see
-      const { data: orgs } = await fetchSentryOrgs(auth)
-      // 2) projects in the configured org
-      const { data: projects } = await fetchSentryProjects(auth, org)
-      // 3) code mappings (may need broader scope — fail independently)
+      // token check + projects in parallel (independent calls).
+      const [{ data: orgs }, { data: projects }] = await Promise.all([
+        fetchSentryOrgs(auth),
+        fetchSentryProjects(auth, org),
+      ])
+      // code mappings may need broader scope — fail independently.
       let repoBySlug: Record<string, string> = {}
       let mappingError: string | null = null
       try {
@@ -51,9 +52,11 @@ export function SentryConnector() {
         repoBySlug = {}
       }
       setValidation({ orgSlugs: orgs.map((o) => o.slug), projects, repoBySlug, mappingError })
-      // Seed the homologation map for later (PR 2).
+      // Seed the homologation map. Read the live map (not the render-time closure)
+      // so a concurrent edit isn't clobbered.
       if (Object.keys(repoBySlug).length) {
-        cfg.update({ projectRepoMap: { ...cfg.projectRepoMap, ...repoBySlug } })
+        const live = sentryConfigStore.getState().projectRepoMap
+        sentryConfigStore.getState().update({ projectRepoMap: { ...live, ...repoBySlug } })
       }
     } catch (e) {
       setValError(e instanceof Error ? e.message : String(e))
