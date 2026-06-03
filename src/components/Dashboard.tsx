@@ -4,6 +4,7 @@ import { DEMO_TOKEN } from '../api/demo-data'
 import type { ScopeKey } from './home/types'
 import { OrgManager } from './OrgManager'
 import { SettingsTab } from './SettingsTab'
+import { SentryConnector } from './connectors/SentryConnector'
 import { QuickSwitcher, type QSAction } from './QuickSwitcher'
 import { ShortcutsHelp } from './ShortcutsHelp'
 import { HomeShell } from './home/HomeShell'
@@ -255,7 +256,7 @@ function ConfigView({
   errors: { source: string; message: string }[]
   onForceResync: () => void
 }) {
-  const [section, setSection] = useState<'orgs' | 'token' | 'storage' | 'cache' | 'pinned' | 'appearance'>('orgs')
+  const [section, setSection] = useState<'orgs' | 'token' | 'connectors' | 'storage' | 'cache' | 'pinned' | 'appearance'>('orgs')
 
   // Collaborator-only orgs: own at least one repo that arrived via the viewer's
   // COLLABORATOR affiliation but aren't in viewer.organizations / /user/orgs.
@@ -281,6 +282,9 @@ function ConfigView({
         </button>
         <button className={`config-tab ${section === 'token' ? 'active' : ''}`} onClick={() => setSection('token')}>
           Token
+        </button>
+        <button className={`config-tab ${section === 'connectors' ? 'active' : ''}`} onClick={() => setSection('connectors')}>
+          Connectors
         </button>
         <button className={`config-tab ${section === 'storage' ? 'active' : ''}`} onClick={() => setSection('storage')}>
           Storage
@@ -356,6 +360,8 @@ function ConfigView({
             <p className="muted">Token information is still loading.</p>
           </section>
         )}
+
+        {section === 'connectors' && <SentryConnector />}
 
         {section === 'storage' && <SettingsTab panel="storage" onForceResync={onForceResync} />}
         {section === 'cache' && <SettingsTab panel="cache" onForceResync={onForceResync} />}
