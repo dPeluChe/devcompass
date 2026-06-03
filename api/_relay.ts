@@ -88,6 +88,8 @@ export async function relay(input: RelayInput): Promise<RelayResult> {
     // forwarded token. Sentry's REST endpoints answer 200 directly; a 3xx
     // surfaces to the caller instead of being chased.
     redirect: 'manual',
+    // Don't let a hung upstream pin the function open.
+    signal: AbortSignal.timeout(25_000),
   })
 
   const headers: Record<string, string> = {}

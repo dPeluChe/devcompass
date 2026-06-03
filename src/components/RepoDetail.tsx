@@ -24,13 +24,13 @@ export function RepoDetail({ token, owner, name, onClose }: Props) {
 
   // Homologation: does this repo have a mapped Sentry project? (reverse the
   // project-slug → "owner/repo" map seeded from Sentry's code mappings.)
-  const sentry = sentryConfigStore()
+  const { token: sentryToken, orgSlug: sentryOrg, environment: sentryEnv, projectRepoMap } = sentryConfigStore()
   const sentryProjectSlug = useMemo(() => {
-    if (!sentry.isConfigured()) return null
+    if (!sentryToken.trim() || !sentryOrg.trim()) return null
     const target = `${owner}/${name}`.toLowerCase()
-    const hit = Object.entries(sentry.projectRepoMap).find(([, repo]) => repo.toLowerCase() === target)
+    const hit = Object.entries(projectRepoMap).find(([, repo]) => repo.toLowerCase() === target)
     return hit ? hit[0] : null
-  }, [sentry, owner, name])
+  }, [projectRepoMap, sentryToken, sentryOrg, owner, name])
 
   useEffect(() => {
     let cancelled = false
@@ -73,7 +73,7 @@ export function RepoDetail({ token, owner, name, onClose }: Props) {
             {tab === 'issues' && <IssuesTab data={data} />}
             {tab === 'releases' && <ReleasesTab data={data} />}
             {tab === 'sentry' && sentryProjectSlug && (
-              <SentryTab orgSlug={sentry.orgSlug.trim()} projectSlug={sentryProjectSlug} environment={sentry.environment.trim()} />
+              <SentryTab orgSlug={sentryOrg.trim()} projectSlug={sentryProjectSlug} environment={sentryEnv.trim()} />
             )}
           </div>
         </>

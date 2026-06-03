@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { useQueryClient } from '@tanstack/react-query'
 import { sentryConfigStore } from '../../store/sentryConfig'
 import {
   fetchSentryCodeMappings,
@@ -18,21 +19,18 @@ type Validation = {
   mappingError: string | null
 }
 
+type Async<T> = { loading: boolean; error: string | null; data: T | null }
+const idle = { loading: false, error: null, data: null }
+
 export function SentryConnector() {
   const cfg = sentryConfigStore()
+  const queryClient = useQueryClient()
 
-  const [validating, setValidating] = useState(false)
-  const [valError, setValError] = useState<string | null>(null)
-  const [validation, setValidation] = useState<Validation | null>(null)
-
-  const [issues, setIssues] = useState<SentryIssue[] | null>(null)
-  const [loadingIssues, setLoadingIssues] = useState(false)
-  const [issuesError, setIssuesError] = useState<string | null>(null)
+  const [val, setVal] = useState<Async<Validation>>(idle)
+  const [iss, setIss] = useState<Async<SentryIssue[]>>(idle)
 
   async function validate() {
-    setValidating(true)
-    setValError(null)
-    setValidation(null)
+    setVal({ loading: true, error: null, data: null })
     try {
       const auth = cfg.getAuth()
       const org = cfg.orgSlug.trim()
@@ -42,44 +40,39 @@ export function SentryConnector() {
         fetchSentryProjects(auth, org),
       ])
       // code mappings may need broader scope — fail independently.
-      let repoBySlug: Record<string, string> = {}
+      const repoBySlug: Record<string, string> = {}
       let mappingError: string | null = null
       try {
         const { data: mappings } = await fetchSentryCodeMappings(auth, org)
         for (const m of mappings) if (m.projectSlug && m.repoName) repoBySlug[m.projectSlug] = m.repoName
       } catch (e) {
         mappingError = e instanceof Error ? e.message : String(e)
-        repoBySlug = {}
       }
-      setValidation({ orgSlugs: orgs.map((o) => o.slug), projects, repoBySlug, mappingError })
-      // Seed the homologation map. Read the live map (not the render-time closure)
-      // so a concurrent edit isn't clobbered.
+      // Seed the homologation map from the live store (not the render closure).
       if (Object.keys(repoBySlug).length) {
         const live = sentryConfigStore.getState().projectRepoMap
         sentryConfigStore.getState().update({ projectRepoMap: { ...live, ...repoBySlug } })
       }
+      // Creds just (re)confirmed — drop cached Sentry queries so repo-detail tabs
+      // refetch with the current token/region instead of stale data.
+      queryClient.invalidateQueries({ queryKey: ['sentry'] })
+      setVal({ loading: false, error: null, data: { orgSlugs: orgs.map((o) => o.slug), projects, repoBySlug, mappingError } })
     } catch (e) {
-      setValError(e instanceof Error ? e.message : String(e))
-    } finally {
-      setValidating(false)
+      setVal({ loading: false, error: e instanceof Error ? e.message : String(e), data: null })
     }
   }
 
   async function loadIssues() {
-    setLoadingIssues(true)
-    setIssuesError(null)
-    setIssues(null)
+    setIss({ loading: true, error: null, data: null })
     try {
       const { data } = await fetchSentryIssues(cfg.getAuth(), {
         orgSlug: cfg.orgSlug.trim(),
         environment: cfg.environment.trim(),
         query: 'is:unresolved',
       })
-      setIssues(data)
+      setIss({ loading: false, error: null, data })
     } catch (e) {
-      setIssuesError(e instanceof Error ? e.message : String(e))
-    } finally {
-      setLoadingIssues(false)
+      setIss({ loading: false, error: e instanceof Error ? e.message : String(e), data: null })
     }
   }
 
@@ -160,35 +153,35 @@ export function SentryConnector() {
         </label>
 
         <div className="connector-actions">
-          <button className="hs-modal-btn primary" onClick={validate} disabled={validating || !cfg.isConfigured()}>
-            {validating ? 'Validating…' : 'Validate connection'}
+          <button className="hs-modal-btn primary" onClick={validate} disabled={val.loading || !cfg.isConfigured()}>
+            {val.loading ? 'Validating…' : 'Validate connection'}
           </button>
-          <button className="hs-modal-btn" onClick={loadIssues} disabled={loadingIssues || !cfg.isConfigured()}>
-            {loadingIssues ? 'Loading…' : 'Load unresolved issues'}
+          <button className="hs-modal-btn" onClick={loadIssues} disabled={iss.loading || !cfg.isConfigured()}>
+            {iss.loading ? 'Loading…' : 'Load unresolved issues'}
           </button>
           {!cfg.isConfigured() && <span className="muted">Token + org slug required.</span>}
         </div>
       </div>
 
-      {valError && <div className="hs-status hs-status-err" style={{ marginTop: 12 }}>Validation failed: {valError}</div>}
+      {val.error && <div className="hs-status hs-status-err" style={{ marginTop: 12 }}>Validation failed: {val.error}</div>}
 
-      {validation && (
+      {val.data && (
         <div className="connector-results" style={{ marginTop: 12 }}>
           <div className="hs-status hs-status-ok" style={{ marginBottom: 10 }}>
-            ✓ Token valid — {validation.orgSlugs.length} org{validation.orgSlugs.length === 1 ? '' : 's'} visible
-            {validation.orgSlugs.length > 0 ? `: ${validation.orgSlugs.join(', ')}` : ''}
+            ✓ Token valid — {val.data.orgSlugs.length} org{val.data.orgSlugs.length === 1 ? '' : 's'} visible
+            {val.data.orgSlugs.length > 0 ? `: ${val.data.orgSlugs.join(', ')}` : ''}
           </div>
           <div className="muted" style={{ marginBottom: 6 }}>
-            {validation.projects.length} project{validation.projects.length === 1 ? '' : 's'} in @{cfg.orgSlug.trim()} · linked GitHub repo (Sentry code mappings):
+            {val.data.projects.length} project{val.data.projects.length === 1 ? '' : 's'} in @{cfg.orgSlug.trim()} · linked GitHub repo (Sentry code mappings):
           </div>
-          {validation.mappingError && (
+          {val.data.mappingError && (
             <div className="muted" style={{ marginBottom: 6 }}>
-              ⚠ Couldn't read code mappings ({validation.mappingError}). You can still map projects → repos manually later.
+              ⚠ Couldn't read code mappings ({val.data.mappingError}). You can still map projects → repos manually later.
             </div>
           )}
           <ul className="connector-map-list">
-            {validation.projects.map((p) => {
-              const repo = validation.repoBySlug[p.slug]
+            {val.data.projects.map((p) => {
+              const repo = val.data!.repoBySlug[p.slug]
               return (
                 <li key={p.id} className="connector-map-row">
                   <span className="connector-map-project">{p.slug}</span>
@@ -207,18 +200,18 @@ export function SentryConnector() {
         </div>
       )}
 
-      {issuesError && <div className="hs-status hs-status-err" style={{ marginTop: 12 }}>Failed: {issuesError}</div>}
+      {iss.error && <div className="hs-status hs-status-err" style={{ marginTop: 12 }}>Failed: {iss.error}</div>}
 
-      {issues && (
+      {iss.data && (
         <div className="connector-results" style={{ marginTop: 12 }}>
           <div className="muted" style={{ marginBottom: 8 }}>
-            {issues.length} issue{issues.length === 1 ? '' : 's'}
+            {iss.data.length} issue{iss.data.length === 1 ? '' : 's'}
             {cfg.environment.trim() ? ` in @${cfg.environment.trim()}` : ' (all environments)'}
           </div>
-          {issues.length === 0 ? (
+          {iss.data.length === 0 ? (
             <span className="muted">No unresolved issues for this filter. 🎉</span>
           ) : (
-            <SentryIssueList issues={issues} />
+            <SentryIssueList issues={iss.data} />
           )}
         </div>
       )}

@@ -17,6 +17,10 @@ function sentryBaseUrl(region: string): string {
   return `https://${region ? `${region}.` : ''}sentry.io/api/0`
 }
 
+const MAX_RETRIES = 3
+const RETRY_DELAY = 1500
+const TIMEOUT_MS = 20_000
+
 export async function sentryFetch<T>(
   path: string,
   auth: SentryAuth,
@@ -28,16 +32,31 @@ export async function sentryFetch<T>(
       if (v !== undefined && v !== '') upstream.searchParams.set(k, String(v))
     }
   }
-  const proxyBase = auth.proxyBase || '/api/proxy'
-  const res = await fetch(`${proxyBase}?url=${encodeURIComponent(upstream.toString())}`, {
-    headers: { Authorization: `Bearer ${auth.token}`, Accept: 'application/json' },
-  })
-  if (!res.ok) {
-    const text = await res.text().catch(() => '')
-    throw new Error(`Sentry ${res.status}: ${text.slice(0, 300) || res.statusText}`)
+  const proxied = `${auth.proxyBase || '/api/proxy'}?url=${encodeURIComponent(upstream.toString())}`
+  const headers = { Authorization: `Bearer ${auth.token}`, Accept: 'application/json' }
+
+  // Retry transient failures (network/timeout, 429, 5xx) like the GitHub client.
+  // 4xx (auth/not-found/bad query) fail fast — a retry won't change the answer.
+  let lastError: Error | null = null
+  for (let attempt = 0; attempt < MAX_RETRIES; attempt++) {
+    if (attempt > 0) await new Promise((r) => setTimeout(r, RETRY_DELAY))
+    let res: Response
+    try {
+      res = await fetch(proxied, { headers, signal: AbortSignal.timeout(TIMEOUT_MS) })
+    } catch (e) {
+      lastError = e instanceof Error ? e : new Error(String(e))
+      continue
+    }
+    if (res.ok) {
+      const data = (await res.json()) as T
+      return { data, nextCursor: parseNextCursor(res.headers.get('link')) }
+    }
+    const text = (await res.text().catch(() => '')).slice(0, 300)
+    const err = new Error(`Sentry ${res.status}: ${text || res.statusText}`)
+    if (res.status !== 429 && res.status < 500) throw err
+    lastError = err
   }
-  const data = (await res.json()) as T
-  return { data, nextCursor: parseNextCursor(res.headers.get('link')) }
+  throw lastError ?? new Error('Sentry request failed')
 }
 
 // Sentry cursor pagination (RFC5988): `<…>; rel="next"; results="true"; cursor="0:100:0"`.
