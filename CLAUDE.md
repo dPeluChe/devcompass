@@ -17,7 +17,7 @@ The README also recommends running `spark audit --offline` and `npm audit --audi
 
 ## High-Level Architecture
 
-DevCompass is a single-page React app that talks directly to GitHub from the browser using a user-supplied Personal Access Token. There is no backend. All persistence is local: `localStorage` for the token, IndexedDB (Dexie) for repo/org/pin data, and Zustand `persist` for UI and config state.
+devcompass is a single-page React app that talks directly to GitHub from the browser using a user-supplied Personal Access Token. There is no backend. All persistence is local: `localStorage` for the token, IndexedDB (Dexie) for repo/org/pin data, and Zustand `persist` for UI and config state.
 
 ### Entry & routing — `src/main.tsx`, `src/App.tsx`
 
