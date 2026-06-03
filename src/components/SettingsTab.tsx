@@ -1,14 +1,8 @@
 import { useEffect, useState } from 'react'
-import { db, getDbStats, clearAllRepos, clearOldRepos, type PinnedRepo, getPinnedRepos, unpinRepo, getOrgsByOrder, getStorageBreakdown, pruneExpiredCachePrefs, type StorageBreakdown } from '../store/db'
+import { clearAllRepos, clearOldRepos, type PinnedRepo, getPinnedRepos, unpinRepo, getStorageBreakdown, pruneExpiredCachePrefs, type StorageBreakdown } from '../store/db'
 import { ConfirmDialog } from './ConfirmDialog'
 import { uiPrefsStore } from '../store/uiPrefs'
-
-interface DbStats {
-  repoCount: number
-  orgCount: number
-  pinnedCount: number
-  tokenCount: number
-}
+import { CachePanel } from './settings/CachePanel'
 
 function formatBytes(bytes: number | null): string {
   if (bytes == null) return '—'
@@ -18,32 +12,18 @@ function formatBytes(bytes: number | null): string {
   return `${(bytes / 1024 / 1024 / 1024).toFixed(2)} GB`
 }
 
-function timeAgo(ts: number): string {
-  const min = Math.floor((Date.now() - ts) / 60_000)
-  if (min < 1) return 'just now'
-  if (min < 60) return `${min}m ago`
-  const hr = Math.floor(min / 60)
-  if (hr < 24) return `${hr}h ago`
-  const day = Math.floor(hr / 24)
-  if (day < 30) return `${day}d ago`
-  return `${Math.floor(day / 30)}mo ago`
-}
-
-
-type SettingsPanel = 'all' | 'storage' | 'cache' | 'pinned' | 'orgOrder' | 'appearance'
+type SettingsPanel = 'storage' | 'cache' | 'pinned' | 'appearance'
 
 type Props = {
-  panel?: SettingsPanel
+  panel: SettingsPanel
   /** Wires Dashboard's loadReposSequentially(true) so the "Hard refresh" button
    *  can drop the cache and pull a fresh copy without a full page reload. */
   onForceResync?: () => void
 }
 
-export function SettingsTab({ panel = 'all', onForceResync }: Props) {
-  const [stats, setStats] = useState<DbStats | null>(null)
+export function SettingsTab({ panel, onForceResync }: Props) {
   const [breakdown, setBreakdown] = useState<StorageBreakdown | null>(null)
   const [pinned, setPinned] = useState<PinnedRepo[]>([])
-  const [orgs, setOrgs] = useState<{ login: string; order: number }[]>([])
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
@@ -55,16 +35,9 @@ export function SettingsTab({ panel = 'all', onForceResync }: Props) {
     // Drop expired TTL-bound rows first so the Cache tab only ever shows
     // entries that would actually be served from cache on the next request.
     await pruneExpiredCachePrefs()
-    const [s, b, p, o] = await Promise.all([
-      getDbStats(),
-      getStorageBreakdown(),
-      getPinnedRepos(),
-      getOrgsByOrder()
-    ])
-    setStats(s)
+    const [b, p] = await Promise.all([getStorageBreakdown(), getPinnedRepos()])
     setBreakdown(b)
     setPinned(p)
-    setOrgs(o)
     setLoading(false)
   }
 
@@ -106,7 +79,7 @@ export function SettingsTab({ panel = 'all', onForceResync }: Props) {
 
   return (
     <div className="settings-tab">
-      {(panel === 'all' || panel === 'storage') && <section>
+      {panel === 'storage' && <section>
         <h2>Storage</h2>
         <p className="muted storage-blurb">
           Everything below lives <strong>only in your browser</strong>. The app
@@ -117,12 +90,12 @@ export function SettingsTab({ panel = 'all', onForceResync }: Props) {
 
         <div className="stats-grid storage-stats">
           <div className="stat">
-            <span className="stat-value">{breakdown?.repos ?? stats?.repoCount ?? 0}</span>
+            <span className="stat-value">{breakdown?.repos ?? 0}</span>
             <span className="stat-label">Repos</span>
             <span className="stat-sub muted">cached repos table</span>
           </div>
           <div className="stat">
-            <span className="stat-value">{breakdown?.pinned ?? stats?.pinnedCount ?? 0}</span>
+            <span className="stat-value">{breakdown?.pinned ?? 0}</span>
             <span className="stat-label">Pinned</span>
             <span className="stat-sub muted">workbench-pinned</span>
           </div>
@@ -232,11 +205,11 @@ export function SettingsTab({ panel = 'all', onForceResync }: Props) {
         </p>
       </section>}
 
-      {(panel === 'all' || panel === 'cache') && breakdown && (
+      {panel === 'cache' && breakdown && (
         <CachePanel breakdown={breakdown} onChange={loadData} />
       )}
 
-      {(panel === 'all' || panel === 'pinned') && <section>
+      {panel === 'pinned' && <section>
         <h2>Pinned Repos</h2>
         {pinned.length === 0 ? (
           <p className="muted">No pinned repos yet. Pin repos from the repo list.</p>
@@ -282,23 +255,7 @@ export function SettingsTab({ panel = 'all', onForceResync }: Props) {
         onCancel={() => setConfirmKind(null)}
       />
 
-      {(panel === 'all' || panel === 'orgOrder') && <section>
-        <h2>Org Order</h2>
-        {orgs.length === 0 ? (
-          <p className="muted">No orgs synced yet.</p>
-        ) : (
-          <ul className="org-order-list">
-            {orgs.map((o, i) => (
-              <li key={o.login}>
-                <span className="order-num">{i + 1}</span>
-                <span>{o.login}</span>
-              </li>
-            ))}
-          </ul>
-        )}
-      </section>}
-
-      {(panel === 'all' || panel === 'appearance') && <AppearanceSection />}
+      {panel === 'appearance' && <AppearanceSection />}
     </div>
   )
 }
@@ -320,152 +277,6 @@ function AppearanceSection() {
           onClick={toggleFancyBg}
         />
       </label>
-    </section>
-  )
-}
-
-/**
- * Cache tab — groups the prefs-table entries (per-API response caches)
- * by what they belong to and lets the user evict individual rows.
- */
-type CacheGroup = {
-  title: string
-  ttl: string
-  prefix: string
-  /** Override the per-row label. Used to mask the token-as-discriminator
-   *  for session-level caches so it never renders to the DOM. */
-  rowLabel?: (sub: string) => string
-  /** Visual emphasis: per-resource caches (PR detail, Branches) get a
-   *  brighter card border so they stand out from session singletons. */
-  emphasis?: 'primary' | 'session'
-  /** Short helper line under the title to remind why we cache this. */
-  blurb?: string
-}
-
-function CachePanel({ breakdown, onChange }: { breakdown: StorageBreakdown; onChange: () => void }) {
-  const groups: CacheGroup[] = [
-    // Per-resource caches: change as the user navigates; one entry per repo / PR.
-    {
-      title: 'PR detail',
-      ttl: '15m',
-      prefix: 'prDetail:',
-      emphasis: 'primary',
-      blurb: 'Each open of a PR detail modal — keyed by owner/repo/#PR.'
-    },
-    {
-      title: 'Branches',
-      ttl: '15m',
-      prefix: 'branches:',
-      emphasis: 'primary',
-      blurb: 'Branch list for each repo opened from the Repos grid.'
-    },
-    {
-      title: 'Contribution calendar',
-      ttl: '12h',
-      prefix: 'contrib:',
-      emphasis: 'primary',
-      blurb: 'Viewer contribution heatmap powering Digest. Cached long because daily activity changes slowly.'
-    },
-    {
-      title: 'Since-last-visit snapshot',
-      ttl: '∞',
-      prefix: 'visit:',
-      blurb: 'Baseline that powers the Home → Since last visit feed.'
-    },
-    // Session-level singletons: one entry per token. The token is the
-    // discriminator — never show it.
-    {
-      title: '/user/orgs',
-      ttl: '1h',
-      prefix: 'userOrgs:',
-      emphasis: 'session',
-      rowLabel: () => 'current session',
-      blurb: 'REST list of orgs the viewer belongs to.'
-    },
-    {
-      title: 'Viewer (login + memberships)',
-      ttl: '1h',
-      prefix: 'viewer:',
-      emphasis: 'session',
-      rowLabel: () => 'current session',
-      blurb: 'GraphQL viewer query — login, avatar, viewer.organizations.'
-    },
-    {
-      title: 'Token info (scopes, SSO)',
-      ttl: '1h',
-      prefix: 'tokenInfo:',
-      emphasis: 'session',
-      rowLabel: () => 'current session',
-      blurb: 'X-OAuth-Scopes + X-GitHub-SSO from /user response headers.'
-    }
-  ]
-
-  async function deleteEntry(key: string) {
-    await db.prefs.delete(key)
-    onChange()
-  }
-
-  async function deleteGroup(prefix: string) {
-    const matching = breakdown.prefKeys.filter((p) => p.key.startsWith(prefix)).map((p) => p.key)
-    if (matching.length === 0) return
-    await db.prefs.bulkDelete(matching)
-    onChange()
-  }
-
-  return (
-    <section>
-      <h2>API response cache</h2>
-      <p className="muted storage-blurb">
-        Each row below is an API call this app made and saved to IndexedDB so
-        the next request can be served locally. TTL is the freshness window —
-        after that the cache entry is ignored and a fresh call goes out.
-        Delete a row to force the next request to re-fetch.
-      </p>
-
-      {groups.map((g) => {
-        const rows = breakdown.prefKeys.filter((p) => p.key.startsWith(g.prefix))
-        const emphasisClass = g.emphasis ? `cache-group--${g.emphasis}` : ''
-        return (
-          <div key={g.prefix} className={`cache-group ${emphasisClass}`}>
-            <div className="cache-group-head">
-              <span className="cache-group-title">
-                <strong>{g.title}</strong>
-                <span className="cache-group-ttl">TTL {g.ttl}</span>
-                <span className="muted">· {rows.length} cached</span>
-              </span>
-              {rows.length > 0 && (
-                <button className="cache-group-clear" onClick={() => deleteGroup(g.prefix)}>
-                  Clear group
-                </button>
-              )}
-            </div>
-            {g.blurb && <div className="cache-group-blurb muted">{g.blurb}</div>}
-            {rows.length === 0 ? (
-              <div className="cache-group-empty muted">No entries.</div>
-            ) : (
-              <div className="cache-chip-list">
-                {rows.map((r) => {
-                  const sub = r.key.slice(g.prefix.length)
-                  const label = g.rowLabel ? g.rowLabel(sub) : sub
-                  return (
-                    <span key={r.key} className="cache-chip" title={`cached ${timeAgo(r.updatedAt)} — click × to evict`}>
-                      <code className="cache-chip-key">{label || '(default)'}</code>
-                      <span className="cache-chip-time muted">{timeAgo(r.updatedAt)}</span>
-                      <button
-                        className="cache-chip-delete"
-                        aria-label="Evict from cache"
-                        onClick={() => deleteEntry(r.key)}
-                      >
-                        ×
-                      </button>
-                    </span>
-                  )
-                })}
-              </div>
-            )}
-          </div>
-        )
-      })}
     </section>
   )
 }
