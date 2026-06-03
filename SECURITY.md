@@ -25,11 +25,11 @@ devcompass is a browser-only single-page app. There is no backend that we operat
 
 | Surface | What is stored | Where |
 | --- | --- | --- |
-| Login | Raw PAT, ASCII-sanitized | `localStorage["ghviewer.pat"]` |
-| Cache panel | Token reference key only | IndexedDB `ghviewer.tokens` (id `current`) |
+| Login | Raw PAT, ASCII-sanitized | `localStorage["devcompass.pat"]` |
+| Cache panel | Token reference key only | IndexedDB `devcompass.tokens` (id `current`) |
 | Network | `Authorization: bearer <token>` | Request header to `api.github.com`, never to a server we operate |
 
-You can wipe everything from **Settings → Storage → Clear all cache**, or by deleting the `ghviewer.pat` key and `ghviewer` IndexedDB database from your browser.
+You can wipe everything from **Settings → Storage → Clear all cache**, or by deleting the `devcompass.pat` key and `devcompass` IndexedDB database from your browser.
 
 ## Dependencies
 

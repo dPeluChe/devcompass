@@ -110,7 +110,7 @@ export const orgConfigStore = create<OrgConfigState>()(
       }
     }),
     {
-      name: 'ghviewer-org-config',
+      name: 'devcompass-org-config',
       partialize: (state) => ({ orgs: state.orgs })
     }
   )

@@ -151,7 +151,7 @@ export function SettingsTab({ panel = 'all', onForceResync }: Props) {
           <h3>Where it lives</h3>
           <ul className="storage-where">
             <li>
-              <code>localStorage["ghviewer.pat"]</code>
+              <code>localStorage["devcompass.pat"]</code>
               <span className="muted">
                 Your GitHub Personal Access Token — used as the <code>Authorization: Bearer …</code>
                 header on every request to <code>api.github.com</code>. Never sent anywhere else.
@@ -159,14 +159,14 @@ export function SettingsTab({ panel = 'all', onForceResync }: Props) {
               </span>
             </li>
             <li>
-              <code>localStorage["ghviewer-storage"]</code> · <code>"ghviewer-org-config"</code>
+              <code>localStorage["devcompass-ui-prefs"]</code> · <code>"devcompass-org-config"</code>
               <span className="muted">
                 UI prefs: sidebar collapsed flag, default merge method, the per-org
                 enabled/sync toggles. Tiny.
               </span>
             </li>
             <li>
-              <code>IndexedDB "ghviewer"</code>
+              <code>IndexedDB "devcompass"</code>
               <span className="muted">
                 Repos, orgs, pinned items, snoozes, token meta, and the per-API
                 response cache (viewer / tokenInfo / userOrgs / PR detail / branches /

@@ -1,4 +1,4 @@
-const KEY = 'ghviewer.pat'
+const KEY = 'devcompass.pat'
 
 // HTTP headers only allow ASCII (ByteString). Strip anything outside printable ASCII
 // to avoid the "character has value > 255" fetch error when copy-pasting tokens that

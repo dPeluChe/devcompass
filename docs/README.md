@@ -56,7 +56,7 @@ src/
       common.tsx, utils.ts
 
   store/
-    auth.ts               Token in localStorage["ghviewer.pat"]. ASCII-sanitized to avoid header bugs.
+    auth.ts               Token in localStorage["devcompass.pat"]. ASCII-sanitized to avoid header bugs.
     auth.test.ts          Unit tests for sanitizeToken + auth helpers.
     queries.ts            TanStack Query client + queryKeys registry.
     orgConfig.ts          Zustand persist store. Per-org enabled / syncEnabled / lastSyncedAt.
@@ -98,7 +98,7 @@ When adding new state, pick the **lowest layer that survives long enough** — m
 
 ## IndexedDB schema
 
-Database name: `ghviewer`. Current version: 3.
+Database name: `devcompass`. Current version: 3.
 
 ```text
 repos        id, nameWithOwner, owner.login, pushedAt, cachedAt
