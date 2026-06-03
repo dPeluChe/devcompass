@@ -17,7 +17,7 @@ The README also recommends running `spark audit --offline` and `npm audit --audi
 
 ## High-Level Architecture
 
-GHDevView is a single-page React app that talks directly to GitHub from the browser using a user-supplied Personal Access Token. There is no backend. All persistence is local: `localStorage` for the token, IndexedDB (Dexie) for repo/org/pin data, and Zustand `persist` for UI and config state.
+devcompass is a single-page React app that talks directly to GitHub from the browser using a user-supplied Personal Access Token. There is no backend. All persistence is local: `localStorage` for the token, IndexedDB (Dexie) for repo/org/pin data, and Zustand `persist` for UI and config state.
 
 ### Entry & routing — `src/main.tsx`, `src/App.tsx`
 
@@ -42,8 +42,8 @@ The codebase splits state by lifetime/scope. When adding state, pick the right l
 |---|---|---|
 | Auth token | `src/store/auth.ts` | `localStorage` only. `auth.set/get/clear`. Sanitizes to printable ASCII before storing — pasted tokens often pick up NBSP/zero-width chars that break `fetch` headers. |
 | Server cache | `src/store/queries.ts` | TanStack Query client + `queryKeys` registry. 5min `staleTime`, 1 retry, refetch on focus/reconnect. Components call `useQuery` directly with these keys; there is no per-resource hook wrapper. |
-| Org config | `src/store/orgConfig.ts` | Persisted Zustand store under `ghviewer-org-config`. Per-org `enabled` / `syncEnabled` / `lastSyncedAt`. `orgNeedsSync()` triggers a re-sync after 1h. |
-| Persistent data | `src/store/db.ts` | Dexie/IndexedDB at name `ghviewer`. Tables: `repos`, `orgs`, `prefs`, `tokens`, `pinnedRepos`. Schema is versioned — v2 added `tokens`, `pinnedRepos`, `orgs.order`. **Bump the version and write an upgrade in `db.ts` when changing schema.** |
+| Org config | `src/store/orgConfig.ts` | Persisted Zustand store under `devcompass-org-config`. Per-org `enabled` / `syncEnabled` / `lastSyncedAt`. `orgNeedsSync()` triggers a re-sync after 1h. |
+| Persistent data | `src/store/db.ts` | Dexie/IndexedDB at name `devcompass`. Tables: `repos`, `orgs`, `prefs`, `tokens`, `pinnedRepos`. Schema is versioned — v2 added `tokens`, `pinnedRepos`, `orgs.order`. **Bump the version and write an upgrade in `db.ts` when changing schema.** |
 
 Only `useGlobalShortcuts` lives in `src/hooks/`. Domain hooks (`useNeedsMe`, `useSinceLastVisit`) live next to their feature in `src/components/home/`.
 

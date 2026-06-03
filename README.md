@@ -60,9 +60,9 @@ This is a **single-page app that talks directly to GitHub from your browser**. T
 
 | What | Where | Why |
 | --- | --- | --- |
-| Your GitHub PAT | `localStorage` under `ghviewer.pat` | Needed to call the GitHub API on every reload. Never sent anywhere except `api.github.com`. |
-| Cached repos / PR detail / branches | IndexedDB (`ghviewer` database, Dexie) | Lets the UI render instantly on reload before the next sync finishes. TTL-bound, auto-pruned. |
-| Per-org visibility flags | `localStorage` (Zustand persist, key `ghviewer-org-config`) | Remembers which orgs you have toggled off in Settings. |
+| Your GitHub PAT | `localStorage` under `devcompass.pat` | Needed to call the GitHub API on every reload. Never sent anywhere except `api.github.com`. |
+| Cached repos / PR detail / branches | IndexedDB (`devcompass` database, Dexie) | Lets the UI render instantly on reload before the next sync finishes. TTL-bound, auto-pruned. |
+| Per-org visibility flags | `localStorage` (Zustand persist, key `devcompass-org-config`) | Remembers which orgs you have toggled off in Settings. |
 | Snoozed PRs, pinned repos, visit snapshot | IndexedDB | Persist your workbench state between sessions. |
 
 You can wipe all local state from **Settings → Storage → Clear all cache**. The token UI also masks the PAT (`***`) so it never paints to the DOM.
@@ -117,7 +117,7 @@ There is no backend — `dist/` is everything.
 │  │ react-renderer key   │    │ stored in localStorage         │ │
 │  └──────────────────────┘    └────────────────────────────────┘ │
 │                                                                │
-│  ┌─ Dexie / IndexedDB (db name: ghviewer) ───────────────────┐ │
+│  ┌─ Dexie / IndexedDB (db name: devcompass) ───────────────────┐ │
 │  │ repos · orgs · prefs · tokens · pinnedRepos · snoozedPRs  │ │
 │  │ TTL-bound prefs cache with auto-prune                      │ │
 │  └────────────────────────────────────────────────────────────┘ │

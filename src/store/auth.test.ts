@@ -19,12 +19,12 @@ describe('auth', () => {
   it('sanitizes copied tokens before storage', () => {
     auth.set('  ghp_valid\u200btoken→  ')
 
-    expect(localStorage.setItem).toHaveBeenCalledWith('ghviewer.pat', 'ghp_validtoken')
+    expect(localStorage.setItem).toHaveBeenCalledWith('devcompass.pat', 'ghp_validtoken')
     expect(auth.get()).toBe('ghp_validtoken')
   })
 
   it('returns null for empty sanitized tokens', () => {
-    localStorage.setItem('ghviewer.pat', '\u200b')
+    localStorage.setItem('devcompass.pat', '\u200b')
 
     expect(auth.get()).toBeNull()
   })

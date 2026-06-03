@@ -12,6 +12,6 @@ export const uiPrefsStore = create<UiPrefsState>()(
       fancyBg: true,
       toggleFancyBg: () => set({ fancyBg: !get().fancyBg }),
     }),
-    { name: 'ghviewer-ui-prefs' }
+    { name: 'devcompass-ui-prefs' }
   )
 )

@@ -81,7 +81,7 @@ class GHDatabase extends Dexie {
   snoozedPRs!: Table<SnoozedPR, string>
 
   constructor() {
-    super('ghviewer')
+    super('devcompass')
 
     this.version(1).stores({
       repos: 'id, nameWithOwner, owner.login, pushedAt, cachedAt',
