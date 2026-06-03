@@ -1,20 +1,74 @@
 import { useState } from 'react'
 import { sentryConfigStore } from '../../store/sentryConfig'
-import { fetchSentryIssues, type SentryIssue, type SentryIssueLevel } from '../../api/sentry'
+import {
+  fetchSentryCodeMappings,
+  fetchSentryIssues,
+  fetchSentryOrgs,
+  fetchSentryProjects,
+  type SentryIssue,
+  type SentryIssueLevel,
+  type SentryProject,
+} from '../../api/sentry'
 
 const LEVEL_COLOR: Record<SentryIssueLevel, string> = {
   fatal: '#f55', error: '#f77', warning: '#e9a23b', info: '#5b9bd5', debug: '#888', sample: '#888',
 }
 
+type Validation = {
+  orgSlugs: string[]
+  projects: SentryProject[]
+  /** project slug → linked GitHub repo ("owner/repo"), from Sentry code mappings. */
+  repoBySlug: Record<string, string>
+  mappingError: string | null
+}
+
 export function SentryConnector() {
   const cfg = sentryConfigStore()
+
+  const [validating, setValidating] = useState(false)
+  const [valError, setValError] = useState<string | null>(null)
+  const [validation, setValidation] = useState<Validation | null>(null)
+
   const [issues, setIssues] = useState<SentryIssue[] | null>(null)
-  const [loading, setLoading] = useState(false)
-  const [error, setError] = useState<string | null>(null)
+  const [loadingIssues, setLoadingIssues] = useState(false)
+  const [issuesError, setIssuesError] = useState<string | null>(null)
+
+  async function validate() {
+    setValidating(true)
+    setValError(null)
+    setValidation(null)
+    try {
+      const auth = cfg.getAuth()
+      const org = cfg.orgSlug.trim()
+      // 1) token check + which orgs it can see
+      const { data: orgs } = await fetchSentryOrgs(auth)
+      // 2) projects in the configured org
+      const { data: projects } = await fetchSentryProjects(auth, org)
+      // 3) code mappings (may need broader scope — fail independently)
+      let repoBySlug: Record<string, string> = {}
+      let mappingError: string | null = null
+      try {
+        const { data: mappings } = await fetchSentryCodeMappings(auth, org)
+        for (const m of mappings) if (m.projectSlug && m.repoName) repoBySlug[m.projectSlug] = m.repoName
+      } catch (e) {
+        mappingError = e instanceof Error ? e.message : String(e)
+        repoBySlug = {}
+      }
+      setValidation({ orgSlugs: orgs.map((o) => o.slug), projects, repoBySlug, mappingError })
+      // Seed the homologation map for later (PR 2).
+      if (Object.keys(repoBySlug).length) {
+        cfg.update({ projectRepoMap: { ...cfg.projectRepoMap, ...repoBySlug } })
+      }
+    } catch (e) {
+      setValError(e instanceof Error ? e.message : String(e))
+    } finally {
+      setValidating(false)
+    }
+  }
 
   async function loadIssues() {
-    setLoading(true)
-    setError(null)
+    setLoadingIssues(true)
+    setIssuesError(null)
     setIssues(null)
     try {
       const { data } = await fetchSentryIssues(cfg.getAuth(), {
@@ -24,9 +78,9 @@ export function SentryConnector() {
       })
       setIssues(data)
     } catch (e) {
-      setError(e instanceof Error ? e.message : String(e))
+      setIssuesError(e instanceof Error ? e.message : String(e))
     } finally {
-      setLoading(false)
+      setLoadingIssues(false)
     }
   }
 
@@ -40,12 +94,29 @@ export function SentryConnector() {
         </span>
       </div>
 
+      <details className="connector-help">
+        <summary>How to get a Sentry auth token</summary>
+        <ol>
+          <li>
+            Open <a href="https://sentry.io/settings/account/api/auth-tokens/" target="_blank" rel="noopener noreferrer">
+            sentry.io → User Auth Tokens ↗</a> (or <em>Organization</em> → Settings → Auth Tokens for an org token).
+          </li>
+          <li>Create a token with scopes <code>org:read</code>, <code>project:read</code>, <code>event:read</code> (read-only).</li>
+          <li>Paste it below with your organization slug (the part in your Sentry URL: <code>sentry.io/organizations/<strong>your-org</strong>/</code>).</li>
+        </ol>
+        <p className="muted">
+          You don't need to be an owner/admin — a <strong>member</strong> token can read issues for the
+          projects you have access to. Project↔repo mappings may need broader org read; the validation
+          below tells you exactly what your token can see.
+        </p>
+      </details>
+
       <div className="connector-form">
         <label>
           <span>Auth token</span>
           <input
             type="password"
-            placeholder="sntrys_… (Settings → Auth Tokens, scope org:read project:read event:read)"
+            placeholder="sntryu_… / sntrys_…"
             value={cfg.token}
             onChange={(e) => cfg.update({ token: e.target.value })}
             autoComplete="off"
@@ -90,14 +161,54 @@ export function SentryConnector() {
         </label>
 
         <div className="connector-actions">
-          <button className="hs-modal-btn primary" onClick={loadIssues} disabled={loading || !cfg.isConfigured()}>
-            {loading ? 'Loading…' : 'Load unresolved issues'}
+          <button className="hs-modal-btn primary" onClick={validate} disabled={validating || !cfg.isConfigured()}>
+            {validating ? 'Validating…' : 'Validate connection'}
+          </button>
+          <button className="hs-modal-btn" onClick={loadIssues} disabled={loadingIssues || !cfg.isConfigured()}>
+            {loadingIssues ? 'Loading…' : 'Load unresolved issues'}
           </button>
           {!cfg.isConfigured() && <span className="muted">Token + org slug required.</span>}
         </div>
       </div>
 
-      {error && <div className="hs-status hs-status-err" style={{ marginTop: 12 }}>Failed: {error}</div>}
+      {valError && <div className="hs-status hs-status-err" style={{ marginTop: 12 }}>Validation failed: {valError}</div>}
+
+      {validation && (
+        <div className="connector-results" style={{ marginTop: 12 }}>
+          <div className="hs-status hs-status-ok" style={{ marginBottom: 10 }}>
+            ✓ Token valid — {validation.orgSlugs.length} org{validation.orgSlugs.length === 1 ? '' : 's'} visible
+            {validation.orgSlugs.length > 0 ? `: ${validation.orgSlugs.join(', ')}` : ''}
+          </div>
+          <div className="muted" style={{ marginBottom: 6 }}>
+            {validation.projects.length} project{validation.projects.length === 1 ? '' : 's'} in @{cfg.orgSlug.trim()} · linked GitHub repo (Sentry code mappings):
+          </div>
+          {validation.mappingError && (
+            <div className="muted" style={{ marginBottom: 6 }}>
+              ⚠ Couldn't read code mappings ({validation.mappingError}). You can still map projects → repos manually later.
+            </div>
+          )}
+          <ul className="connector-map-list">
+            {validation.projects.map((p) => {
+              const repo = validation.repoBySlug[p.slug]
+              return (
+                <li key={p.id} className="connector-map-row">
+                  <span className="connector-map-project">{p.slug}</span>
+                  <span className="connector-map-arrow">→</span>
+                  {repo ? (
+                    <a href={`https://github.com/${repo}`} target="_blank" rel="noopener noreferrer" className="connector-map-repo">
+                      {repo}
+                    </a>
+                  ) : (
+                    <span className="muted">no code mapping</span>
+                  )}
+                </li>
+              )
+            })}
+          </ul>
+        </div>
+      )}
+
+      {issuesError && <div className="hs-status hs-status-err" style={{ marginTop: 12 }}>Failed: {issuesError}</div>}
 
       {issues && (
         <div className="connector-results" style={{ marginTop: 12 }}>

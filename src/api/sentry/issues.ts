@@ -1,5 +1,14 @@
 import { sentryFetch, type SentryAuth, type SentryPage } from './client'
-import type { SentryEnvironment, SentryIssue, SentryOrganization, SentryProject } from './types'
+import type { SentryCodeMapping, SentryEnvironment, SentryIssue, SentryOrganization, SentryProject } from './types'
+
+/**
+ * Project↔repo code mappings — the homologation source. May require broader org
+ * read than issue endpoints, so callers should handle failure independently of
+ * the issues flow.
+ */
+export function fetchSentryCodeMappings(auth: SentryAuth, orgSlug: string): Promise<SentryPage<SentryCodeMapping[]>> {
+  return sentryFetch<SentryCodeMapping[]>(`/organizations/${orgSlug}/code-mappings/`, auth)
+}
 
 export function fetchSentryOrgs(auth: SentryAuth): Promise<SentryPage<SentryOrganization[]>> {
   return sentryFetch<SentryOrganization[]>('/organizations/', auth)

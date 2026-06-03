@@ -40,3 +40,16 @@ export type SentryIssue = {
 }
 
 export type SentryEnvironment = { name: string }
+
+/**
+ * Links a Sentry project to a source repo (Sentry's "code mappings", used for
+ * stack-trace → source linking). The basis for homologating Sentry issues with
+ * GitHub repos. `repoName` is "owner/repo" for the GitHub provider.
+ */
+export type SentryCodeMapping = {
+  id: string
+  projectId: string
+  projectSlug: string
+  repoName: string
+  defaultBranch: string | null
+}
