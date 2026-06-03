@@ -51,3 +51,22 @@ export function fetchSentryIssues(auth: SentryAuth, opts: IssueQuery): Promise<S
     limit: opts.limit ?? 25,
   })
 }
+
+/**
+ * Per-project issues. Uses the project endpoint (accepts the project *slug*,
+ * unlike the org endpoint's ?project= which needs a numeric id) — convenient
+ * when homologating from a repo's mapped project slug.
+ */
+export function fetchSentryProjectIssues(
+  auth: SentryAuth,
+  orgSlug: string,
+  projectSlug: string,
+  opts?: { environment?: string; query?: string; statsPeriod?: string; limit?: number }
+): Promise<SentryPage<SentryIssue[]>> {
+  return sentryFetch<SentryIssue[]>(`/projects/${orgSlug}/${projectSlug}/issues/`, auth, {
+    query: opts?.query ?? 'is:unresolved',
+    environment: opts?.environment,
+    statsPeriod: opts?.statsPeriod ?? '14d',
+    limit: opts?.limit ?? 25,
+  })
+}
