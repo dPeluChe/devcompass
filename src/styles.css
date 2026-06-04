@@ -2931,6 +2931,7 @@ kbd {
 .connector-map-icon { flex: 0 0 auto; font-size: 0.95rem; }
 .connector-map-icon.sentry { color: #8d5494; }
 .connector-map-icon.gh { color: var(--muted); }
+.connector-map-count { flex: 0 0 48px; font-size: 0.76rem; color: var(--danger); white-space: nowrap; text-align: right; }
 .connector-map-arrow { flex: 0 0 auto; color: var(--muted); }
 .connector-map-repo { flex: 0 0 auto; color: var(--accent); text-decoration: none; }
 .connector-map-repo:hover { text-decoration: underline; }
