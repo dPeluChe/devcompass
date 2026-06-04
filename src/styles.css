@@ -2928,4 +2928,10 @@ kbd {
 .connector-map-arrow { color: var(--muted); }
 .connector-map-repo { color: var(--accent); text-decoration: none; }
 .connector-map-repo:hover { text-decoration: underline; }
+.connector-map-input {
+  flex: 1; min-width: 0; padding: 4px 8px; border-radius: 6px;
+  border: 1px solid var(--border); background: var(--surface); color: var(--text);
+  font-size: 0.82rem; font-family: inherit;
+}
+.connector-map-input:focus { outline: none; border-color: var(--accent); }
 .hs-status.hs-status-ok { color: var(--success, #3fb950); border-color: var(--success, #3fb950); }

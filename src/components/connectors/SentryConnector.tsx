@@ -10,6 +10,7 @@ import {
   type SentryProject,
 } from '../../api/sentry'
 import { SentryIssueList } from './SentryIssueList'
+import type { Repo } from '../../api/github'
 
 type Validation = {
   orgSlugs: string[]
@@ -31,9 +32,20 @@ function describeError(e: unknown): string {
   return msg
 }
 
-export function SentryConnector() {
+export function SentryConnector({ repos }: { repos: Repo[] }) {
   const cfg = sentryConfigStore()
   const queryClient = useQueryClient()
+
+  // Manual project→repo mapping (homologation). Auto-seeded from Sentry code
+  // mappings on Validate, then editable here — Sentry's mappings are often
+  // missing or wrong. Persisted to the store; RepoDetail reads it reactively.
+  function setMapping(projectSlug: string, repo: string) {
+    const map = { ...sentryConfigStore.getState().projectRepoMap }
+    const v = repo.trim()
+    if (v) map[projectSlug] = v
+    else delete map[projectSlug]
+    sentryConfigStore.getState().update({ projectRepoMap: map })
+  }
 
   const [val, setVal] = useState<Async<Validation>>(idle)
   const [iss, setIss] = useState<Async<SentryIssue[]>>(idle)
@@ -187,31 +199,37 @@ export function SentryConnector() {
             {val.data.orgSlugs.length > 0 ? `: ${val.data.orgSlugs.join(', ')}` : ''}
           </div>
           <div className="muted" style={{ marginBottom: 6 }}>
-            {val.data.projects.length} project{val.data.projects.length === 1 ? '' : 's'} in @{cfg.orgSlug.trim()} · linked GitHub repo (Sentry code mappings):
+            {val.data.projects.length} project{val.data.projects.length === 1 ? '' : 's'} in @{cfg.orgSlug.trim()} — map each to a GitHub repo (auto-seeded from Sentry code mappings; edit to correct). Mapped projects show a Sentry tab on that repo.
           </div>
           {val.data.mappingError && (
             <div className="muted" style={{ marginBottom: 6 }}>
-              ⚠ Couldn't read code mappings ({val.data.mappingError}). You can still map projects → repos manually later.
+              ⚠ Couldn't read code mappings ({val.data.mappingError}). Map projects → repos manually below.
             </div>
           )}
           <ul className="connector-map-list">
             {val.data.projects.map((p) => {
-              const repo = val.data!.repoBySlug[p.slug]
+              const mapped = cfg.projectRepoMap[p.slug] ?? ''
               return (
                 <li key={p.id} className="connector-map-row">
                   <span className="connector-map-project">{p.slug}</span>
                   <span className="connector-map-arrow">→</span>
-                  {repo ? (
-                    <a href={`https://github.com/${repo}`} target="_blank" rel="noopener noreferrer" className="connector-map-repo">
-                      {repo}
-                    </a>
-                  ) : (
-                    <span className="muted">no code mapping</span>
+                  <input
+                    className="connector-map-input"
+                    list="devcompass-gh-repos"
+                    placeholder="owner/repo (unmapped)"
+                    value={mapped}
+                    onChange={(e) => setMapping(p.slug, e.target.value)}
+                  />
+                  {mapped && (
+                    <a href={`https://github.com/${mapped}`} target="_blank" rel="noopener noreferrer" className="connector-map-repo" title="Open on GitHub">↗</a>
                   )}
                 </li>
               )
             })}
           </ul>
+          <datalist id="devcompass-gh-repos">
+            {repos.map((r) => <option key={r.id} value={r.nameWithOwner} />)}
+          </datalist>
         </div>
       )}
 

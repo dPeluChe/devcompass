@@ -122,7 +122,7 @@ export function ConfigView({
           </section>
         )}
 
-        {section === 'connectors' && <SentryConnector />}
+        {section === 'connectors' && <SentryConnector repos={repos} />}
 
         {section === 'storage' && <SettingsTab panel="storage" onForceResync={onForceResync} />}
         {section === 'cache' && <SettingsTab panel="cache" onForceResync={onForceResync} />}
