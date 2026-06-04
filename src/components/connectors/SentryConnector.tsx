@@ -221,12 +221,12 @@ export function SentryConnector({ repos }: { repos: Repo[] }) {
             <div className="connector-results" style={{ marginTop: 12 }}>
               <div className="muted" style={{ marginBottom: 8 }}>
                 {iss.data.length} issue{iss.data.length === 1 ? '' : 's'}
-                {cfg.environment.trim() ? ` in @${cfg.environment.trim()}` : ' (all environments)'}
+                {cfg.environment.trim() && cfg.environment.trim().toLowerCase() !== 'all' ? ` in @${cfg.environment.trim()}` : ' (all environments)'}
               </div>
               {iss.data.length === 0 ? (
                 <span className="muted">No unresolved issues for this filter. 🎉</span>
               ) : (
-                <SentryIssueList issues={iss.data} />
+                <SentryIssueList issues={iss.data} groupByProject />
               )}
             </div>
           )}

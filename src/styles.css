@@ -2918,6 +2918,8 @@ kbd {
 .connector-issue-title { font-size: 0.9rem; color: var(--text); text-decoration: none; }
 .connector-issue-title:hover { color: var(--accent); text-decoration: underline; }
 .connector-issue-meta { font-size: 0.78rem; }
+.sentry-issue-groups { display: flex; flex-direction: column; gap: 14px; }
+.sentry-issue-group-head { font-size: 0.8rem; font-weight: 600; color: var(--muted); margin-bottom: 5px; padding-left: 2px; }
 .connector-help { margin-top: 12px; font-size: 0.85rem; border: 1px solid var(--border); border-radius: 8px; padding: 8px 12px; }
 .connector-help summary { cursor: pointer; font-weight: 500; }
 .connector-help ol { margin: 8px 0; padding-left: 20px; display: flex; flex-direction: column; gap: 4px; }
