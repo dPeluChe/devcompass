@@ -34,9 +34,8 @@ type Props = {
   pinnedCount: number
   active7dCount: number
   allReposCount: number
-  /** Show the Sentry inbox item only when a Sentry connector is configured. */
-  showSentry?: boolean
-  sentryCount?: number
+  /** Unified Issues feed (GitHub assigned-to-me + Sentry). */
+  issuesCount?: number
   /** Per-org repo counts. Sorted by caller — usually viewer first, then by count desc. */
   orgs?: OrgEntry[]
   onSelect: (key: ScopeKey) => void
@@ -48,7 +47,7 @@ export function Sidebar({
   active, collapsed,
   needsMeCount, sinceCount, watchingCount,
   pinnedCount, active7dCount, allReposCount,
-  showSentry, sentryCount = 0,
+  issuesCount = 0,
   orgs,
   onSelect,
   onToggleCollapsed,
@@ -57,11 +56,9 @@ export function Sidebar({
   const inboxItems: ItemDef[] = [
     { key: 'needs', label: 'Needs me', icon: '●', count: needsMeCount, hasAttn: needsMeCount > 0 },
     { key: 'since', label: 'Since last visit', icon: '↻', count: sinceCount, hasAttn: sinceCount > 0 },
+    { key: 'issues', label: 'Issues', icon: '◈', title: 'GitHub issues assigned to you + Sentry errors, grouped by repo', count: issuesCount, hasAttn: issuesCount > 0 },
     { key: 'watching', label: 'Watching', icon: '○', count: watchingCount }
   ]
-  if (showSentry) {
-    inboxItems.push({ key: 'sentry', label: 'Sentry', icon: '⚠', title: 'Unresolved Sentry issues, mapped to their repos', count: sentryCount, hasAttn: sentryCount > 0 })
-  }
   const groups: Group[] = [
     {
       title: 'Summary',
