@@ -4,6 +4,7 @@ export type ScopeKey =
   | 'needs'
   | 'since'
   | 'watching'
+  | 'sentry'
   | 'pinned'
   | 'active'
   | 'repos'
