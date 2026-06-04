@@ -22,6 +22,8 @@ export type UnifiedIssue = {
   metaLine: string
   /** Present for Sentry rows so the in-app detail modal can open. */
   sentry?: SentryIssue
+  /** Present for GitHub rows so the in-app detail modal can fetch + open. */
+  github?: { owner: string; name: string; number: number }
 }
 
 const SENTRY_DOT: Record<SentryIssueLevel, DotLevel> = {
@@ -30,6 +32,7 @@ const SENTRY_DOT: Record<SentryIssueLevel, DotLevel> = {
 
 function fromGitHub(i: IssueSearchResult): UnifiedIssue {
   const labels = i.labels.nodes.slice(0, 3).map((l) => l.name).join(' · ')
+  const [owner, name = ''] = i.repository.nameWithOwner.split('/')
   return {
     id: `gh:${i.id}`,
     source: 'github',
@@ -40,6 +43,7 @@ function fromGitHub(i: IssueSearchResult): UnifiedIssue {
     dot: 'info',
     metaLine: [`#${i.number}`, labels, i.comments.totalCount ? `${i.comments.totalCount} comments` : '']
       .filter(Boolean).join(' · '),
+    github: { owner, name, number: i.number },
   }
 }
 

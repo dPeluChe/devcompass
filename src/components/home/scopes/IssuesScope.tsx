@@ -4,6 +4,7 @@ import { SiSentry } from 'react-icons/si'
 import { Header, type ScopeProps } from './common'
 import { useUnifiedIssues, type IssueSource, type UnifiedIssue } from '../useUnifiedIssues'
 import { SentryIssueModal } from '../../connectors/SentryIssueModal'
+import { GitHubIssueModal, type GitHubIssueRef } from '../GitHubIssueModal'
 import { relativeTime } from '../../../utils/time'
 import type { SentryIssue } from '../../../api/sentry'
 
@@ -12,6 +13,7 @@ const UNMAPPED = '(no repo)'
 export function IssuesScope({ token, viewer }: ScopeProps) {
   const [filter, setFilter] = useState<'all' | IssueSource>('all')
   const [selectedSentry, setSelectedSentry] = useState<SentryIssue | null>(null)
+  const [selectedGithub, setSelectedGithub] = useState<GitHubIssueRef | null>(null)
   const { items, isLoading, error, githubCount, sentryCount } = useUnifiedIssues(token, viewer?.login)
 
   const filtered = useMemo(
@@ -75,17 +77,29 @@ export function IssuesScope({ token, viewer }: ScopeProps) {
             <span className="muted"> · {list.length}</span>
           </h3>
           <div className="hs-surface">
-            {list.map((it) => <UnifiedRow key={it.id} it={it} onOpenSentry={setSelectedSentry} />)}
+            {list.map((it) => (
+              <UnifiedRow
+                key={it.id}
+                it={it}
+                onOpenSentry={setSelectedSentry}
+                onOpenGithub={(ref) => setSelectedGithub({ token, ...ref })}
+              />
+            ))}
           </div>
         </section>
       ))}
 
       <SentryIssueModal issue={selectedSentry} onClose={() => setSelectedSentry(null)} />
+      <GitHubIssueModal issue={selectedGithub} onClose={() => setSelectedGithub(null)} />
     </main>
   )
 }
 
-function UnifiedRow({ it, onOpenSentry }: { it: UnifiedIssue; onOpenSentry: (i: SentryIssue) => void }) {
+function UnifiedRow({ it, onOpenSentry, onOpenGithub }: {
+  it: UnifiedIssue
+  onOpenSentry: (i: SentryIssue) => void
+  onOpenGithub: (ref: { owner: string; name: string; number: number }) => void
+}) {
   const inner = (
     <>
       <span className={`hs-dot ${it.dot}`} />
@@ -96,24 +110,35 @@ function UnifiedRow({ it, onOpenSentry }: { it: UnifiedIssue; onOpenSentry: (i: 
         <span className="hs-issue-title">{it.title}</span>
         <div className="hs-issue-meta muted">{it.metaLine} · {relativeTime(it.updatedAt)}</div>
       </div>
+      <a
+        className="hs-issue-ext"
+        href={it.url}
+        target="_blank"
+        rel="noopener noreferrer"
+        title="Open externally"
+        onClick={(e) => e.stopPropagation()}
+      >↗</a>
     </>
   )
 
-  if (it.source === 'sentry' && it.sentry) {
-    const s = it.sentry
-    return (
-      <div
-        className="hs-issue-row"
-        role="button"
-        tabIndex={0}
-        onClick={() => onOpenSentry(s)}
-        onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onOpenSentry(s) } }}
-      >
-        {inner}
-      </div>
-    )
+  const onOpen = it.source === 'sentry' && it.sentry
+    ? () => onOpenSentry(it.sentry!)
+    : it.source === 'github' && it.github
+      ? () => onOpenGithub(it.github!)
+      : null
+
+  if (!onOpen) {
+    return <a className="hs-issue-row" href={it.url} target="_blank" rel="noopener noreferrer">{inner}</a>
   }
   return (
-    <a className="hs-issue-row" href={it.url} target="_blank" rel="noopener noreferrer">{inner}</a>
+    <div
+      className="hs-issue-row"
+      role="button"
+      tabIndex={0}
+      onClick={onOpen}
+      onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onOpen() } }}
+    >
+      {inner}
+    </div>
   )
 }

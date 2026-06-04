@@ -271,9 +271,11 @@
 .hs-issue-src { flex: 0 0 auto; font-size: 1rem; }
 .hs-issue-src.sentry { color: #8d5494; }
 .hs-issue-src.gh { color: var(--muted); }
-.hs-issue-main { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.hs-issue-main { flex: 1; display: flex; flex-direction: column; gap: 2px; min-width: 0; }
 .hs-issue-title { font-size: 0.9rem; color: var(--text); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .hs-issue-meta { font-size: 0.78rem; }
+.hs-issue-ext { flex: 0 0 auto; color: var(--muted); text-decoration: none; padding: 0 4px; }
+.hs-issue-ext:hover { color: var(--accent); }
 
 /* ----- Row ----- */
 .hs-row {

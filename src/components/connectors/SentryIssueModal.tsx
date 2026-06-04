@@ -3,6 +3,8 @@ import { useQuery } from '@tanstack/react-query'
 import { extractExceptions, fetchSentryLatestEvent, type SentryIssue } from '../../api/sentry'
 import { sentryConfigStore } from '../../store/sentryConfig'
 import { relativeTime } from '../../utils/time'
+import { buildSentryAgentText } from '../../utils/agentPrompt'
+import { CopyButton } from '../CopyButton'
 import { LEVEL_COLOR } from './SentryIssueList'
 
 /** In-app detail for a Sentry issue: summary + latest event's stacktrace + tags. */
@@ -27,33 +29,36 @@ export function SentryIssueModal({ issue, onClose }: { issue: SentryIssue | null
 
   if (!issue) return null
   const exceptions = extractExceptions(eventQuery.data)
+  const repo = sentryConfigStore.getState().projectRepoMap[issue.project.slug] ?? null
 
   return (
-    <div className="sentry-modal-shell">
+    <div className="issue-modal-shell">
       <div
-        className="sentry-modal-backdrop"
+        className="issue-modal-backdrop"
         role="button"
         tabIndex={-1}
         aria-label="Close"
         onClick={onClose}
         onKeyDown={(e) => { if (e.key === 'Escape') onClose() }}
       />
-      <div className="sentry-modal" role="dialog" aria-modal="true">
-        <header className="sentry-modal-head">
+      <div className="issue-modal" role="dialog" aria-modal="true">
+        <header className="issue-modal-head">
           <span className="connector-issue-level" style={{ background: LEVEL_COLOR[issue.level] ?? '#888' }}>{issue.level}</span>
-          <h2 className="sentry-modal-title">{issue.title}</h2>
-          <button className="sentry-modal-close" onClick={onClose} title="Close (esc)">×</button>
+          <h2 className="issue-modal-title">{issue.title}</h2>
+          <button className="issue-modal-close" onClick={onClose} title="Close (esc)">×</button>
         </header>
 
-        <div className="sentry-modal-meta muted">
+        <div className="issue-modal-meta muted">
           <code>{issue.shortId}</code> · {issue.project.slug} · {issue.status} · {issue.count} events · {issue.userCount} users
           · first seen {relativeTime(issue.firstSeen)} · last {relativeTime(issue.lastSeen)}
         </div>
-        <a className="hs-modal-btn link" href={issue.permalink} target="_blank" rel="noopener noreferrer" style={{ alignSelf: 'flex-start' }}>
-          Open in Sentry ↗
-        </a>
 
-        <div className="sentry-modal-body">
+        <div className="issue-modal-actions">
+          <CopyButton getText={() => buildSentryAgentText(issue, exceptions, repo)} />
+          <a className="hs-modal-btn link" href={issue.permalink} target="_blank" rel="noopener noreferrer">Open in Sentry ↗</a>
+        </div>
+
+        <div className="issue-modal-body">
           {eventQuery.isLoading && <p className="muted">Loading latest event…</p>}
           {eventQuery.error && <p className="muted">Couldn't load the event ({eventQuery.error instanceof Error ? eventQuery.error.message : String(eventQuery.error)}).</p>}
           {eventQuery.data && exceptions.length === 0 && <p className="muted">No stacktrace in the latest event.</p>}

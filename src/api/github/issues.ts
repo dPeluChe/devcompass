@@ -53,3 +53,49 @@ export async function searchIssues(token: string, query: string, first = 50): Pr
   )
   return data.search.nodes.filter((n): n is IssueSearchResult => !!(n as IssueSearchResult).id)
 }
+
+export type GitHubIssueDetail = {
+  number: number
+  title: string
+  url: string
+  state: 'OPEN' | 'CLOSED'
+  bodyHTML: string
+  /** Raw markdown — used for the "copy for agent" payload. */
+  body: string
+  createdAt: string
+  updatedAt: string
+  author: { login: string; avatarUrl: string } | null
+  repository: { nameWithOwner: string }
+  labels: { nodes: { name: string; color: string }[] }
+  assignees: { nodes: { login: string; avatarUrl: string }[] }
+  comments: { totalCount: number }
+}
+
+export async function fetchIssueDetail(token: string, owner: string, name: string, number: number): Promise<GitHubIssueDetail> {
+  const data = await gql<{ repository: { issue: GitHubIssueDetail } }>(
+    token,
+    `
+    query($owner: String!, $name: String!, $number: Int!) {
+      repository(owner: $owner, name: $name) {
+        issue(number: $number) {
+          number
+          title
+          url
+          state
+          bodyHTML
+          body
+          createdAt
+          updatedAt
+          author { login avatarUrl }
+          repository { nameWithOwner }
+          labels(first: 20) { nodes { name color } }
+          assignees(first: 10) { nodes { login avatarUrl } }
+          comments { totalCount }
+        }
+      }
+    }
+  `,
+    { owner, name, number }
+  )
+  return data.repository.issue
+}
