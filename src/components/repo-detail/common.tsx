@@ -32,7 +32,7 @@ export function RdLoading() {
   )
 }
 
-export type Tab = 'overview' | 'commits' | 'prs' | 'issues' | 'releases'
+export type Tab = 'overview' | 'commits' | 'prs' | 'issues' | 'releases' | 'sentry'
 
 type RdTabsProps = {
   tab: Tab
@@ -41,9 +41,11 @@ type RdTabsProps = {
   prCount: number
   issueCount: number
   releaseCount: number
+  /** Shown only when this repo has a mapped Sentry project. */
+  showSentry?: boolean
 }
 
-export function RdTabs({ tab, onChange, commitCount, prCount, issueCount, releaseCount }: RdTabsProps) {
+export function RdTabs({ tab, onChange, commitCount, prCount, issueCount, releaseCount, showSentry }: RdTabsProps) {
   return (
     <nav className="rd-tabs" aria-label="Repo sections">
       <TabButton active={tab === 'overview'} onClick={() => onChange('overview')} label="Overview" />
@@ -51,6 +53,7 @@ export function RdTabs({ tab, onChange, commitCount, prCount, issueCount, releas
       <TabButton active={tab === 'prs'} onClick={() => onChange('prs')} label="Pull requests" count={prCount} />
       <TabButton active={tab === 'issues'} onClick={() => onChange('issues')} label="Issues" count={issueCount} />
       <TabButton active={tab === 'releases'} onClick={() => onChange('releases')} label="Releases" count={releaseCount} />
+      {showSentry && <TabButton active={tab === 'sentry'} onClick={() => onChange('sentry')} label="Sentry" />}
     </nav>
   )
 }

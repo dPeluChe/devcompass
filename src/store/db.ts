@@ -272,24 +272,6 @@ export async function isPinned(repoId: string): Promise<boolean> {
   return (await db.pinnedRepos.get(repoId)) !== undefined
 }
 
-export async function setOrgOrder(login: string, order: number) {
-  await db.orgs.update(login, { order })
-}
-
-export async function getOrgsByOrder(): Promise<CachedOrg[]> {
-  return db.orgs.orderBy('order').toArray()
-}
-
-export async function getDbStats() {
-  const [repoCount, orgCount, pinnedCount, tokenCount] = await Promise.all([
-    db.repos.count(),
-    db.orgs.count(),
-    db.pinnedRepos.count(),
-    db.tokens.count()
-  ])
-  return { repoCount, orgCount, pinnedCount, tokenCount }
-}
-
 export type PrefSummary = { key: string; updatedAt: number }
 export type StorageBreakdown = {
   repos: number

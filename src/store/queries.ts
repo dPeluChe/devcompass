@@ -24,4 +24,7 @@ export const queryKeys = {
   rateLimit: ['rateLimit'] as const,
   tokenInfo: ['tokenInfo'] as const,
   userOrgs: ['user', 'orgs'] as const,
+  // Sentry connector
+  sentryProjects: (org: string) => ['sentry', org, 'projects'] as const,
+  sentryIssues: (org: string, environment: string) => ['sentry', org, 'issues', environment] as const,
 }
