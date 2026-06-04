@@ -2918,6 +2918,32 @@ kbd {
 .connector-issue-title { font-size: 0.9rem; color: var(--text); text-decoration: none; }
 .connector-issue-title:hover { color: var(--accent); text-decoration: underline; }
 .connector-issue-meta { font-size: 0.78rem; }
+.connector-issue-clickable { cursor: pointer; }
+.connector-issue-clickable:hover { border-color: var(--accent); }
+.connector-issue-ext { flex: 0 0 auto; align-self: center; color: var(--muted); text-decoration: none; padding: 0 4px; }
+.connector-issue-ext:hover { color: var(--accent); }
+
+/* Sentry issue detail modal */
+.sentry-modal-shell { position: fixed; inset: 0; z-index: 200; display: flex; align-items: center; justify-content: center; }
+.sentry-modal-backdrop { position: absolute; inset: 0; background: rgba(0, 0, 0, 0.55); }
+.sentry-modal {
+  position: relative; z-index: 1; width: min(760px, 92vw); max-height: 86vh; overflow-y: auto;
+  background: var(--panel); border: 1px solid var(--border); border-radius: 12px;
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.5); padding: 16px 18px; display: flex; flex-direction: column; gap: 10px;
+}
+.sentry-modal-head { display: flex; align-items: flex-start; gap: 10px; }
+.sentry-modal-title { font-size: 1rem; margin: 0; flex: 1; min-width: 0; }
+.sentry-modal-close { flex: 0 0 auto; background: none; border: none; color: var(--muted); font-size: 1.4rem; line-height: 1; cursor: pointer; }
+.sentry-modal-close:hover { color: var(--text); }
+.sentry-modal-meta { font-size: 0.8rem; }
+.sentry-modal-body { display: flex; flex-direction: column; gap: 12px; margin-top: 4px; }
+.sentry-exc-head { font-size: 0.88rem; margin-bottom: 6px; word-break: break-word; }
+.sentry-frames { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 2px; font-size: 0.8rem; }
+.sentry-frames li { padding: 3px 8px; border-left: 2px solid var(--border); color: var(--muted); }
+.sentry-frames li.in-app { border-left-color: var(--accent); color: var(--text); }
+.sentry-frame-fn { color: var(--accent); }
+.sentry-tags { display: flex; flex-wrap: wrap; gap: 6px; }
+.sentry-tag { font-size: 0.74rem; border: 1px solid var(--border); border-radius: 5px; padding: 2px 6px; }
 .sentry-issue-groups { display: flex; flex-direction: column; gap: 14px; }
 .sentry-issue-group-head { font-size: 0.8rem; font-weight: 600; color: var(--muted); margin-bottom: 5px; padding-left: 2px; }
 .connector-help { margin-top: 12px; font-size: 0.85rem; border: 1px solid var(--border); border-radius: 8px; padding: 8px 12px; }
