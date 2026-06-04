@@ -245,6 +245,12 @@
   overflow: hidden;
 }
 
+/* ----- Sentry scope groups ----- */
+.hs-sentry-group { margin-bottom: 16px; }
+.hs-sentry-group-head { font-size: 0.92rem; font-weight: 600; margin: 0 0 8px; display: flex; align-items: baseline; gap: 4px; }
+.hs-sentry-group-head a { color: var(--accent); text-decoration: none; }
+.hs-sentry-group-head a:hover { text-decoration: underline; }
+
 /* ----- Row ----- */
 .hs-row {
   display: grid;

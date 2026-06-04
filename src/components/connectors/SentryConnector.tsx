@@ -13,6 +13,7 @@ import { FaGithub } from 'react-icons/fa'
 import { SiSentry } from 'react-icons/si'
 import { SentryIssueList } from './SentryIssueList'
 import { RepoPicker } from './RepoPicker'
+import { useSentryIssues } from '../home/useSentryIssues'
 import type { Repo } from '../../api/github'
 
 type Async<T> = { loading: boolean; error: string | null; data: T | null }
@@ -42,6 +43,15 @@ export function SentryConnector({ repos }: { repos: Repo[] }) {
   const savedTimer = useRef<number | null>(null)
 
   const showSetup = !configured || editingCreds
+
+  // Per-project unresolved counts for a health glance on the mapping rows.
+  // Shared (cached) with the Home Sentry scope.
+  const { data: allIssues } = useSentryIssues()
+  const countByProject = useMemo(() => {
+    const m = new Map<string, number>()
+    for (const i of allIssues ?? []) m.set(i.project.slug, (m.get(i.project.slug) ?? 0) + 1)
+    return m
+  }, [allIssues])
 
   // When connected, the project list loads itself (cached) so the mapping editor
   // is always there — no manual re-validate to assign/correct a repo.
@@ -186,12 +196,14 @@ export function SentryConnector({ repos }: { repos: Repo[] }) {
               <ul className="connector-map-list">
                 {projectsQuery.data.map((p) => {
                   const mapped = cfg.projectRepoMap[p.slug] ?? ''
+                  const count = countByProject.get(p.slug) ?? 0
                   return (
                     <li key={p.id} className="connector-map-row">
                       <span className="connector-map-project" title={p.slug}>
                         <SiSentry className="connector-map-icon sentry" aria-hidden />
                         <span className="connector-map-project-name">{p.slug}</span>
                       </span>
+                      <span className="connector-map-count" title="unresolved Sentry issues">{count > 0 ? `⚠ ${count}` : ''}</span>
                       <span className="connector-map-arrow">→</span>
                       <FaGithub className="connector-map-icon gh" aria-hidden />
                       <RepoPicker
