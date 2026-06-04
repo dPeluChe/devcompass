@@ -22,6 +22,15 @@ type Validation = {
 type Async<T> = { loading: boolean; error: string | null; data: T | null }
 const idle = { loading: false, error: null, data: null }
 
+// Auth failures are the common first-run snag — point at the likely causes.
+function describeError(e: unknown): string {
+  const msg = e instanceof Error ? e.message : String(e)
+  if (/\b40[13]\b/.test(msg)) {
+    return `${msg}\n→ Use a User Auth Token (Account → Auth Tokens), not an Organization token — org tokens are scoped for CI and can't read your projects/orgs. Token needs org:read · project:read · event:read. EU orgs must select the "de" region.`
+  }
+  return msg
+}
+
 export function SentryConnector() {
   const cfg = sentryConfigStore()
   const queryClient = useQueryClient()
@@ -34,11 +43,16 @@ export function SentryConnector() {
     try {
       const auth = cfg.getAuth()
       const org = cfg.orgSlug.trim()
-      // token check + projects in parallel (independent calls).
-      const [{ data: orgs }, { data: projects }] = await Promise.all([
-        fetchSentryOrgs(auth),
-        fetchSentryProjects(auth, org),
-      ])
+      // Projects is the primary validity check — works with both User and
+      // Organization auth tokens (needs project:read / org:read).
+      const { data: projects } = await fetchSentryProjects(auth, org)
+      // Listing all orgs needs a User token (org tokens are bound to one org),
+      // so it's best-effort and never blocks validation.
+      let orgSlugs: string[] = [org]
+      try {
+        const { data: orgs } = await fetchSentryOrgs(auth)
+        if (orgs.length) orgSlugs = orgs.map((o) => o.slug)
+      } catch { /* org-scoped token can't list orgs — fine */ }
       // code mappings may need broader scope — fail independently.
       const repoBySlug: Record<string, string> = {}
       let mappingError: string | null = null
@@ -56,9 +70,9 @@ export function SentryConnector() {
       // Creds just (re)confirmed — drop cached Sentry queries so repo-detail tabs
       // refetch with the current token/region instead of stale data.
       queryClient.invalidateQueries({ queryKey: ['sentry'] })
-      setVal({ loading: false, error: null, data: { orgSlugs: orgs.map((o) => o.slug), projects, repoBySlug, mappingError } })
+      setVal({ loading: false, error: null, data: { orgSlugs, projects, repoBySlug, mappingError } })
     } catch (e) {
-      setVal({ loading: false, error: e instanceof Error ? e.message : String(e), data: null })
+      setVal({ loading: false, error: describeError(e), data: null })
     }
   }
 
@@ -72,7 +86,7 @@ export function SentryConnector() {
       })
       setIss({ loading: false, error: null, data })
     } catch (e) {
-      setIss({ loading: false, error: e instanceof Error ? e.message : String(e), data: null })
+      setIss({ loading: false, error: describeError(e), data: null })
     }
   }
 
@@ -91,15 +105,16 @@ export function SentryConnector() {
         <ol>
           <li>
             Open <a href="https://sentry.io/settings/account/api/auth-tokens/" target="_blank" rel="noopener noreferrer">
-            sentry.io → User Auth Tokens ↗</a> (or <em>Organization</em> → Settings → Auth Tokens for an org token).
+            sentry.io → User Auth Tokens ↗</a> (<strong>User</strong> settings → Auth Tokens).
           </li>
           <li>Create a token with scopes <code>org:read</code>, <code>project:read</code>, <code>event:read</code> (read-only).</li>
-          <li>Paste it below with your organization slug (the part in your Sentry URL: <code>sentry.io/organizations/<strong>your-org</strong>/</code>).</li>
+          <li>Paste it below with your organization slug (the part in your Sentry URL: <code>your-org.sentry.io</code> → <strong>your-org</strong>).</li>
         </ol>
         <p className="muted">
-          You don't need to be an owner/admin — a <strong>member</strong> token can read issues for the
-          projects you have access to. Project↔repo mappings may need broader org read; the validation
-          below tells you exactly what your token can see.
+          ⚠ Use a <strong>User</strong> Auth Token, <em>not</em> an <strong>Organization</strong> token
+          (Developer Settings → Organization Tokens). Org tokens are scoped for CI and can't list your
+          orgs or read projects → 403. A regular <strong>member</strong> user token works — no
+          owner/admin needed. <strong>EU</strong> orgs must pick the <code>de</code> region.
         </p>
       </details>
 
@@ -163,7 +178,7 @@ export function SentryConnector() {
         </div>
       </div>
 
-      {val.error && <div className="hs-status hs-status-err" style={{ marginTop: 12 }}>Validation failed: {val.error}</div>}
+      {val.error && <div className="hs-status hs-status-err" style={{ marginTop: 12, whiteSpace: 'pre-line' }}>Validation failed: {val.error}</div>}
 
       {val.data && (
         <div className="connector-results" style={{ marginTop: 12 }}>
@@ -200,7 +215,7 @@ export function SentryConnector() {
         </div>
       )}
 
-      {iss.error && <div className="hs-status hs-status-err" style={{ marginTop: 12 }}>Failed: {iss.error}</div>}
+      {iss.error && <div className="hs-status hs-status-err" style={{ marginTop: 12, whiteSpace: 'pre-line' }}>Failed: {iss.error}</div>}
 
       {iss.data && (
         <div className="connector-results" style={{ marginTop: 12 }}>
