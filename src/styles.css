@@ -2934,4 +2934,6 @@ kbd {
   font-size: 0.82rem; font-family: inherit;
 }
 .connector-map-input:focus { outline: none; border-color: var(--accent); }
+.connector-status { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 10px; margin-top: 14px; }
+.connector-status-actions { display: flex; gap: 8px; flex-wrap: wrap; }
 .hs-status.hs-status-ok { color: var(--success, #3fb950); border-color: var(--success, #3fb950); }

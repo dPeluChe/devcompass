@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { useQueryClient } from '@tanstack/react-query'
+import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { sentryConfigStore } from '../../store/sentryConfig'
 import {
   fetchSentryCodeMappings,
@@ -7,18 +7,10 @@ import {
   fetchSentryOrgs,
   fetchSentryProjects,
   type SentryIssue,
-  type SentryProject,
 } from '../../api/sentry'
+import { queryKeys } from '../../store/queries'
 import { SentryIssueList } from './SentryIssueList'
 import type { Repo } from '../../api/github'
-
-type Validation = {
-  orgSlugs: string[]
-  projects: SentryProject[]
-  /** project slug → linked GitHub repo ("owner/repo"), from Sentry code mappings. */
-  repoBySlug: Record<string, string>
-  mappingError: string | null
-}
 
 type Async<T> = { loading: boolean; error: string | null; data: T | null }
 const idle = { loading: false, error: null, data: null }
@@ -35,10 +27,27 @@ function describeError(e: unknown): string {
 export function SentryConnector({ repos }: { repos: Repo[] }) {
   const cfg = sentryConfigStore()
   const queryClient = useQueryClient()
+  const configured = cfg.isConfigured()
 
-  // Manual project→repo mapping (homologation). Auto-seeded from Sentry code
-  // mappings on Validate, then editable here — Sentry's mappings are often
-  // missing or wrong. Persisted to the store; RepoDetail reads it reactively.
+  const [editingCreds, setEditingCreds] = useState(false)
+  const [connecting, setConnecting] = useState(false)
+  const [connectError, setConnectError] = useState<string | null>(null)
+  const [orgChoices, setOrgChoices] = useState<string[]>([])
+  const [iss, setIss] = useState<Async<SentryIssue[]>>(idle)
+
+  const showSetup = !configured || editingCreds
+
+  // When connected, the project list loads itself (cached) so the mapping editor
+  // is always there — no manual re-validate to assign/correct a repo.
+  const projectsQuery = useQuery({
+    queryKey: queryKeys.sentryProjects(cfg.orgSlug.trim()),
+    queryFn: async () => (await fetchSentryProjects(cfg.getAuth(), cfg.orgSlug.trim())).data,
+    enabled: configured && !showSetup,
+    staleTime: 5 * 60 * 1000,
+  })
+
+  // Manual project→repo mapping (homologation). Persisted to the store; RepoDetail
+  // reads it reactively, so an edit immediately controls that repo's Sentry tab.
   function setMapping(projectSlug: string, repo: string) {
     const map = { ...sentryConfigStore.getState().projectRepoMap }
     const v = repo.trim()
@@ -47,45 +56,46 @@ export function SentryConnector({ repos }: { repos: Repo[] }) {
     sentryConfigStore.getState().update({ projectRepoMap: map })
   }
 
-  const [val, setVal] = useState<Async<Validation>>(idle)
-  const [iss, setIss] = useState<Async<SentryIssue[]>>(idle)
-
-  async function validate() {
-    setVal({ loading: true, error: null, data: null })
+  async function connect() {
+    setConnecting(true)
+    setConnectError(null)
     try {
       const auth = cfg.getAuth()
       const org = cfg.orgSlug.trim()
-      // Projects is the primary validity check — works with both User and
-      // Organization auth tokens (needs project:read / org:read).
+      // Validate by fetching projects (works with user + org tokens).
       const { data: projects } = await fetchSentryProjects(auth, org)
-      // Listing all orgs needs a User token (org tokens are bound to one org),
-      // so it's best-effort and never blocks validation.
-      let orgSlugs: string[] = [org]
+      // Best-effort org list for the slug autocomplete.
       try {
         const { data: orgs } = await fetchSentryOrgs(auth)
-        if (orgs.length) orgSlugs = orgs.map((o) => o.slug)
+        setOrgChoices(orgs.map((o) => o.slug))
       } catch { /* org-scoped token can't list orgs — fine */ }
-      // code mappings may need broader scope — fail independently.
-      const repoBySlug: Record<string, string> = {}
-      let mappingError: string | null = null
+      // Seed code mappings into EMPTY slots only — never clobber manual edits.
       try {
         const { data: mappings } = await fetchSentryCodeMappings(auth, org)
-        for (const m of mappings) if (m.projectSlug && m.repoName) repoBySlug[m.projectSlug] = m.repoName
-      } catch (e) {
-        mappingError = e instanceof Error ? e.message : String(e)
-      }
-      // Seed the homologation map from the live store (not the render closure).
-      if (Object.keys(repoBySlug).length) {
-        const live = sentryConfigStore.getState().projectRepoMap
-        sentryConfigStore.getState().update({ projectRepoMap: { ...live, ...repoBySlug } })
-      }
-      // Creds just (re)confirmed — drop cached Sentry queries so repo-detail tabs
-      // refetch with the current token/region instead of stale data.
+        const map = { ...sentryConfigStore.getState().projectRepoMap }
+        let changed = false
+        for (const m of mappings) {
+          if (m.projectSlug && m.repoName && !map[m.projectSlug]) { map[m.projectSlug] = m.repoName; changed = true }
+        }
+        if (changed) sentryConfigStore.getState().update({ projectRepoMap: map })
+      } catch { /* code mappings optional */ }
+      sentryConfigStore.getState().update({ enabled: true })
+      queryClient.setQueryData(queryKeys.sentryProjects(org), projects)
       queryClient.invalidateQueries({ queryKey: ['sentry'] })
-      setVal({ loading: false, error: null, data: { orgSlugs, projects, repoBySlug, mappingError } })
+      setEditingCreds(false)
     } catch (e) {
-      setVal({ loading: false, error: describeError(e), data: null })
+      setConnectError(describeError(e))
+    } finally {
+      setConnecting(false)
     }
+  }
+
+  function disconnect() {
+    cfg.reset()
+    setEditingCreds(false)
+    setOrgChoices([])
+    setIss(idle)
+    queryClient.removeQueries({ queryKey: ['sentry'] })
   }
 
   async function loadIssues() {
@@ -112,6 +122,102 @@ export function SentryConnector({ repos }: { repos: Repo[] }) {
         </span>
       </div>
 
+      {showSetup ? (
+        <SetupForm
+          connecting={connecting}
+          connectError={connectError}
+          orgChoices={orgChoices}
+          canCancel={configured}
+          onCancel={() => setEditingCreds(false)}
+          onConnect={connect}
+        />
+      ) : (
+        <>
+          <div className="connector-status">
+            <span className="hs-status hs-status-ok">
+              ✓ Connected · @{cfg.orgSlug} · {cfg.region ? `${cfg.region}.sentry.io` : 'sentry.io'}
+              {cfg.environment.trim() ? ` · env @${cfg.environment.trim()}` : ''}
+            </span>
+            <div className="connector-status-actions">
+              <button className="hs-modal-btn" onClick={() => setEditingCreds(true)}>Edit credentials</button>
+              <button className="hs-modal-btn" onClick={loadIssues} disabled={iss.loading}>
+                {iss.loading ? 'Loading…' : 'Test: load issues'}
+              </button>
+              <button className="hs-modal-btn danger" onClick={disconnect}>Disconnect</button>
+            </div>
+          </div>
+
+          {projectsQuery.isLoading && <p className="muted" style={{ marginTop: 12 }}>Loading projects…</p>}
+          {projectsQuery.error && (
+            <div className="hs-status hs-status-err" style={{ marginTop: 12, whiteSpace: 'pre-line' }}>
+              {describeError(projectsQuery.error)}
+            </div>
+          )}
+          {projectsQuery.data && (
+            <div className="connector-results" style={{ marginTop: 12 }}>
+              <div className="muted" style={{ marginBottom: 6 }}>
+                {projectsQuery.data.length} project{projectsQuery.data.length === 1 ? '' : 's'} in @{cfg.orgSlug.trim()} — map each to a GitHub repo. Mapped projects show a Sentry tab on that repo.
+              </div>
+              <ul className="connector-map-list">
+                {projectsQuery.data.map((p) => {
+                  const mapped = cfg.projectRepoMap[p.slug] ?? ''
+                  return (
+                    <li key={p.id} className="connector-map-row">
+                      <span className="connector-map-project">{p.slug}</span>
+                      <span className="connector-map-arrow">→</span>
+                      <input
+                        className="connector-map-input"
+                        list="devcompass-gh-repos"
+                        placeholder="owner/repo (unmapped)"
+                        value={mapped}
+                        onChange={(e) => setMapping(p.slug, e.target.value)}
+                      />
+                      {mapped && (
+                        <a href={`https://github.com/${mapped}`} target="_blank" rel="noopener noreferrer" className="connector-map-repo" title="Open on GitHub">↗</a>
+                      )}
+                    </li>
+                  )
+                })}
+              </ul>
+              <datalist id="devcompass-gh-repos">
+                {repos.map((r) => <option key={r.id} value={r.nameWithOwner} />)}
+              </datalist>
+            </div>
+          )}
+
+          {iss.error && <div className="hs-status hs-status-err" style={{ marginTop: 12, whiteSpace: 'pre-line' }}>Failed: {iss.error}</div>}
+          {iss.data && (
+            <div className="connector-results" style={{ marginTop: 12 }}>
+              <div className="muted" style={{ marginBottom: 8 }}>
+                {iss.data.length} issue{iss.data.length === 1 ? '' : 's'}
+                {cfg.environment.trim() ? ` in @${cfg.environment.trim()}` : ' (all environments)'}
+              </div>
+              {iss.data.length === 0 ? (
+                <span className="muted">No unresolved issues for this filter. 🎉</span>
+              ) : (
+                <SentryIssueList issues={iss.data} />
+              )}
+            </div>
+          )}
+        </>
+      )}
+    </section>
+  )
+}
+
+function SetupForm({
+  connecting, connectError, orgChoices, canCancel, onCancel, onConnect,
+}: {
+  connecting: boolean
+  connectError: string | null
+  orgChoices: string[]
+  canCancel: boolean
+  onCancel: () => void
+  onConnect: () => void
+}) {
+  const cfg = sentryConfigStore()
+  return (
+    <>
       <details className="connector-help">
         <summary>How to get a Sentry auth token</summary>
         <ol>
@@ -119,14 +225,13 @@ export function SentryConnector({ repos }: { repos: Repo[] }) {
             Open <a href="https://sentry.io/settings/account/api/auth-tokens/" target="_blank" rel="noopener noreferrer">
             sentry.io → User Auth Tokens ↗</a> (<strong>User</strong> settings → Auth Tokens).
           </li>
-          <li>Create a token with scopes <code>org:read</code>, <code>project:read</code>, <code>event:read</code> (read-only).</li>
-          <li>Paste it below with your organization slug (the part in your Sentry URL: <code>your-org.sentry.io</code> → <strong>your-org</strong>).</li>
+          <li>Create a token with permissions <code>Project</code>, <code>Issue &amp; Event</code> and <code>Organization</code> set to <strong>Read</strong> (preview must list <code>project:read event:read org:read</code> — not <code>—</code>).</li>
+          <li>Paste it below with your organization slug (<code>your-org.sentry.io</code> → <strong>your-org</strong>).</li>
         </ol>
         <p className="muted">
-          ⚠ Use a <strong>User</strong> Auth Token, <em>not</em> an <strong>Organization</strong> token
-          (Developer Settings → Organization Tokens). Org tokens are scoped for CI and can't list your
-          orgs or read projects → 403. A regular <strong>member</strong> user token works — no
-          owner/admin needed. <strong>EU</strong> orgs must pick the <code>de</code> region.
+          ⚠ Use a <strong>User</strong> Auth Token, <em>not</em> an <strong>Organization</strong> token —
+          org tokens are scoped for CI and 403 here. A regular <strong>member</strong> token works.
+          <strong>EU</strong> orgs must pick the <code>de</code> region.
         </p>
       </details>
 
@@ -135,7 +240,7 @@ export function SentryConnector({ repos }: { repos: Repo[] }) {
           <span>Auth token</span>
           <input
             type="password"
-            placeholder="sntryu_… / sntrys_…"
+            placeholder="sntryu_…"
             value={cfg.token}
             onChange={(e) => cfg.update({ token: e.target.value })}
             autoComplete="off"
@@ -145,10 +250,14 @@ export function SentryConnector({ repos }: { repos: Repo[] }) {
           <span>Organization slug</span>
           <input
             type="text"
+            list="devcompass-sentry-orgs"
             placeholder="my-org"
             value={cfg.orgSlug}
             onChange={(e) => cfg.update({ orgSlug: e.target.value })}
           />
+          <datalist id="devcompass-sentry-orgs">
+            {orgChoices.map((o) => <option key={o} value={o} />)}
+          </datalist>
         </label>
         <div className="connector-form-row">
           <label>
@@ -180,74 +289,19 @@ export function SentryConnector({ repos }: { repos: Repo[] }) {
         </label>
 
         <div className="connector-actions">
-          <button className="hs-modal-btn primary" onClick={validate} disabled={val.loading || !cfg.isConfigured()}>
-            {val.loading ? 'Validating…' : 'Validate connection'}
+          <button
+            className="hs-modal-btn primary"
+            onClick={onConnect}
+            disabled={connecting || !cfg.token.trim() || !cfg.orgSlug.trim()}
+          >
+            {connecting ? 'Connecting…' : 'Connect'}
           </button>
-          <button className="hs-modal-btn" onClick={loadIssues} disabled={iss.loading || !cfg.isConfigured()}>
-            {iss.loading ? 'Loading…' : 'Load unresolved issues'}
-          </button>
-          {!cfg.isConfigured() && <span className="muted">Token + org slug required.</span>}
+          {canCancel && <button className="hs-modal-btn" onClick={onCancel}>Cancel</button>}
+          {(!cfg.token.trim() || !cfg.orgSlug.trim()) && <span className="muted">Token + org slug required.</span>}
         </div>
       </div>
 
-      {val.error && <div className="hs-status hs-status-err" style={{ marginTop: 12, whiteSpace: 'pre-line' }}>Validation failed: {val.error}</div>}
-
-      {val.data && (
-        <div className="connector-results" style={{ marginTop: 12 }}>
-          <div className="hs-status hs-status-ok" style={{ marginBottom: 10 }}>
-            ✓ Token valid — {val.data.orgSlugs.length} org{val.data.orgSlugs.length === 1 ? '' : 's'} visible
-            {val.data.orgSlugs.length > 0 ? `: ${val.data.orgSlugs.join(', ')}` : ''}
-          </div>
-          <div className="muted" style={{ marginBottom: 6 }}>
-            {val.data.projects.length} project{val.data.projects.length === 1 ? '' : 's'} in @{cfg.orgSlug.trim()} — map each to a GitHub repo (auto-seeded from Sentry code mappings; edit to correct). Mapped projects show a Sentry tab on that repo.
-          </div>
-          {val.data.mappingError && (
-            <div className="muted" style={{ marginBottom: 6 }}>
-              ⚠ Couldn't read code mappings ({val.data.mappingError}). Map projects → repos manually below.
-            </div>
-          )}
-          <ul className="connector-map-list">
-            {val.data.projects.map((p) => {
-              const mapped = cfg.projectRepoMap[p.slug] ?? ''
-              return (
-                <li key={p.id} className="connector-map-row">
-                  <span className="connector-map-project">{p.slug}</span>
-                  <span className="connector-map-arrow">→</span>
-                  <input
-                    className="connector-map-input"
-                    list="devcompass-gh-repos"
-                    placeholder="owner/repo (unmapped)"
-                    value={mapped}
-                    onChange={(e) => setMapping(p.slug, e.target.value)}
-                  />
-                  {mapped && (
-                    <a href={`https://github.com/${mapped}`} target="_blank" rel="noopener noreferrer" className="connector-map-repo" title="Open on GitHub">↗</a>
-                  )}
-                </li>
-              )
-            })}
-          </ul>
-          <datalist id="devcompass-gh-repos">
-            {repos.map((r) => <option key={r.id} value={r.nameWithOwner} />)}
-          </datalist>
-        </div>
-      )}
-
-      {iss.error && <div className="hs-status hs-status-err" style={{ marginTop: 12, whiteSpace: 'pre-line' }}>Failed: {iss.error}</div>}
-
-      {iss.data && (
-        <div className="connector-results" style={{ marginTop: 12 }}>
-          <div className="muted" style={{ marginBottom: 8 }}>
-            {iss.data.length} issue{iss.data.length === 1 ? '' : 's'}
-            {cfg.environment.trim() ? ` in @${cfg.environment.trim()}` : ' (all environments)'}
-          </div>
-          {iss.data.length === 0 ? (
-            <span className="muted">No unresolved issues for this filter. 🎉</span>
-          ) : (
-            <SentryIssueList issues={iss.data} />
-          )}
-        </div>
-      )}
-    </section>
+      {connectError && <div className="hs-status hs-status-err" style={{ marginTop: 12, whiteSpace: 'pre-line' }}>Connection failed: {connectError}</div>}
+    </>
   )
 }
