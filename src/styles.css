@@ -2928,12 +2928,38 @@ kbd {
 .connector-map-arrow { color: var(--muted); }
 .connector-map-repo { color: var(--accent); text-decoration: none; }
 .connector-map-repo:hover { text-decoration: underline; }
-.connector-map-input {
-  flex: 1; min-width: 0; padding: 4px 8px; border-radius: 6px;
-  border: 1px solid var(--border); background: var(--surface); color: var(--text);
-  font-size: 0.82rem; font-family: inherit;
-}
-.connector-map-input:focus { outline: none; border-color: var(--accent); }
 .connector-status { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 10px; margin-top: 14px; }
 .connector-status-actions { display: flex; gap: 8px; flex-wrap: wrap; }
+
+/* Searchable repo combobox */
+.repo-picker { position: relative; flex: 1; min-width: 0; }
+.repo-picker-trigger {
+  display: flex; align-items: center; gap: 6px; width: 100%; box-sizing: border-box;
+  padding: 4px 8px; border-radius: 6px; border: 1px solid var(--border);
+  background: var(--surface); color: var(--text); font-size: 0.82rem; cursor: pointer;
+}
+.repo-picker-trigger:hover { border-color: var(--accent); }
+.repo-picker-value { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.repo-picker-clear { padding: 0 4px; color: var(--muted); cursor: pointer; }
+.repo-picker-clear:hover { color: var(--danger); }
+.repo-picker-caret { color: var(--muted); font-size: 0.7rem; }
+.repo-picker-pop {
+  position: absolute; top: calc(100% + 4px); left: 0; right: 0; z-index: 50;
+  background: var(--surface); border: 1px solid var(--border); border-radius: 8px;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.35); overflow: hidden;
+}
+.repo-picker-search {
+  width: 100%; box-sizing: border-box; padding: 8px 10px; border: none;
+  border-bottom: 1px solid var(--border); background: transparent; color: var(--text);
+  font-size: 0.85rem; font-family: inherit;
+}
+.repo-picker-search:focus { outline: none; }
+.repo-picker-list { list-style: none; margin: 0; padding: 4px; max-height: 240px; overflow-y: auto; }
+.repo-picker-option {
+  display: block; width: 100%; text-align: left; padding: 6px 8px; border: none;
+  background: transparent; color: var(--text); font-size: 0.82rem; cursor: pointer; border-radius: 5px;
+}
+.repo-picker-option:hover { background: rgba(127, 127, 127, 0.14); }
+.repo-picker-option.selected { color: var(--accent); }
+.repo-picker-empty, .repo-picker-more { padding: 8px; font-size: 0.78rem; }
 .hs-status.hs-status-ok { color: var(--success, #3fb950); border-color: var(--success, #3fb950); }

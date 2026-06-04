@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useMemo, useState } from 'react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { sentryConfigStore } from '../../store/sentryConfig'
 import {
@@ -10,6 +10,7 @@ import {
 } from '../../api/sentry'
 import { queryKeys } from '../../store/queries'
 import { SentryIssueList } from './SentryIssueList'
+import { RepoPicker } from './RepoPicker'
 import type { Repo } from '../../api/github'
 
 type Async<T> = { loading: boolean; error: string | null; data: T | null }
@@ -28,6 +29,7 @@ export function SentryConnector({ repos }: { repos: Repo[] }) {
   const cfg = sentryConfigStore()
   const queryClient = useQueryClient()
   const configured = cfg.isConfigured()
+  const repoOptions = useMemo(() => repos.map((r) => r.nameWithOwner), [repos])
 
   const [editingCreds, setEditingCreds] = useState(false)
   const [connecting, setConnecting] = useState(false)
@@ -56,6 +58,27 @@ export function SentryConnector({ repos }: { repos: Repo[] }) {
     sentryConfigStore.getState().update({ projectRepoMap: map })
   }
 
+  // Fill EMPTY mapping slots from Sentry's code mappings (so a newly-created
+  // project picks up its auto-link) without ever clobbering a manual mapping.
+  async function seedCodeMappings(auth: ReturnType<typeof cfg.getAuth>, org: string) {
+    try {
+      const { data: mappings } = await fetchSentryCodeMappings(auth, org)
+      const map = { ...sentryConfigStore.getState().projectRepoMap }
+      let changed = false
+      for (const m of mappings) {
+        if (m.projectSlug && m.repoName && !map[m.projectSlug]) { map[m.projectSlug] = m.repoName; changed = true }
+      }
+      if (changed) sentryConfigStore.getState().update({ projectRepoMap: map })
+    } catch { /* code mappings optional */ }
+  }
+
+  // Re-pull the project list (e.g. after creating a project in Sentry) + seed
+  // any new auto-mappings. Existing mappings/edits are preserved.
+  async function refresh() {
+    await seedCodeMappings(cfg.getAuth(), cfg.orgSlug.trim())
+    projectsQuery.refetch()
+  }
+
   async function connect() {
     setConnecting(true)
     setConnectError(null)
@@ -69,16 +92,7 @@ export function SentryConnector({ repos }: { repos: Repo[] }) {
         const { data: orgs } = await fetchSentryOrgs(auth)
         setOrgChoices(orgs.map((o) => o.slug))
       } catch { /* org-scoped token can't list orgs — fine */ }
-      // Seed code mappings into EMPTY slots only — never clobber manual edits.
-      try {
-        const { data: mappings } = await fetchSentryCodeMappings(auth, org)
-        const map = { ...sentryConfigStore.getState().projectRepoMap }
-        let changed = false
-        for (const m of mappings) {
-          if (m.projectSlug && m.repoName && !map[m.projectSlug]) { map[m.projectSlug] = m.repoName; changed = true }
-        }
-        if (changed) sentryConfigStore.getState().update({ projectRepoMap: map })
-      } catch { /* code mappings optional */ }
+      await seedCodeMappings(auth, org)
       sentryConfigStore.getState().update({ enabled: true })
       queryClient.setQueryData(queryKeys.sentryProjects(org), projects)
       queryClient.invalidateQueries({ queryKey: ['sentry'] })
@@ -139,6 +153,9 @@ export function SentryConnector({ repos }: { repos: Repo[] }) {
               {cfg.environment.trim() ? ` · env @${cfg.environment.trim()}` : ''}
             </span>
             <div className="connector-status-actions">
+              <button className="hs-modal-btn" onClick={refresh} disabled={projectsQuery.isFetching}>
+                {projectsQuery.isFetching ? 'Refreshing…' : '↻ Refresh'}
+              </button>
               <button className="hs-modal-btn" onClick={() => setEditingCreds(true)}>Edit credentials</button>
               <button className="hs-modal-btn" onClick={loadIssues} disabled={iss.loading}>
                 {iss.loading ? 'Loading…' : 'Test: load issues'}
@@ -165,12 +182,11 @@ export function SentryConnector({ repos }: { repos: Repo[] }) {
                     <li key={p.id} className="connector-map-row">
                       <span className="connector-map-project">{p.slug}</span>
                       <span className="connector-map-arrow">→</span>
-                      <input
-                        className="connector-map-input"
-                        list="devcompass-gh-repos"
-                        placeholder="owner/repo (unmapped)"
+                      <RepoPicker
                         value={mapped}
-                        onChange={(e) => setMapping(p.slug, e.target.value)}
+                        options={repoOptions}
+                        onChange={(v) => setMapping(p.slug, v)}
+                        placeholder="owner/repo (unmapped)"
                       />
                       {mapped && (
                         <a href={`https://github.com/${mapped}`} target="_blank" rel="noopener noreferrer" className="connector-map-repo" title="Open on GitHub">↗</a>
@@ -179,9 +195,6 @@ export function SentryConnector({ repos }: { repos: Repo[] }) {
                   )
                 })}
               </ul>
-              <datalist id="devcompass-gh-repos">
-                {repos.map((r) => <option key={r.id} value={r.nameWithOwner} />)}
-              </datalist>
             </div>
           )}
 
