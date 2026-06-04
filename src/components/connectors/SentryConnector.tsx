@@ -9,6 +9,8 @@ import {
   type SentryIssue,
 } from '../../api/sentry'
 import { queryKeys } from '../../store/queries'
+import { FaGithub } from 'react-icons/fa'
+import { SiSentry } from 'react-icons/si'
 import { SentryIssueList } from './SentryIssueList'
 import { RepoPicker } from './RepoPicker'
 import type { Repo } from '../../api/github'
@@ -36,7 +38,7 @@ export function SentryConnector({ repos }: { repos: Repo[] }) {
   const [connectError, setConnectError] = useState<string | null>(null)
   const [orgChoices, setOrgChoices] = useState<string[]>([])
   const [iss, setIss] = useState<Async<SentryIssue[]>>(idle)
-  const [savedFlash, setSavedFlash] = useState(false)
+  const [savedSlug, setSavedSlug] = useState<string | null>(null)
   const savedTimer = useRef<number | null>(null)
 
   const showSetup = !configured || editingCreds
@@ -58,10 +60,10 @@ export function SentryConnector({ repos }: { repos: Repo[] }) {
     if (v) map[projectSlug] = v
     else delete map[projectSlug]
     sentryConfigStore.getState().update({ projectRepoMap: map })
-    // Auto-saved to localStorage already — flash a confirmation so it's visible.
-    setSavedFlash(true)
+    // Auto-saved to localStorage already — flash a per-row confirmation.
+    setSavedSlug(projectSlug)
     if (savedTimer.current) clearTimeout(savedTimer.current)
-    savedTimer.current = window.setTimeout(() => setSavedFlash(false), 1500)
+    savedTimer.current = window.setTimeout(() => setSavedSlug(null), 1500)
   }
 
   // Fill EMPTY mapping slots from Sentry's code mappings (so a newly-created
@@ -178,28 +180,35 @@ export function SentryConnector({ repos }: { repos: Repo[] }) {
           )}
           {projectsQuery.data && (
             <div className="connector-results" style={{ marginTop: 12 }}>
-              <div className="muted" style={{ marginBottom: 6, display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
-                <span>
-                  {projectsQuery.data.filter((p) => cfg.projectRepoMap[p.slug]).length}/{projectsQuery.data.length} mapped in @{cfg.orgSlug.trim()} — changes save automatically. Mapped projects show a Sentry tab on that repo.
-                </span>
-                {savedFlash && <span style={{ color: 'var(--accent)', fontWeight: 500 }}>✓ Saved</span>}
+              <div className="muted" style={{ marginBottom: 6 }}>
+                {projectsQuery.data.filter((p) => cfg.projectRepoMap[p.slug]).length}/{projectsQuery.data.length} mapped in @{cfg.orgSlug.trim()} — changes save automatically. Mapped projects show a Sentry tab on that repo.
               </div>
               <ul className="connector-map-list">
                 {projectsQuery.data.map((p) => {
                   const mapped = cfg.projectRepoMap[p.slug] ?? ''
                   return (
                     <li key={p.id} className="connector-map-row">
-                      <span className="connector-map-project">{p.slug}</span>
+                      <span className="connector-map-project" title={p.slug}>
+                        <SiSentry className="connector-map-icon sentry" aria-hidden />
+                        <span className="connector-map-project-name">{p.slug}</span>
+                      </span>
                       <span className="connector-map-arrow">→</span>
+                      <FaGithub className="connector-map-icon gh" aria-hidden />
                       <RepoPicker
                         value={mapped}
                         options={repoOptions}
                         onChange={(v) => setMapping(p.slug, v)}
                         placeholder="owner/repo (unmapped)"
                       />
-                      {mapped && (
-                        <a href={`https://github.com/${mapped}`} target="_blank" rel="noopener noreferrer" className="connector-map-repo" title="Open on GitHub">↗</a>
-                      )}
+                      <a
+                        className="connector-map-repo"
+                        href={mapped ? `https://github.com/${mapped}` : undefined}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        title={mapped ? 'Open on GitHub' : undefined}
+                        style={{ visibility: mapped ? 'visible' : 'hidden' }}
+                      >↗</a>
+                      <span className="connector-map-saved" style={{ visibility: savedSlug === p.slug ? 'visible' : 'hidden' }}>✓ Saved</span>
                     </li>
                   )
                 })}
