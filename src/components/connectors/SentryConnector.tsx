@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react'
+import { useMemo, useRef, useState } from 'react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { sentryConfigStore } from '../../store/sentryConfig'
 import {
@@ -36,6 +36,8 @@ export function SentryConnector({ repos }: { repos: Repo[] }) {
   const [connectError, setConnectError] = useState<string | null>(null)
   const [orgChoices, setOrgChoices] = useState<string[]>([])
   const [iss, setIss] = useState<Async<SentryIssue[]>>(idle)
+  const [savedFlash, setSavedFlash] = useState(false)
+  const savedTimer = useRef<number | null>(null)
 
   const showSetup = !configured || editingCreds
 
@@ -56,6 +58,10 @@ export function SentryConnector({ repos }: { repos: Repo[] }) {
     if (v) map[projectSlug] = v
     else delete map[projectSlug]
     sentryConfigStore.getState().update({ projectRepoMap: map })
+    // Auto-saved to localStorage already — flash a confirmation so it's visible.
+    setSavedFlash(true)
+    if (savedTimer.current) clearTimeout(savedTimer.current)
+    savedTimer.current = window.setTimeout(() => setSavedFlash(false), 1500)
   }
 
   // Fill EMPTY mapping slots from Sentry's code mappings (so a newly-created
@@ -172,8 +178,11 @@ export function SentryConnector({ repos }: { repos: Repo[] }) {
           )}
           {projectsQuery.data && (
             <div className="connector-results" style={{ marginTop: 12 }}>
-              <div className="muted" style={{ marginBottom: 6 }}>
-                {projectsQuery.data.length} project{projectsQuery.data.length === 1 ? '' : 's'} in @{cfg.orgSlug.trim()} — map each to a GitHub repo. Mapped projects show a Sentry tab on that repo.
+              <div className="muted" style={{ marginBottom: 6, display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+                <span>
+                  {projectsQuery.data.filter((p) => cfg.projectRepoMap[p.slug]).length}/{projectsQuery.data.length} mapped in @{cfg.orgSlug.trim()} — changes save automatically. Mapped projects show a Sentry tab on that repo.
+                </span>
+                {savedFlash && <span style={{ color: 'var(--accent)', fontWeight: 500 }}>✓ Saved</span>}
               </div>
               <ul className="connector-map-list">
                 {projectsQuery.data.map((p) => {
