@@ -41,10 +41,17 @@ export type IssueQuery = {
   limit?: number
 }
 
+// Sentry validates `environment` against real environments and 404s on an
+// unknown one. Empty or the sentinel "all" means "no filter" → omit the param.
+function normEnvironment(env?: string): string | undefined {
+  const e = env?.trim()
+  return !e || e.toLowerCase() === 'all' ? undefined : e
+}
+
 export function fetchSentryIssues(auth: SentryAuth, opts: IssueQuery): Promise<SentryPage<SentryIssue[]>> {
   return sentryFetch<SentryIssue[]>(`/organizations/${opts.orgSlug}/issues/`, auth, {
     query: opts.query ?? 'is:unresolved',
-    environment: opts.environment,
+    environment: normEnvironment(opts.environment),
     project: opts.project,
     statsPeriod: opts.statsPeriod ?? '14d',
     cursor: opts.cursor,
@@ -65,7 +72,7 @@ export function fetchSentryProjectIssues(
 ): Promise<SentryPage<SentryIssue[]>> {
   return sentryFetch<SentryIssue[]>(`/projects/${orgSlug}/${projectSlug}/issues/`, auth, {
     query: opts?.query ?? 'is:unresolved',
-    environment: opts?.environment,
+    environment: normEnvironment(opts?.environment),
     statsPeriod: opts?.statsPeriod ?? '14d',
     limit: opts?.limit ?? 25,
   })

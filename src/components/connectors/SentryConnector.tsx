@@ -158,7 +158,7 @@ export function SentryConnector({ repos }: { repos: Repo[] }) {
           <div className="connector-status">
             <span className="hs-status hs-status-ok">
               ✓ Connected · @{cfg.orgSlug} · {cfg.region ? `${cfg.region}.sentry.io` : 'sentry.io'}
-              {cfg.environment.trim() ? ` · env @${cfg.environment.trim()}` : ''}
+              {cfg.environment.trim() && cfg.environment.trim().toLowerCase() !== 'all' ? ` · env @${cfg.environment.trim()}` : ''}
             </span>
             <div className="connector-status-actions">
               <button className="hs-modal-btn" onClick={refresh} disabled={projectsQuery.isFetching}>
@@ -300,10 +300,10 @@ function SetupForm({
             </select>
           </label>
           <label>
-            <span>Environment</span>
+            <span>Environment <span className="muted">(leave empty = all)</span></span>
             <input
               type="text"
-              placeholder="all"
+              placeholder="all environments"
               value={cfg.environment}
               onChange={(e) => cfg.update({ environment: e.target.value })}
             />
