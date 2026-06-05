@@ -9,8 +9,7 @@ import { DetailModal } from './DetailModal'
 import { RepoBrowser } from '../RepoBrowser'
 import { useNeedsMe, useSnoozes } from './useNeedsMe'
 import { useSinceLastVisit } from './useSinceLastVisit'
-import { useSentryIssues } from './useSentryIssues'
-import { sentryConfigStore } from '../../store/sentryConfig'
+import { useUnifiedIssues } from './useUnifiedIssues'
 import type { AttentionItem, ScopeKey } from './types'
 import './home.css'
 
@@ -80,11 +79,10 @@ export function HomeShell({
 
   const active7dCount = repos.filter((r) => Date.now() - new Date(r.pushedAt).getTime() < 7 * 86_400_000).length
 
-  // Sentry inbox: only surfaced once a connector is configured. The count drives
-  // the sidebar badge; the query is shared with the Sentry scope (deduped).
-  const sentryConfigured = sentryConfigStore((s) => !!s.token.trim() && !!s.orgSlug.trim())
-  const { data: sentryData } = useSentryIssues()
-  const sentryCount = sentryData?.length ?? 0
+  // Unified Issues inbox (GitHub assigned-to-me + Sentry). The count drives the
+  // sidebar badge; the query is shared with the Issues scope (deduped).
+  const { items: unifiedIssues } = useUnifiedIssues(token, viewer?.login)
+  const issuesCount = unifiedIssues.length
 
   // Counts per org for the Orgs sidebar group. Derived from the loaded repos
   // rather than viewer.organizations so we include orgs the user is only a
@@ -193,8 +191,7 @@ export function HomeShell({
         pinnedCount={pinned.length}
         active7dCount={active7dCount}
         allReposCount={repos.length}
-        showSentry={sentryConfigured}
-        sentryCount={sentryCount}
+        issuesCount={issuesCount}
         orgs={orgEntries}
         onSelect={onSelectScope}
         onToggleCollapsed={() => setCollapsed((c) => !c)}

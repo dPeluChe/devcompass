@@ -27,4 +27,6 @@ export const queryKeys = {
   // Sentry connector
   sentryProjects: (org: string) => ['sentry', org, 'projects'] as const,
   sentryIssues: (org: string, environment: string) => ['sentry', org, 'issues', environment] as const,
+  // Cross-repo GitHub issue search (unified Issues feed)
+  issueSearch: (query: string) => ['issues', 'search', query] as const,
 }
