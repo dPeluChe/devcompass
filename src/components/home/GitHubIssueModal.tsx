@@ -69,6 +69,7 @@ export function GitHubIssueModal({ issue, onClose }: { issue: GitHubIssueRef | n
         <div className="issue-modal-body">
           {detailQuery.isLoading && <p className="muted">Loading issue…</p>}
           {detailQuery.error && <p className="muted">Couldn't load the issue ({detailQuery.error instanceof Error ? detailQuery.error.message : String(detailQuery.error)}).</p>}
+          {!detailQuery.isLoading && !detailQuery.error && detail === null && <p className="muted">Issue not found, or you don't have access.</p>}
           {detail && (detail.bodyHTML
             ? <div className="hs-description-html"><SanitizedMarkdown html={detail.bodyHTML} /></div>
             : <p className="muted">No description provided.</p>)}

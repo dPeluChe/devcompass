@@ -68,7 +68,7 @@ function fromSentry(iss: SentryIssue, repo: string | null): UnifiedIssue {
  */
 export function useUnifiedIssues(token: string, viewerLogin: string | undefined) {
   const ghQuery = useQuery({
-    queryKey: queryKeys.issueSearch(`assignee:${viewerLogin}`),
+    queryKey: queryKeys.issueSearch(`assignee:${viewerLogin ?? ''}`),
     queryFn: () => searchIssues(token, `is:issue is:open assignee:${viewerLogin}`),
     enabled: !!viewerLogin,
     staleTime: 5 * 60 * 1000,

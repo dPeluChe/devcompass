@@ -71,8 +71,8 @@ export type GitHubIssueDetail = {
   comments: { totalCount: number }
 }
 
-export async function fetchIssueDetail(token: string, owner: string, name: string, number: number): Promise<GitHubIssueDetail> {
-  const data = await gql<{ repository: { issue: GitHubIssueDetail } }>(
+export async function fetchIssueDetail(token: string, owner: string, name: string, number: number): Promise<GitHubIssueDetail | null> {
+  const data = await gql<{ repository: { issue: GitHubIssueDetail | null } | null }>(
     token,
     `
     query($owner: String!, $name: String!, $number: Int!) {
@@ -97,5 +97,5 @@ export async function fetchIssueDetail(token: string, owner: string, name: strin
   `,
     { owner, name, number }
   )
-  return data.repository.issue
+  return data.repository?.issue ?? null
 }

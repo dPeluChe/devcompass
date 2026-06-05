@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 
 /**
  * Copies the text returned by getText() to the clipboard with a brief "Copied"
@@ -10,6 +10,9 @@ export function CopyButton({ getText, label = 'Copy for agent', className = 'hs-
   className?: string
 }) {
   const [state, setState] = useState<'idle' | 'ok' | 'err'>('idle')
+  const timer = useRef<number | null>(null)
+
+  useEffect(() => () => { if (timer.current) clearTimeout(timer.current) }, [])
 
   async function copy() {
     try {
@@ -18,7 +21,8 @@ export function CopyButton({ getText, label = 'Copy for agent', className = 'hs-
     } catch {
       setState('err')
     }
-    setTimeout(() => setState('idle'), 1600)
+    if (timer.current) clearTimeout(timer.current)
+    timer.current = window.setTimeout(() => setState('idle'), 1600)
   }
 
   return (
