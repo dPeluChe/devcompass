@@ -259,7 +259,7 @@
 }
 .hs-issue-filters button.active { border-color: var(--accent); color: var(--text); }
 .hs-issue-group { margin-bottom: 16px; }
-.hs-issue-group-head { font-size: 0.92rem; font-weight: 600; margin: 0 0 8px; display: flex; align-items: baseline; gap: 4px; }
+.hs-issue-group-head { font-size: 0.92rem; font-weight: 600; margin: 0 0 8px; display: flex; align-items: center; gap: 5px; }
 .hs-issue-group-head a { color: var(--accent); text-decoration: none; }
 .hs-issue-group-head a:hover { text-decoration: underline; }
 .hs-issue-row {
