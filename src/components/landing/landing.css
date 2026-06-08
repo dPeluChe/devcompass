@@ -1,0 +1,99 @@
+/* Self-contained landing, scoped under .lp so it can't leak into the app's
+   styles. Reuses the app theme variables (--bg/--text/--accent/…) so it tracks
+   the product palette automatically. */
+.lp {
+  min-height: 100vh;
+  color: var(--text);
+  background:
+    radial-gradient(1100px 520px at 78% -8%, rgba(88, 166, 255, 0.10), transparent 60%),
+    radial-gradient(900px 460px at 12% 4%, rgba(141, 84, 148, 0.10), transparent 55%),
+    var(--bg);
+  overflow-x: hidden;
+}
+.lp a { color: inherit; }
+.lp-wrap { width: min(1080px, 92vw); margin: 0 auto; }
+
+/* nav */
+.lp-nav { display: flex; align-items: center; justify-content: space-between; padding: 18px 0; }
+.lp-brand { display: flex; align-items: center; gap: 9px; font-weight: 700; font-size: 1.05rem; text-decoration: none; }
+.lp-brand img { width: 28px; height: 28px; }
+.lp-nav-links { display: flex; align-items: center; gap: 18px; font-size: 0.9rem; }
+.lp-nav-links a { color: var(--muted); text-decoration: none; }
+.lp-nav-links a:hover { color: var(--text); }
+
+/* buttons */
+.lp-btn { display: inline-flex; align-items: center; gap: 6px; padding: 9px 18px; border-radius: 9px; font-size: 0.92rem; font-weight: 600; text-decoration: none; cursor: pointer; border: 1px solid var(--border); background: transparent; color: var(--text); }
+.lp-btn:hover { border-color: var(--accent); }
+.lp-btn.primary { background: var(--accent); border-color: var(--accent); color: #06121f; }
+.lp-btn.primary:hover { filter: brightness(1.08); }
+
+/* hero */
+.lp-hero { padding: 56px 0 40px; }
+.lp-badge { display: inline-block; font-size: 0.74rem; color: var(--muted); border: 1px solid var(--border); border-radius: 999px; padding: 4px 12px; margin-bottom: 22px; }
+.lp-h1 { font-size: clamp(2rem, 5vw, 3.2rem); line-height: 1.12; margin: 0 0 18px; font-weight: 800; letter-spacing: -0.02em; }
+.lp-h1 .soft { color: var(--muted); font-weight: 600; display: block; font-size: 0.62em; margin-bottom: 6px; }
+.lp-h1 .grad { background: linear-gradient(90deg, var(--accent), #8d5494); -webkit-background-clip: text; background-clip: text; color: transparent; }
+.lp-h1 .gh-mark { width: 0.8em; height: 0.8em; vertical-align: -0.08em; margin-right: 0.15em; }
+.lp-lede { font-size: 1.1rem; color: var(--muted); margin: 0 0 20px; }
+.lp-trust { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 26px; }
+.lp-trust span { display: inline-flex; align-items: center; gap: 6px; font-size: 0.78rem; color: var(--muted); border: 1px solid var(--border); border-radius: 999px; padding: 4px 11px; }
+.lp-trust i { width: 7px; height: 7px; border-radius: 50%; display: inline-block; }
+.lp-cta-row { display: flex; flex-wrap: wrap; gap: 12px; }
+
+/* sections */
+.lp-section { padding: 46px 0; border-top: 1px solid var(--border); }
+.lp-eyebrow { font-size: 0.76rem; letter-spacing: 0.08em; text-transform: uppercase; color: var(--accent); margin: 0 0 8px; }
+.lp-section h2 { font-size: clamp(1.4rem, 3vw, 2rem); margin: 0 0 24px; font-weight: 700; letter-spacing: -0.01em; }
+
+/* why grid */
+.lp-vs { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+.lp-vs-col { border: 1px solid var(--border); border-radius: 12px; padding: 18px; }
+.lp-vs-col.strong { border-color: var(--accent); background: rgba(88, 166, 255, 0.05); }
+.lp-vs-col h3 { display: flex; align-items: center; gap: 8px; margin: 0 0 12px; font-size: 1rem; }
+.lp-vs-col ul { margin: 0; padding-left: 18px; display: flex; flex-direction: column; gap: 7px; color: var(--muted); font-size: 0.92rem; }
+.lp-vs-col.strong ul { color: var(--text); }
+
+/* steps */
+.lp-steps { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 14px; list-style: none; padding: 0; margin: 0; }
+.lp-step { border: 1px solid var(--border); border-radius: 12px; padding: 18px; }
+.lp-step-num { font-size: 0.8rem; color: var(--accent); font-weight: 700; }
+.lp-step h3 { margin: 8px 0 6px; font-size: 1rem; }
+.lp-step p { margin: 0; color: var(--muted); font-size: 0.9rem; }
+.lp-step code { background: var(--panel); border: 1px solid var(--border); border-radius: 5px; padding: 1px 5px; font-size: 0.85em; }
+
+/* features */
+.lp-features { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 14px; }
+.lp-feature { border: 1px solid var(--border); border-radius: 12px; padding: 18px; }
+.lp-feature-icon { color: var(--accent); display: inline-flex; margin-bottom: 10px; }
+.lp-feature-icon svg { width: 22px; height: 22px; }
+.lp-feature h3 { margin: 0 0 5px; font-size: 1rem; }
+.lp-feature p { margin: 0; color: var(--muted); font-size: 0.9rem; }
+
+/* privacy */
+.lp-privacy { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 14px; }
+.lp-pcard { border: 1px solid var(--border); border-radius: 12px; padding: 18px; }
+.lp-pcard .tag { font-size: 0.7rem; text-transform: uppercase; letter-spacing: 0.05em; color: var(--accent); }
+.lp-pcard h3 { margin: 6px 0 6px; font-size: 0.98rem; }
+.lp-pcard p { margin: 0; color: var(--muted); font-size: 0.9rem; }
+.lp-pcard code { background: var(--panel); border: 1px solid var(--border); border-radius: 5px; padding: 1px 5px; font-size: 0.85em; }
+
+/* self-host */
+.lp-selfhost-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; align-items: center; }
+.lp-code { background: var(--panel); border: 1px solid var(--border); border-radius: 12px; padding: 16px; font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 0.84rem; overflow-x: auto; margin: 0; line-height: 1.7; }
+.lp-code .c { color: var(--muted); }
+.lp-code .ok { color: var(--success, #3fb950); }
+
+/* final cta */
+.lp-final { text-align: center; }
+.lp-final h2 { font-size: clamp(1.6rem, 4vw, 2.4rem); }
+
+/* footer */
+.lp-footer { border-top: 1px solid var(--border); padding: 26px 0 40px; display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 14px; color: var(--muted); font-size: 0.85rem; }
+.lp-footer a { color: var(--muted); text-decoration: none; }
+.lp-footer a:hover { color: var(--text); }
+.lp-footer-links { display: flex; flex-wrap: wrap; gap: 16px; }
+
+@media (max-width: 720px) {
+  .lp-vs, .lp-selfhost-grid { grid-template-columns: 1fr; }
+  .lp-nav-links a:not(.lp-btn) { display: none; }
+}

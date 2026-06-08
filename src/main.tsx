@@ -1,8 +1,8 @@
-import { StrictMode, type ReactNode } from 'react'
+import { StrictMode, Suspense, lazy, type ReactNode } from 'react'
 import { createRoot } from 'react-dom/client'
 import { QueryClientProvider } from '@tanstack/react-query'
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
-import { useParams } from 'react-router-dom'
+import { useParams, useNavigate } from 'react-router-dom'
 import { queryClient } from './store/queries'
 import { App } from './App'
 import { RepoDetail } from './components/RepoDetail'
@@ -10,6 +10,9 @@ import { TokenSetup } from './components/TokenSetup'
 import { auth } from './store/auth'
 import { pruneExpiredCachePrefs } from './store/db'
 import './styles.css'
+
+// Lazy so logged-in users never download the marketing landing.
+const Landing = lazy(() => import('./components/landing/Landing'))
 
 // Sweep stale TTL-bound cache rows once on boot so the Cache tab and any
 // downstream reads start from a clean baseline. Fire-and-forget — the
@@ -52,6 +55,17 @@ function PRRedirect() {
   return <Navigate to={`/?pr=${params.owner}/${params.name}/${params.number}`} replace />
 }
 
+/** Root: the marketing landing for logged-out visitors, the app once a token exists. */
+function RootRoute() {
+  const navigate = useNavigate()
+  if (auth.get()) return <App />
+  return (
+    <Suspense fallback={null}>
+      <Landing onGetStarted={() => navigate('/login')} />
+    </Suspense>
+  )
+}
+
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
     <QueryClientProvider client={queryClient}>
@@ -60,7 +74,7 @@ createRoot(document.getElementById('root')!).render(
           <Route path="/login" element={<TokenSetupWrapper />} />
           <Route path="/repos/:owner/:name" element={<ProtectedRoute><RepoPage /></ProtectedRoute>} />
           <Route path="/prs/:owner/:name/:number" element={<ProtectedRoute><PRRedirect /></ProtectedRoute>} />
-          <Route path="/*" element={<ProtectedRoute><App /></ProtectedRoute>} />
+          <Route path="/*" element={<RootRoute />} />
         </Routes>
       </BrowserRouter>
     </QueryClientProvider>
