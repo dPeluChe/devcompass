@@ -29,4 +29,6 @@ export const queryKeys = {
   sentryIssues: (org: string, environment: string) => ['sentry', org, 'issues', environment] as const,
   // Cross-repo GitHub issue search (unified Issues feed)
   issueSearch: (query: string) => ['issues', 'search', query] as const,
+  // GitHub notifications inbox
+  notifications: ['notifications'] as const,
 }

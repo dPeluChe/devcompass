@@ -3,6 +3,7 @@ import type { PullRequest } from '../../api/github'
 export type ScopeKey =
   | 'needs'
   | 'since'
+  | 'notifications'
   | 'watching'
   | 'issues'
   | 'pinned'

@@ -10,6 +10,7 @@ import { RepoBrowser } from '../RepoBrowser'
 import { useNeedsMe, useSnoozes } from './useNeedsMe'
 import { useSinceLastVisit } from './useSinceLastVisit'
 import { useUnifiedIssues } from './useUnifiedIssues'
+import { useNotifications } from './useNotifications'
 import type { AttentionItem, ScopeKey } from './types'
 import './home.css'
 
@@ -83,6 +84,10 @@ export function HomeShell({
   // sidebar badge; the query is shared with the Issues scope (deduped).
   const { items: unifiedIssues } = useUnifiedIssues(token, viewer?.login)
   const issuesCount = unifiedIssues.length
+
+  // Unread GitHub notifications — shared with the Notifications scope.
+  const { data: notifications } = useNotifications(token)
+  const notificationsCount = notifications?.length ?? 0
 
   // Counts per org for the Orgs sidebar group. Derived from the loaded repos
   // rather than viewer.organizations so we include orgs the user is only a
@@ -192,6 +197,7 @@ export function HomeShell({
         active7dCount={active7dCount}
         allReposCount={repos.length}
         issuesCount={issuesCount}
+        notificationsCount={notificationsCount}
         orgs={orgEntries}
         onSelect={onSelectScope}
         onToggleCollapsed={() => setCollapsed((c) => !c)}

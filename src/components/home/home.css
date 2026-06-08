@@ -277,6 +277,18 @@
 .hs-issue-ext { flex: 0 0 auto; color: var(--muted); text-decoration: none; padding: 0 4px; }
 .hs-issue-ext:hover { color: var(--accent); }
 
+/* ----- Notifications scope ----- */
+.hs-notif-row {
+  display: flex; align-items: center; gap: 10px; padding: 9px 12px; text-decoration: none; color: inherit;
+  border-bottom: 1px solid var(--border);
+}
+.hs-notif-row:last-child { border-bottom: none; }
+.hs-notif-row:hover { background: rgba(127, 127, 127, 0.07); }
+.hs-notif-glyph { flex: 0 0 auto; color: var(--muted); width: 16px; text-align: center; }
+.hs-notif-main { flex: 1; display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.hs-notif-title { font-size: 0.9rem; color: var(--text); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.hs-notif-meta { font-size: 0.78rem; display: flex; align-items: center; gap: 6px; }
+
 /* ----- Row ----- */
 .hs-row {
   display: grid;
