@@ -1470,6 +1470,20 @@ body.fancy-bg {
   flex-direction: column;
   gap: 14px;
 }
+
+/* ---- Tokens (credentials registry) ---- */
+.token-cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 12px; margin-top: 14px; }
+.token-card { border: 1px solid var(--border); border-radius: 10px; padding: 14px; display: flex; flex-direction: column; gap: 8px; }
+.token-card-head { display: flex; align-items: center; justify-content: space-between; }
+.token-card-head strong { font-size: 0.95rem; }
+.token-card-status { font-size: 0.72rem; text-transform: uppercase; letter-spacing: 0.04em; padding: 2px 7px; border-radius: 999px; border: 1px solid var(--border); }
+.token-card-status.ok { color: var(--success, #3fb950); border-color: var(--success, #3fb950); }
+.token-card-status.warn { color: var(--danger); border-color: var(--danger); }
+.token-card-status.muted { color: var(--muted); }
+.token-card-value { font-size: 0.82rem; color: var(--text); background: var(--bg); border: 1px solid var(--border); border-radius: 6px; padding: 5px 8px; }
+.token-card-meta { font-size: 0.8rem; }
+.token-card-actions { display: flex; flex-wrap: wrap; gap: 8px; }
+.token-card-hint { font-size: 0.75rem; }
 .token-summary {
   display: grid;
   grid-template-columns: repeat(4, minmax(140px, 1fr));
