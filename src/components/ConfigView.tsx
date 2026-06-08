@@ -1,5 +1,7 @@
 import { useMemo, useState } from 'react'
 import type { Org, Repo, TokenInfo } from '../api/github'
+import { auth } from '../store/auth'
+import { sentryConfigStore } from '../store/sentryConfig'
 import { OrgManager } from './OrgManager'
 import { SettingsTab } from './SettingsTab'
 import { SentryConnector } from './connectors/SentryConnector'
@@ -17,7 +19,7 @@ export function ConfigView({
   errors: { source: string; message: string }[]
   onForceResync: () => void
 }) {
-  const [section, setSection] = useState<'orgs' | 'token' | 'connectors' | 'storage' | 'cache' | 'pinned' | 'appearance'>('orgs')
+  const [section, setSection] = useState<'orgs' | 'tokens' | 'token' | 'connectors' | 'storage' | 'cache' | 'pinned' | 'appearance'>('orgs')
 
   // Collaborator-only orgs: own at least one repo that arrived via the viewer's
   // COLLABORATOR affiliation but aren't in viewer.organizations / /user/orgs.
@@ -41,8 +43,11 @@ export function ConfigView({
         <button className={`config-tab ${section === 'orgs' ? 'active' : ''}`} onClick={() => setSection('orgs')}>
           Orgs
         </button>
+        <button className={`config-tab ${section === 'tokens' ? 'active' : ''}`} onClick={() => setSection('tokens')}>
+          Tokens
+        </button>
         <button className={`config-tab ${section === 'token' ? 'active' : ''}`} onClick={() => setSection('token')}>
-          Token
+          GitHub access
         </button>
         <button className={`config-tab ${section === 'connectors' ? 'active' : ''}`} onClick={() => setSection('connectors')}>
           Connectors
@@ -94,6 +99,14 @@ export function ConfigView({
           </section>
         )}
 
+        {section === 'tokens' && (
+          <TokensSection
+            tokenInfo={tokenInfo}
+            onGoGithubAccess={() => setSection('token')}
+            onGoConnectors={() => setSection('connectors')}
+          />
+        )}
+
         {section === 'token' && tokenInfo && (
           <section className="config-section">
             <div className="config-section-header">
@@ -130,6 +143,77 @@ export function ConfigView({
         {section === 'appearance' && <SettingsTab panel="appearance" />}
       </div>
     </main>
+  )
+}
+
+function maskToken(t: string): string {
+  const v = t.trim()
+  if (!v) return '—'
+  return v.length > 12 ? `${v.slice(0, 7)}…${v.slice(-4)}` : '••••••'
+}
+
+/** Consolidated credentials registry — what devcompass holds + links to create/rotate. */
+function TokensSection({ tokenInfo, onGoGithubAccess, onGoConnectors }: {
+  tokenInfo: TokenInfo | undefined
+  onGoGithubAccess: () => void
+  onGoConnectors: () => void
+}) {
+  const ghToken = auth.get() ?? ''
+  const sentry = sentryConfigStore()
+  const sentryConnected = sentry.isConfigured()
+  const ghExpiry = tokenInfo?.expiresAt
+    ? new Date(tokenInfo.expiresAt).toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric' })
+    : 'No expiry'
+
+  return (
+    <section className="config-section">
+      <div className="config-section-header">
+        <h2>Tokens</h2>
+        <span className="muted">
+          The credentials devcompass holds — BYOK, stored only in your browser. GitHub doesn't expose your
+          account's token list via API, so create or rotate them on each provider with the links below.
+        </span>
+      </div>
+
+      <div className="token-cards">
+        <div className="token-card">
+          <div className="token-card-head">
+            <strong>GitHub</strong>
+            <span className={`token-card-status ${ghToken ? 'ok' : 'warn'}`}>{ghToken ? 'connected' : 'missing'}</span>
+          </div>
+          <code className="token-card-value">{maskToken(ghToken)}</code>
+          <div className="token-card-meta muted">
+            {tokenInfo
+              ? <>{tokenInfo.type} · {tokenInfo.scopes.length} scopes · {ghExpiry}{tokenInfo.ssoRequired ? ' · ⚠ SSO authorization needed' : ''}</>
+              : 'Loading token info…'}
+          </div>
+          <div className="token-card-actions">
+            <a className="hs-modal-btn link" href="https://github.com/settings/tokens" target="_blank" rel="noopener noreferrer">Create / manage on GitHub ↗</a>
+            <button className="hs-modal-btn" onClick={onGoGithubAccess}>Diagnostics</button>
+          </div>
+          <div className="token-card-hint muted">Needs scopes <code>repo</code> + <code>read:org</code>. Sign out (sidebar footer) to clear it.</div>
+        </div>
+
+        <div className="token-card">
+          <div className="token-card-head">
+            <strong>Sentry</strong>
+            <span className={`token-card-status ${sentryConnected ? 'ok' : 'muted'}`}>{sentryConnected ? 'connected' : 'not connected'}</span>
+          </div>
+          <code className="token-card-value">{maskToken(sentry.token)}</code>
+          <div className="token-card-meta muted">
+            {sentryConnected
+              ? <>@{sentry.orgSlug.trim()} · {sentry.region ? `${sentry.region}.sentry.io` : 'sentry.io'}</>
+              : 'Add a token to see Sentry issues in the feed.'}
+          </div>
+          <div className="token-card-actions">
+            <a className="hs-modal-btn link" href="https://sentry.io/settings/account/api/auth-tokens/" target="_blank" rel="noopener noreferrer">Create / manage on Sentry ↗</a>
+            <button className="hs-modal-btn" onClick={onGoConnectors}>{sentryConnected ? 'Configure' : 'Add token'}</button>
+            {sentryConnected && <button className="hs-modal-btn danger" onClick={() => sentry.reset()}>Disconnect</button>}
+          </div>
+          <div className="token-card-hint muted">User Auth Token with <code>org:read</code> · <code>project:read</code> · <code>event:read</code>.</div>
+        </div>
+      </div>
+    </section>
   )
 }
 
