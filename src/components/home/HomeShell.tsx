@@ -192,7 +192,6 @@ export function HomeShell({
         collapsed={collapsed}
         needsMeCount={visibleNeedsCount}
         sinceCount={sinceCount}
-        watchingCount={0}
         pinnedCount={pinned.length}
         active7dCount={active7dCount}
         allReposCount={repos.length}
