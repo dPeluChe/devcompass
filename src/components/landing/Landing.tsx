@@ -43,7 +43,7 @@ export default function Landing({ onGetStarted }: { onGetStarted: () => void }) 
           <h1 className="lp-h1">
             <span className="soft"><GhMark className="gh-mark" />GitHub is built for one repo at a time.</span>
             <span className="vs" aria-hidden>vs</span>
-            <span className="strong"><BrandMark className="brand-mark" />devcompass is built for <span className="grad">all of them.</span></span>
+            <span className="strong"><BrandMark className="brand-mark" />devcompass is built for<br /><span className="grad">all of them.</span></span>
           </h1>
           <p className="lp-lede">Your complete cross-org GitHub panorama — repos, PRs, issues and errors — in one fast, local-first cockpit. Nothing leaves your browser.</p>
           <div className="lp-trust">

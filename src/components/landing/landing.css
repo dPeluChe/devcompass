@@ -34,7 +34,7 @@
 /* hero */
 .lp-hero { padding: 72px 0 56px; }
 .lp-badge { display: inline-block; font-size: 0.74rem; color: var(--muted); border: 1px solid var(--border); border-radius: 999px; padding: 4px 12px; margin-bottom: 26px; }
-.lp-h1 { font-size: clamp(44px, 7vw, 84px); line-height: 1.03; margin: 0 0 26px; font-weight: 700; letter-spacing: -0.035em; max-width: 1000px; }
+.lp-h1 { font-size: clamp(46px, 7.4vw, 92px); line-height: 1.02; margin: 0 0 26px; font-weight: 700; letter-spacing: -0.035em; max-width: 1100px; }
 .lp-h1 .soft { display: block; color: var(--muted); font-weight: 500; font-size: clamp(20px, 2.6vw, 33px); }
 .lp-h1 .strong { display: block; color: var(--text); }
 .lp-h1 .vs { display: block; font-size: 0.2em; font-weight: 600; letter-spacing: 0.4em; text-transform: uppercase; color: var(--muted); margin: 0.7em 0 0.5em; }
