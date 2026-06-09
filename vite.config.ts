@@ -36,11 +36,8 @@ function devProxyPlugin(): PluginOption {
   }
 }
 
-// `base` honors VITE_BASE so the GitHub Pages workflow can inject the
-// repo subpath (e.g. "/devcompass/") at build time. Locally and on
-// custom domains it stays "/", which is what `npm run dev` needs.
 export default defineConfig({
-  base: process.env.VITE_BASE ?? '/',
+  base: '/',
   plugins: [react(), devProxyPlugin()],
   server: { port: 8099, open: true },
   build: {
