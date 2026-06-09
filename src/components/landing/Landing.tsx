@@ -38,7 +38,8 @@ export default function Landing({ onGetStarted }: { onGetStarted: () => void }) 
           <span className="lp-badge">MIT · No backend · BYOK</span>
           <h1 className="lp-h1">
             <span className="soft"><GhMark className="gh-mark" />GitHub is built for one repo at a time.</span>
-            devcompass is built for <span className="grad">all of them.</span>
+            <span className="vs" aria-hidden>vs</span>
+            <span className="strong">devcompass is built for <span className="grad">all of them.</span></span>
           </h1>
           <p className="lp-lede">Your complete cross-org GitHub panorama — repos, PRs, issues and errors — in one fast, local-first cockpit.</p>
           <div className="lp-trust">
@@ -134,9 +135,13 @@ export default function Landing({ onGetStarted }: { onGetStarted: () => void }) 
         </section>
 
         <footer className="lp-footer">
-          <span>MIT · built by <a href="https://github.com/dPeluChe" target="_blank" rel="noopener noreferrer">dPeluChe</a></span>
+          <div className="lp-footer-brand">
+            <a className="lp-brand" href="/"><img src="/favicon.svg" alt="" />devcompass</a>
+            <span className="lp-footer-muted">MIT · built by <a href="https://github.com/dPeluChe" target="_blank" rel="noopener noreferrer">dPeluChe</a></span>
+          </div>
           <nav className="lp-footer-links">
             <a href={REPO} target="_blank" rel="noopener noreferrer">Repo</a>
+            <a href={`${REPO}/blob/main/docs/README.md`} target="_blank" rel="noopener noreferrer">Docs</a>
             <a href={`${REPO}/blob/main/SECURITY.md`} target="_blank" rel="noopener noreferrer">Security</a>
             <a href={`${REPO}/issues`} target="_blank" rel="noopener noreferrer">Issues</a>
           </nav>
