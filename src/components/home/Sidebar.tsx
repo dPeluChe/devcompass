@@ -30,12 +30,13 @@ type Props = {
   collapsed: boolean
   needsMeCount: number
   sinceCount: number
-  watchingCount: number
   pinnedCount: number
   active7dCount: number
   allReposCount: number
   /** Unified Issues feed (GitHub assigned-to-me + Sentry). */
   issuesCount?: number
+  /** Unread GitHub notifications. */
+  notificationsCount?: number
   /** Per-org repo counts. Sorted by caller — usually viewer first, then by count desc. */
   orgs?: OrgEntry[]
   onSelect: (key: ScopeKey) => void
@@ -45,9 +46,10 @@ type Props = {
 
 export function Sidebar({
   active, collapsed,
-  needsMeCount, sinceCount, watchingCount,
+  needsMeCount, sinceCount,
   pinnedCount, active7dCount, allReposCount,
   issuesCount = 0,
+  notificationsCount = 0,
   orgs,
   onSelect,
   onToggleCollapsed,
@@ -55,9 +57,9 @@ export function Sidebar({
 }: Props) {
   const inboxItems: ItemDef[] = [
     { key: 'needs', label: 'Needs me', icon: '●', count: needsMeCount, hasAttn: needsMeCount > 0 },
+    { key: 'notifications', label: 'Notifications', icon: '◔', title: 'Unread GitHub notifications across all repos — mentions, reviews, assignments', count: notificationsCount, hasAttn: notificationsCount > 0 },
     { key: 'since', label: 'Since last visit', icon: '↻', count: sinceCount, hasAttn: sinceCount > 0 },
-    { key: 'issues', label: 'Issues', icon: '◈', title: 'GitHub issues assigned to you + Sentry errors, grouped by repo', count: issuesCount, hasAttn: issuesCount > 0 },
-    { key: 'watching', label: 'Watching', icon: '○', count: watchingCount }
+    { key: 'issues', label: 'Issues', icon: '◈', title: 'GitHub issues assigned to you + Sentry errors, grouped by repo', count: issuesCount, hasAttn: issuesCount > 0 }
   ]
   const groups: Group[] = [
     {

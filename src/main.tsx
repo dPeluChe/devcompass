@@ -1,4 +1,4 @@
-import { StrictMode, Suspense, lazy, type ReactNode } from 'react'
+import { StrictMode, Suspense, lazy, useEffect, type ReactNode } from 'react'
 import { createRoot } from 'react-dom/client'
 import { QueryClientProvider } from '@tanstack/react-query'
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
@@ -8,11 +8,21 @@ import { App } from './App'
 import { RepoDetail } from './components/RepoDetail'
 import { TokenSetup } from './components/TokenSetup'
 import { auth } from './store/auth'
+import { uiPrefsStore } from './store/uiPrefs'
 import { pruneExpiredCachePrefs } from './store/db'
 import './styles.css'
 
 // Lazy so logged-in users never download the marketing landing.
 const Landing = lazy(() => import('./components/landing/Landing'))
+
+// Applies the atmospheric background on EVERY route (login included) — the
+// effect used to live in App.tsx, which only mounts on authenticated routes,
+// so /login rendered without it.
+function FancyBg() {
+  const fancyBg = uiPrefsStore((s) => s.fancyBg)
+  useEffect(() => { document.body.classList.toggle('fancy-bg', fancyBg) }, [fancyBg])
+  return null
+}
 
 // Sweep stale TTL-bound cache rows once on boot so the Cache tab and any
 // downstream reads start from a clean baseline. Fire-and-forget — the
@@ -69,6 +79,7 @@ function RootRoute() {
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
     <QueryClientProvider client={queryClient}>
+      <FancyBg />
       <BrowserRouter>
         <Routes>
           <Route path="/login" element={<TokenSetupWrapper />} />
