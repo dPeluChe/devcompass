@@ -10,6 +10,10 @@ function GhMark({ className }: { className?: string }) {
   )
 }
 
+function BrandMark({ className }: { className?: string }) {
+  return <img className={className} src="/favicon.svg" alt="" aria-hidden />
+}
+
 const FEATURES = [
   { t: 'Complete panorama', d: 'Every repo you touch — owner, member and collaborator — across all your orgs, in one place.' },
   { t: 'Unified Issues', d: 'GitHub issues assigned to you + Sentry errors, grouped by repo, with in-app detail and copy-for-agent.' },
@@ -39,9 +43,9 @@ export default function Landing({ onGetStarted }: { onGetStarted: () => void }) 
           <h1 className="lp-h1">
             <span className="soft"><GhMark className="gh-mark" />GitHub is built for one repo at a time.</span>
             <span className="vs" aria-hidden>vs</span>
-            <span className="strong">devcompass is built for <span className="grad">all of them.</span></span>
+            <span className="strong"><BrandMark className="brand-mark" />devcompass is built for <span className="grad">all of them.</span></span>
           </h1>
-          <p className="lp-lede">Your complete cross-org GitHub panorama — repos, PRs, issues and errors — in one fast, local-first cockpit.</p>
+          <p className="lp-lede">Your complete cross-org GitHub panorama — repos, PRs, issues and errors — in one fast, local-first cockpit. Nothing leaves your browser.</p>
           <div className="lp-trust">
             <span><i style={{ background: '#3fb950' }} />Local-first</span>
             <span><i style={{ background: '#58a6ff' }} />Token in your browser</span>
@@ -68,7 +72,7 @@ export default function Landing({ onGetStarted }: { onGetStarted: () => void }) 
               </ul>
             </div>
             <div className="lp-vs-col strong">
-              <h3>∿ devcompass</h3>
+              <h3><BrandMark className="vs-mark" />devcompass</h3>
               <ul>
                 <li>All your participation, one navigable map</li>
                 <li>Unified Issues: GitHub + Sentry, by repo</li>
@@ -82,6 +86,7 @@ export default function Landing({ onGetStarted }: { onGetStarted: () => void }) 
         <section className="lp-section">
           <p className="lp-eyebrow">30 seconds</p>
           <h2>No signup. No backend account. Bring a PAT.</h2>
+          <p className="lp-note">We store <strong>nothing</strong> on a server. Your token, repos and cache live only in your browser's local database (IndexedDB), on your machine — clear your site data and it's gone.</p>
           <ol className="lp-steps">
             <li className="lp-step"><span className="lp-step-num">01</span><h3>Open the app</h3><p>Hosted, or <code>npm run dev</code> on your own machine.</p></li>
             <li className="lp-step"><span className="lp-step-num">02</span><h3>Paste your token</h3><p>Classic PAT with <code>repo</code> + <code>read:org</code>. Stays in your browser.</p></li>
