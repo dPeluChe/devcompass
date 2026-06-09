@@ -12,6 +12,10 @@
 }
 .lp a { color: inherit; }
 .lp-wrap { width: min(1080px, 92vw); margin: 0 auto; }
+/* Base size for every inline GitHub mark — without this an SVG with no width
+   fills its container (the giant logo in the "why" column). The hero overrides
+   it below. */
+.lp .gh-mark { width: 1.05em; height: 1.05em; vertical-align: -0.18em; flex: 0 0 auto; }
 
 /* nav */
 .lp-nav { display: flex; align-items: center; justify-content: space-between; padding: 18px 0; }
