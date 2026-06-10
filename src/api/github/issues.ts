@@ -1,5 +1,5 @@
 import { DEMO_TOKEN, DEMO_ISSUES } from '../demo-data'
-import { gql } from './client'
+import { gql, rest } from './client'
 
 export type IssueSearchResult = {
   id: string
@@ -98,4 +98,10 @@ export async function fetchIssueDetail(token: string, owner: string, name: strin
     { owner, name, number }
   )
   return data.repository?.issue ?? null
+}
+
+/** Close or reopen an issue. PATCH /repos/{owner}/{repo}/issues/{number}. */
+export async function setIssueState(token: string, owner: string, name: string, number: number, state: 'closed' | 'open'): Promise<void> {
+  if (token === DEMO_TOKEN) return
+  await rest(token, 'PATCH', `/repos/${owner}/${name}/issues/${number}`, { state })
 }

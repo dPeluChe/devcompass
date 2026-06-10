@@ -289,6 +289,13 @@
 .hs-notif-main { flex: 1; display: flex; flex-direction: column; gap: 2px; min-width: 0; }
 .hs-notif-title { font-size: 0.9rem; color: var(--text); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .hs-notif-meta { font-size: 0.78rem; display: flex; align-items: center; gap: 6px; }
+.hs-notif-headrow { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; }
+.hs-notif-read {
+  flex: 0 0 auto; background: none; border: 1px solid transparent; border-radius: 6px;
+  color: var(--muted); font-size: 0.9rem; padding: 2px 8px; cursor: pointer; opacity: 0;
+}
+.hs-notif-row:hover .hs-notif-read, .hs-notif-read:focus { opacity: 1; }
+.hs-notif-read:hover { color: var(--success, #3fb950); border-color: var(--border); }
 
 /* ----- Row ----- */
 .hs-row {

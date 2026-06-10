@@ -46,3 +46,15 @@ export function notificationWebUrl(n: GitHubNotification): string {
     .replace('https://api.github.com/repos/', 'https://github.com/')
     .replace('/pulls/', '/pull/')
 }
+
+/** Marks one notification thread read. PATCH /notifications/threads/{id} → 205. */
+export async function markNotificationRead(token: string, threadId: string): Promise<void> {
+  if (token === DEMO_TOKEN) return
+  await rest(token, 'PATCH', `/notifications/threads/${threadId}`)
+}
+
+/** Marks every notification read. PUT /notifications → 202/205. */
+export async function markAllNotificationsRead(token: string): Promise<void> {
+  if (token === DEMO_TOKEN) return
+  await rest(token, 'PUT', '/notifications', { read: true })
+}
