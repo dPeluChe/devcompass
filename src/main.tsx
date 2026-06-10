@@ -5,6 +5,7 @@ import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
 import { useParams, useNavigate } from 'react-router-dom'
 import { queryClient } from './store/queries'
 import { App } from './App'
+import { ErrorBoundary } from './components/ErrorBoundary'
 import { RepoDetail } from './components/RepoDetail'
 import { TokenSetup } from './components/TokenSetup'
 import { auth } from './store/auth'
@@ -83,9 +84,9 @@ createRoot(document.getElementById('root')!).render(
       <BrowserRouter>
         <Routes>
           <Route path="/login" element={<TokenSetupWrapper />} />
-          <Route path="/repos/:owner/:name" element={<ProtectedRoute><RepoPage /></ProtectedRoute>} />
+          <Route path="/repos/:owner/:name" element={<ProtectedRoute><ErrorBoundary label="the repo view"><RepoPage /></ErrorBoundary></ProtectedRoute>} />
           <Route path="/prs/:owner/:name/:number" element={<ProtectedRoute><PRRedirect /></ProtectedRoute>} />
-          <Route path="/*" element={<RootRoute />} />
+          <Route path="/*" element={<ErrorBoundary label="the app"><RootRoute /></ErrorBoundary>} />
         </Routes>
       </BrowserRouter>
     </QueryClientProvider>

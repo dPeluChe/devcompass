@@ -10,6 +10,7 @@ import { HomeSkeleton } from './home/HomeSkeleton'
 import { Pulse } from './ui'
 import { useGlobalShortcuts } from '../hooks/useGlobalShortcuts'
 import { useViewerData } from '../hooks/useViewerData'
+import { isLowFor } from '../store/rateGate'
 import { getPinnedRepos, pinRepo, unpinRepo, type PinnedRepo } from '../store/db'
 
 export { Skeleton, CardSkeleton, FadeIn, Pulse } from './ui'
@@ -178,8 +179,15 @@ export function Dashboard({ token, onLogout }: Props) {
               </span>
             )}
             {data.rateLimit && (
-              <span title={`Rate limit resets ${new Date(data.rateLimit.resetAt).toLocaleTimeString()}`}>
-                {data.rateLimit.remaining}/{data.rateLimit.limit}
+              <span
+                className={isLowFor(data.rateLimit.remaining, data.rateLimit.limit) ? 'rate-low' : undefined}
+                title={
+                  isLowFor(data.rateLimit.remaining, data.rateLimit.limit)
+                    ? `API quota nearly exhausted — background refresh paused until ${new Date(data.rateLimit.resetAt).toLocaleTimeString()}`
+                    : `Rate limit resets ${new Date(data.rateLimit.resetAt).toLocaleTimeString()}`
+                }
+              >
+                {isLowFor(data.rateLimit.remaining, data.rateLimit.limit) ? '⚠ ' : ''}{data.rateLimit.remaining}/{data.rateLimit.limit}
               </span>
             )}
 

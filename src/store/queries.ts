@@ -1,12 +1,15 @@
 import { QueryClient } from '@tanstack/react-query'
+import { isRateLow } from './rateGate'
 
 export const queryClient = new QueryClient({
   defaultOptions: {
     queries: {
       staleTime: 5 * 60 * 1000,
       gcTime: 10 * 60 * 1000,
-      refetchOnWindowFocus: true,
-      refetchOnReconnect: true,
+      // Passive background refreshing pauses while the GitHub quota is nearly
+      // exhausted (rateGate) — manual actions and initial loads still run.
+      refetchOnWindowFocus: () => !isRateLow(),
+      refetchOnReconnect: () => !isRateLow(),
       retry: 1,
     },
   },
