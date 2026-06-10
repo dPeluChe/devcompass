@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { extractExceptions, fetchSentryLatestEvent, updateSentryIssueStatus, type SentryIssue } from '../../api/sentry'
 import { sentryConfigStore } from '../../store/sentryConfig'
-import { db } from '../../store/db'
+import { clearPrefsByPrefix } from '../../store/db'
 import { relativeTime } from '../../utils/time'
 import { buildSentryAgentText } from '../../utils/agentPrompt'
 import { CopyButton } from '../CopyButton'
@@ -40,7 +40,7 @@ export function SentryIssueModal({ issue, onClose }: { issue: SentryIssue | null
     onSuccess: async () => {
       // Drop the IDB-backed issue lists too — invalidation alone would re-read
       // the still-fresh pref and resurrect the resolved issue.
-      await db.prefs.where('key').startsWith('sentryIssues:').delete()
+      await clearPrefsByPrefix('sentryIssues:')
       queryClient.invalidateQueries({ queryKey: ['sentry'] })
       onClose()
     },

@@ -24,7 +24,7 @@ export async function searchIssues(token: string, query: string, max = 200): Pro
   if (token === DEMO_TOKEN) return DEMO_ISSUES
   const out: IssueSearchResult[] = []
   let after: string | null = null
-  // Cursor-paginate (50/page) up to `max` so big backlogs aren't silently
+  // Cursor-paginate (100/page) up to `max` so big backlogs aren't silently
   // first-page-only. The cap keeps a pathological account from burning quota.
   while (out.length < max) {
     const data: {
@@ -60,7 +60,7 @@ export async function searchIssues(token: string, query: string, max = 200): Pro
         }
       }
     `,
-      { q: query, first: Math.min(50, max - out.length), after }
+      { q: query, first: Math.min(100, max - out.length), after }
     )
     out.push(...data.search.nodes.filter((n): n is IssueSearchResult => !!(n as IssueSearchResult).id))
     if (!data.search.pageInfo.hasNextPage) break

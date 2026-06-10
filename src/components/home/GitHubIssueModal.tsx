@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { addIssueComment, fetchIssueDetail, setIssueState } from '../../api/github'
+import { clearPrefsByPrefix } from '../../store/db'
 import { relativeTime } from '../../utils/time'
 import { buildGithubIssueAgentText } from '../../utils/agentPrompt'
 import { SanitizedMarkdown } from '../SanitizedMarkdown'
@@ -35,7 +36,10 @@ export function GitHubIssueModal({ issue, onClose }: { issue: GitHubIssueRef | n
     queryFn: () => fetchIssueDetail(issue!.token, issue!.owner, issue!.name, issue!.number),
   })
 
-  function refresh() {
+  async function refresh() {
+    // The issue-search queryFn reads its IDB pref first — drop it before
+    // invalidating, or the pre-mutation feed resurrects until the TTL expires.
+    await clearPrefsByPrefix('issueSearch:')
     queryClient.invalidateQueries({ queryKey: ['github', 'issue', issue?.owner, issue?.name, issue?.number] })
     queryClient.invalidateQueries({ queryKey: ['issues', 'search'] })
   }

@@ -3,6 +3,7 @@ import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { markAllNotificationsRead, markNotificationRead, notificationWebUrl, type GitHubNotification } from '../../../api/github'
 import { relativeTime } from '../../../utils/time'
 import { queryKeys } from '../../../store/queries'
+import { clearPrefsByPrefix } from '../../../store/db'
 import { OrgChip } from '../OrgChip'
 import { useNotifications, NOTIFICATIONS_LIMIT, persistNotificationsCache } from '../useNotifications'
 import { GitHubIssueModal, type GitHubIssueRef } from '../GitHubIssueModal'
@@ -73,15 +74,22 @@ export function NotificationsScope({ token, onOpenItem }: ScopeProps) {
     queryClient.setQueryData(queryKeys.notifications, next)
     persistNotificationsCache(token, next)
   }
+  // If GitHub rejected the mutation, the optimistic removal is a lie — drop the
+  // local caches entirely and refetch so the list re-syncs with the server.
+  async function rollback(e: unknown) {
+    setActionError(e instanceof Error ? e.message : String(e))
+    await clearPrefsByPrefix('notifications:')
+    queryClient.invalidateQueries({ queryKey: queryKeys.notifications })
+  }
   const markOne = useMutation({
     mutationFn: (id: string) => markNotificationRead(token, id),
     onMutate: (id) => dropFromCaches((n) => n.id !== id),
-    onError: (e) => setActionError(e instanceof Error ? e.message : String(e)),
+    onError: rollback,
   })
   const markAll = useMutation({
     mutationFn: () => markAllNotificationsRead(token),
     onMutate: () => dropFromCaches(() => false),
-    onError: (e) => setActionError(e instanceof Error ? e.message : String(e)),
+    onError: rollback,
   })
 
   const q = filter.trim().toLowerCase()
@@ -100,9 +108,12 @@ export function NotificationsScope({ token, onOpenItem }: ScopeProps) {
       if (g) g.items.push(n)
       else m.set(key, { owner: n.repository.owner.login, avatarUrl: n.repository.owner.avatar_url, items: [n] })
     }
-    const recency = (ns: GitHubNotification[]) => Math.max(...ns.map((n) => new Date(n.updated_at).getTime()))
     for (const g of m.values()) g.items.sort((a, b) => new Date(b.updated_at).getTime() - new Date(a.updated_at).getTime())
-    return [...m.entries()].sort((a, b) => recency(b[1].items) - recency(a[1].items))
+    // Items are sorted desc, so each group's recency is its first item —
+    // compute once instead of a Math.max scan per sort comparison.
+    return [...m.entries()].sort(
+      (a, b) => new Date(b[1].items[0].updated_at).getTime() - new Date(a[1].items[0].updated_at).getTime()
+    )
   }, [filtered])
 
   const total = data?.length ?? 0
