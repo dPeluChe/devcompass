@@ -10,11 +10,11 @@ Wave numbering comes from the 2026-06 product audit (architecture + UX + perf/se
 - [x] **Remove dead-end scopes** — 'rate' sidebar item (placeholder pointing at Config) and the unused 'watching'/'rate' ScopeKey members + PlaceholderScope.
 - [x] **Login copy refresh** — "GitHub command center" → panorama positioning, matching the landing.
 
-## Pending — Wave 2 "from viewpoint to cockpit" (actions)
+## In progress — Wave 2 "from viewpoint to cockpit" (actions)
 
-- [ ] **Notifications: mark as read** — single + mark-all (REST PATCH /notifications/threads/:id), optimistic update.
-- [ ] **Sentry mutations** — resolve / ignore from the issue modal (PUT /issues/:id via relay; needs event:write scope — verify + document).
-- [ ] **GitHub issue actions** — comment / close from GitHubIssueModal (mutations exist for PRs already).
+- [x] **Notifications: mark as read** — single + mark-all (REST PATCH /notifications/threads/:id), optimistic update.
+- [x] **Sentry mutations** — resolve / ignore from the issue modal (PUT /organizations/:org/issues/:id via relay; 403 surfaces an event:write scope hint).
+- [x] **GitHub issue actions** — comment / close / reopen from GitHubIssueModal.
 
 ## Pending — Wave 3 "seams" (navigation + consistency)
 

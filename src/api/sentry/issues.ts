@@ -1,4 +1,4 @@
-import { sentryFetch, type SentryAuth, type SentryPage } from './client'
+import { sentryFetch, sentryMutate, type SentryAuth, type SentryPage } from './client'
 import type { SentryCodeMapping, SentryEnvironment, SentryIssue, SentryOrganization, SentryProject } from './types'
 
 /**
@@ -76,4 +76,17 @@ export function fetchSentryProjectIssues(
     statsPeriod: opts?.statsPeriod ?? '14d',
     limit: opts?.limit ?? 25,
   })
+}
+
+/**
+ * Resolve / ignore / reopen an issue. PUT /organizations/{org}/issues/{id}/
+ * with { status }. Needs event:write on the token.
+ */
+export function updateSentryIssueStatus(
+  auth: SentryAuth,
+  orgSlug: string,
+  issueId: string,
+  status: 'resolved' | 'ignored' | 'unresolved'
+): Promise<unknown> {
+  return sentryMutate(`/organizations/${orgSlug}/issues/${issueId}/`, auth, 'PUT', { status })
 }

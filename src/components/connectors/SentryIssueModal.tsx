@@ -1,7 +1,8 @@
-import { useEffect } from 'react'
-import { useQuery } from '@tanstack/react-query'
-import { extractExceptions, fetchSentryLatestEvent, type SentryIssue } from '../../api/sentry'
+import { useEffect, useState } from 'react'
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import { extractExceptions, fetchSentryLatestEvent, updateSentryIssueStatus, type SentryIssue } from '../../api/sentry'
 import { sentryConfigStore } from '../../store/sentryConfig'
+import { db } from '../../store/db'
 import { relativeTime } from '../../utils/time'
 import { buildSentryAgentText } from '../../utils/agentPrompt'
 import { CopyButton } from '../CopyButton'
@@ -27,9 +28,29 @@ export function SentryIssueModal({ issue, onClose }: { issue: SentryIssue | null
     queryFn: async () => (await fetchSentryLatestEvent(sentryConfigStore.getState().getAuth(), issue!.id)).data,
   })
 
+  const queryClient = useQueryClient()
+  const [mutateError, setMutateError] = useState<string | null>(null)
+  const statusMutation = useMutation({
+    mutationFn: async (status: 'resolved' | 'ignored') => {
+      const cfg = sentryConfigStore.getState()
+      await updateSentryIssueStatus(cfg.getAuth(), cfg.orgSlug.trim(), issue!.id, status)
+    },
+    onSuccess: async () => {
+      // Drop the IDB-backed issue lists too — invalidation alone would re-read
+      // the still-fresh pref and resurrect the resolved issue.
+      await db.prefs.where('key').startsWith('sentryIssues:').delete()
+      queryClient.invalidateQueries({ queryKey: ['sentry'] })
+      onClose()
+    },
+    onError: (e) => setMutateError(e instanceof Error ? e.message : String(e)),
+  })
+
   if (!issue) return null
   const exceptions = extractExceptions(eventQuery.data)
-  const repo = sentryConfigStore.getState().projectRepoMap[issue.project.slug] ?? null
+  const cfgState = sentryConfigStore.getState()
+  const repo = cfgState.projectRepoMap[issue.project.slug] ?? null
+  // Mutations need a real connector (demo rows have none) + event:write.
+  const canMutate = cfgState.isConfigured()
 
   return (
     <div className="issue-modal-shell">
@@ -55,8 +76,20 @@ export function SentryIssueModal({ issue, onClose }: { issue: SentryIssue | null
 
         <div className="issue-modal-actions">
           <CopyButton getText={() => buildSentryAgentText(issue, exceptions, repo)} />
+          {canMutate && (
+            <>
+              <button className="hs-modal-btn ok" onClick={() => statusMutation.mutate('resolved')} disabled={statusMutation.isPending}>
+                {statusMutation.isPending ? 'Saving…' : '✓ Resolve'}
+              </button>
+              <button className="hs-modal-btn" onClick={() => statusMutation.mutate('ignored')} disabled={statusMutation.isPending}>
+                🔇 Ignore
+              </button>
+            </>
+          )}
           <a className="hs-modal-btn link" href={issue.permalink} target="_blank" rel="noopener noreferrer">Open in Sentry ↗</a>
         </div>
+
+        {mutateError && <div className="hs-status hs-status-err" style={{ whiteSpace: 'pre-line' }}>{mutateError}</div>}
 
         <div className="issue-modal-body">
           {eventQuery.isLoading && <p className="muted">Loading latest event…</p>}

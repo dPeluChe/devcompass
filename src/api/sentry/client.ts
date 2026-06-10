@@ -71,3 +71,31 @@ function parseNextCursor(link: string | null): string | null {
   }
   return null
 }
+
+/**
+ * Mutating call (PUT/POST/DELETE) through the relay. No retry — mutations
+ * shouldn't be replayed blindly. 403 gets an actionable scope hint since the
+ * recommended read-only token can't mutate.
+ */
+export async function sentryMutate<T>(
+  path: string,
+  auth: SentryAuth,
+  method: 'PUT' | 'POST' | 'DELETE',
+  body?: unknown
+): Promise<T | null> {
+  const upstream = sentryBaseUrl(auth.region) + path
+  const proxied = `${auth.proxyBase || '/api/proxy'}?url=${encodeURIComponent(upstream)}`
+  const res = await fetch(proxied, {
+    method,
+    headers: { Authorization: `Bearer ${auth.token}`, 'Content-Type': 'application/json', Accept: 'application/json' },
+    body: body == null ? undefined : JSON.stringify(body),
+    signal: AbortSignal.timeout(TIMEOUT_MS),
+  })
+  if (!res.ok) {
+    const text = (await res.text().catch(() => '')).slice(0, 300)
+    const hint = res.status === 403 ? ' — your token needs the event:write scope to do this' : ''
+    throw new Error(`Sentry ${res.status}: ${text || res.statusText}${hint}`)
+  }
+  if (res.status === 204) return null
+  return res.json().catch(() => null) as Promise<T | null>
+}

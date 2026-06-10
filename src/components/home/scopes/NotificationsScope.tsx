@@ -1,6 +1,8 @@
-import { useMemo } from 'react'
-import { notificationWebUrl, type GitHubNotification } from '../../../api/github'
+import { useMemo, useState } from 'react'
+import { useMutation, useQueryClient } from '@tanstack/react-query'
+import { markAllNotificationsRead, markNotificationRead, notificationWebUrl, type GitHubNotification } from '../../../api/github'
 import { relativeTime } from '../../../utils/time'
+import { queryKeys } from '../../../store/queries'
 import { OrgChip } from '../OrgChip'
 import { useNotifications, NOTIFICATIONS_LIMIT } from '../useNotifications'
 import { Header, type ScopeProps } from './common'
@@ -29,6 +31,26 @@ const SUBJECT_GLYPH: Record<string, string> = {
 
 export function NotificationsScope({ token }: ScopeProps) {
   const { data, isLoading, error } = useNotifications(token)
+  const queryClient = useQueryClient()
+  const [actionError, setActionError] = useState<string | null>(null)
+
+  // Mark-as-read drops the row from the unread list optimistically — the cache
+  // IS the unread set, so removal is the truthful post-mutation state. No
+  // invalidate: a refetch would race GitHub's eventual consistency.
+  const markOne = useMutation({
+    mutationFn: (id: string) => markNotificationRead(token, id),
+    onMutate: (id) => {
+      queryClient.setQueryData<GitHubNotification[]>(queryKeys.notifications, (old) => (old ?? []).filter((n) => n.id !== id))
+    },
+    onError: (e) => setActionError(e instanceof Error ? e.message : String(e)),
+  })
+  const markAll = useMutation({
+    mutationFn: () => markAllNotificationsRead(token),
+    onMutate: () => {
+      queryClient.setQueryData<GitHubNotification[]>(queryKeys.notifications, [])
+    },
+    onError: (e) => setActionError(e instanceof Error ? e.message : String(e)),
+  })
 
   // Group by repo, each group ordered by recency, groups ordered by their most
   // recent notification.
@@ -49,7 +71,16 @@ export function NotificationsScope({ token }: ScopeProps) {
 
   return (
     <main className="hs-main">
-      <Header title="Notifications" count={total} meta="unread · everything that involves you, across all repos" />
+      <div className="hs-notif-headrow">
+        <Header title="Notifications" count={total} meta="unread · everything that involves you, across all repos" />
+        {total > 0 && (
+          <button className="hs-modal-btn" onClick={() => markAll.mutate()} disabled={markAll.isPending}>
+            {markAll.isPending ? 'Marking…' : '✓ Mark all read'}
+          </button>
+        )}
+      </div>
+
+      {actionError && <p className="hs-truncation-note" style={{ color: 'var(--danger)' }}>{actionError}</p>}
 
       {total >= NOTIFICATIONS_LIMIT && (
         <p className="hs-truncation-note muted">
@@ -78,7 +109,7 @@ export function NotificationsScope({ token }: ScopeProps) {
             <span className="muted"> · {group.items.length}</span>
           </h3>
           <div className="hs-surface">
-            {group.items.map((n) => <NotificationRow key={n.id} n={n} />)}
+            {group.items.map((n) => <NotificationRow key={n.id} n={n} onMarkRead={() => markOne.mutate(n.id)} />)}
           </div>
         </section>
       ))}
@@ -86,7 +117,7 @@ export function NotificationsScope({ token }: ScopeProps) {
   )
 }
 
-function NotificationRow({ n }: { n: GitHubNotification }) {
+function NotificationRow({ n, onMarkRead }: { n: GitHubNotification; onMarkRead: () => void }) {
   return (
     <a className="hs-notif-row" href={notificationWebUrl(n)} target="_blank" rel="noopener noreferrer">
       <span className={`hs-dot ${REASON_DOT[n.reason] ?? 'info'}`} />
@@ -95,6 +126,11 @@ function NotificationRow({ n }: { n: GitHubNotification }) {
         <span className="hs-notif-title">{n.subject.title}</span>
         <div className="hs-notif-meta muted">{n.reason.replace(/_/g, ' ')} · {relativeTime(n.updated_at)}</div>
       </div>
+      <button
+        className="hs-notif-read"
+        title="Mark as read"
+        onClick={(e) => { e.preventDefault(); e.stopPropagation(); onMarkRead() }}
+      >✓</button>
     </a>
   )
 }
