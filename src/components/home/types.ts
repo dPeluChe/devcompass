@@ -4,13 +4,11 @@ export type ScopeKey =
   | 'needs'
   | 'since'
   | 'notifications'
-  | 'watching'
   | 'issues'
   | 'pinned'
   | 'active'
   | 'repos'
   | 'digest'
-  | 'rate'
   | `org:${string}`
 
 /** True for an org-specific scope key (e.g. "org:Iteristech"). */

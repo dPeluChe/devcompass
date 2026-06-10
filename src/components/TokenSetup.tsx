@@ -22,7 +22,7 @@ export function TokenSetup({ onSubmit }: Props) {
             <img src="/favicon.svg" width="52" height="52" alt="devcompass" />
           </div>
           <h1 className="login-title">devcompass</h1>
-          <p className="login-subtitle">Your GitHub command center. Local-first.</p>
+          <p className="login-subtitle">Your complete cross-org panorama — repos, PRs, issues and errors. Local-first.</p>
 
           <div className="login-instructions">
             <h3>How to get a token</h3>

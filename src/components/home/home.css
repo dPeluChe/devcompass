@@ -276,6 +276,7 @@
 .hs-issue-meta { font-size: 0.78rem; }
 .hs-issue-ext { flex: 0 0 auto; color: var(--muted); text-decoration: none; padding: 0 4px; }
 .hs-issue-ext:hover { color: var(--accent); }
+.hs-truncation-note { margin: -6px 0 14px; font-size: 0.8rem; }
 
 /* ----- Notifications scope ----- */
 .hs-notif-row {

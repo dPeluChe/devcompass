@@ -1,11 +1,15 @@
 import { useMemo } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { searchIssues, type IssueSearchResult } from '../../api/github'
+import { DEMO_TOKEN, DEMO_SENTRY_ISSUES, DEMO_SENTRY_REPO_MAP } from '../../api/demo-data'
 import type { SentryIssue, SentryIssueLevel } from '../../api/sentry'
 import { sentryConfigStore } from '../../store/sentryConfig'
 import { queryKeys } from '../../store/queries'
-import { useSentryIssues } from './useSentryIssues'
+import { useSentryIssues, SENTRY_ISSUE_LIMIT } from './useSentryIssues'
 import type { DotLevel } from './types'
+
+/** Single-page fetch cap for the GitHub issue search (no cursor chain yet). */
+const GH_ISSUE_LIMIT = 50
 
 export type IssueSource = 'github' | 'sentry'
 
@@ -67,25 +71,35 @@ function fromSentry(iss: SentryIssue, repo: string | null): UnifiedIssue {
  * cached separately; this hook just adapts + concatenates.
  */
 export function useUnifiedIssues(token: string, viewerLogin: string | undefined) {
+  const isDemo = token === DEMO_TOKEN
   const ghQuery = useQuery({
     queryKey: queryKeys.issueSearch(`assignee:${viewerLogin ?? ''}`),
-    queryFn: () => searchIssues(token, `is:issue is:open assignee:${viewerLogin}`),
+    queryFn: () => searchIssues(token, `is:issue is:open assignee:${viewerLogin}`, GH_ISSUE_LIMIT),
     enabled: !!viewerLogin,
     staleTime: 5 * 60 * 1000,
   })
   const sentryQuery = useSentryIssues()
   const projectRepoMap = sentryConfigStore((s) => s.projectRepoMap)
 
+  // Demo mode showcases the homologation without a real Sentry connection.
+  const sentryData = isDemo ? DEMO_SENTRY_ISSUES : sentryQuery.data
+  const repoMap = isDemo ? DEMO_SENTRY_REPO_MAP : projectRepoMap
+
   const items = useMemo<UnifiedIssue[]>(() => [
     ...(ghQuery.data ?? []).map(fromGitHub),
-    ...(sentryQuery.data ?? []).map((iss) => fromSentry(iss, projectRepoMap[iss.project.slug] ?? null)),
-  ], [ghQuery.data, sentryQuery.data, projectRepoMap])
+    ...(sentryData ?? []).map((iss) => fromSentry(iss, repoMap[iss.project.slug] ?? null)),
+  ], [ghQuery.data, sentryData, repoMap])
 
   return {
     items,
-    isLoading: ghQuery.isLoading || sentryQuery.isLoading,
+    isLoading: ghQuery.isLoading || (!isDemo && sentryQuery.isLoading),
     error: ghQuery.error,
     githubCount: ghQuery.data?.length ?? 0,
-    sentryCount: sentryQuery.data?.length ?? 0,
+    sentryCount: sentryData?.length ?? 0,
+    // Single-page fetches: when a feed fills its page it's likely truncated.
+    truncated: {
+      github: (ghQuery.data?.length ?? 0) >= GH_ISSUE_LIMIT,
+      sentry: !isDemo && (sentryQuery.data?.length ?? 0) >= SENTRY_ISSUE_LIMIT,
+    },
   }
 }

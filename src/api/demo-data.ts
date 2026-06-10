@@ -1,7 +1,9 @@
 import type {
   Viewer, Org, Repo, RepoOpenPR, PullRequest, ContribCalendar, ContribDay,
-  TokenInfo, RateLimit, PRDetail, PRCommit, Review, Comment, FileChange
+  TokenInfo, RateLimit, PRDetail, PRCommit, Review, Comment, FileChange,
+  IssueSearchResult, GitHubNotification
 } from './github'
+import type { SentryIssue } from './sentry'
 
 export const DEMO_TOKEN = '__demo__'
 
@@ -490,3 +492,112 @@ export function getDemoPRDetail(owner: string, name: string, number: number): PR
     ],
   }
 }
+
+// ---------------------------------------------------------------------------
+// Unified Issues feed (GitHub issues + Sentry errors) — demo dataset
+// ---------------------------------------------------------------------------
+
+function issue(
+  id: string,
+  number: number,
+  title: string,
+  org: string,
+  repo: string,
+  authorLogin: string,
+  updatedDaysAgo: number,
+  labels: { name: string; color: string }[] = [],
+  comments = 0,
+): IssueSearchResult {
+  return {
+    id,
+    number,
+    title,
+    url: `https://github.com/${org}/${repo}/issues/${number}`,
+    state: 'OPEN',
+    createdAt: ago(updatedDaysAgo + 4),
+    updatedAt: ago(updatedDaysAgo),
+    author: { login: authorLogin, avatarUrl: ghAvatar(authorLogin) },
+    repository: { nameWithOwner: `${org}/${repo}`, url: `https://github.com/${org}/${repo}`, owner: { login: org, avatarUrl: ghAvatar(org) } },
+    labels: { nodes: labels },
+    comments: { totalCount: comments },
+  }
+}
+
+export const DEMO_ISSUES: IssueSearchResult[] = [
+  issue('I001', 92, 'Login redirect loops when SSO session expires mid-flow', 'iteris', 'platform-api', 'carlosm', 0, [{ name: 'bug', color: 'd73a4a' }, { name: 'auth', color: '0e8a16' }], 6),
+  issue('I002', 219, 'Dashboard metrics panel renders empty on Safari 17', 'iteris', 'web-app', 'sofiad', 1, [{ name: 'bug', color: 'd73a4a' }], 3),
+  issue('I003', 4730, 'RFC: streaming metadata API for app router', 'vercel', 'next.js', 'sebmarkbage', 2, [{ name: 'discussion', color: 'cc317c' }], 41),
+  issue('I004', 21, 'Add keyboard shortcut cheatsheet to the help modal', 'dPeluChe', 'devcompass', 'dPeluChe', 3, [{ name: 'enhancement', color: '84b6eb' }], 1),
+]
+
+// Sentry demo: unresolved errors mapped onto the demo repos so the unified
+// Issues feed showcases the homologation without a real Sentry connection.
+export const DEMO_SENTRY_ISSUES: SentryIssue[] = [
+  {
+    id: 'S001', shortId: 'PLATFORM-API-3K', title: "TypeError: Cannot read properties of undefined (reading 'orgId')",
+    culprit: 'middleware/auth.ts in resolveSession', level: 'error', status: 'unresolved',
+    count: '128', userCount: 37, firstSeen: ago(6), lastSeen: ago(0, 2),
+    permalink: 'https://demo.sentry.io/issues/S001/', project: { id: '1', slug: 'platform-api', name: 'platform-api' },
+  },
+  {
+    id: 'S002', shortId: 'WEB-APP-9F', title: 'ChunkLoadError: Loading chunk 42 failed (deploy hash mismatch)',
+    culprit: 'app/routes/dashboard.tsx', level: 'warning', status: 'unresolved',
+    count: '54', userCount: 19, firstSeen: ago(2), lastSeen: ago(0, 5),
+    permalink: 'https://demo.sentry.io/issues/S002/', project: { id: '2', slug: 'web-app', name: 'web-app' },
+  },
+  {
+    id: 'S003', shortId: 'PLATFORM-API-4A', title: 'N+1 Query detected: SELECT * FROM memberships WHERE user_id = ?',
+    culprit: 'services/orgs.ts in listUserOrgs', level: 'info', status: 'unresolved',
+    count: '311', userCount: 8, firstSeen: ago(12), lastSeen: ago(1),
+    permalink: 'https://demo.sentry.io/issues/S003/', project: { id: '1', slug: 'platform-api', name: 'platform-api' },
+  },
+]
+
+/** Sentry project slug → GitHub repo, mirroring a configured connector. */
+export const DEMO_SENTRY_REPO_MAP: Record<string, string> = {
+  'platform-api': 'iteris/platform-api',
+  'web-app': 'iteris/web-app',
+}
+
+// ---------------------------------------------------------------------------
+// Notifications inbox — demo dataset
+// ---------------------------------------------------------------------------
+
+function notif(
+  id: string,
+  reason: string,
+  type: string,
+  title: string,
+  org: string,
+  repo: string,
+  webPath: string,
+  updatedDaysAgo: number,
+  hoursAgo = 0,
+): GitHubNotification {
+  return {
+    id,
+    reason,
+    unread: true,
+    updated_at: ago(updatedDaysAgo, hoursAgo),
+    subject: {
+      title,
+      url: `https://api.github.com/repos/${org}/${repo}/${webPath}`,
+      latest_comment_url: null,
+      type,
+    },
+    repository: {
+      full_name: `${org}/${repo}`,
+      html_url: `https://github.com/${org}/${repo}`,
+      owner: { login: org, avatar_url: ghAvatar(org) },
+    },
+  }
+}
+
+export const DEMO_NOTIFICATIONS: GitHubNotification[] = [
+  notif('N001', 'review_requested', 'PullRequest', 'feat(app-router): support React 19 concurrent features', 'vercel', 'next.js', 'pulls/4721', 0, 1),
+  notif('N002', 'mention', 'Issue', 'Login redirect loops when SSO session expires mid-flow', 'iteris', 'platform-api', 'issues/92', 0, 3),
+  notif('N003', 'assign', 'Issue', 'Dashboard metrics panel renders empty on Safari 17', 'iteris', 'web-app', 'issues/219', 1),
+  notif('N004', 'ci_activity', 'CheckSuite', 'CI failed on main: test (node 20)', 'iteris', 'platform-api', 'actions', 0, 6),
+  notif('N005', 'subscribed', 'Release', 'v15.4.0', 'vercel', 'next.js', 'releases/15.4.0', 2),
+  notif('N006', 'comment', 'PullRequest', 'refactor(editor): extract BlockEditor to standalone package', 'linear', 'linear', 'pulls/2103', 1, 4),
+]
