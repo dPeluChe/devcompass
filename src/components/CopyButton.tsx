@@ -1,4 +1,5 @@
-import { useEffect, useRef, useState } from 'react'
+import { useFlash } from '../hooks/useFlash'
+import { useState } from 'react'
 
 /**
  * Copies the text returned by getText() to the clipboard with a brief "Copied"
@@ -9,25 +10,22 @@ export function CopyButton({ getText, label = 'Copy for agent', className = 'hs-
   label?: string
   className?: string
 }) {
-  const [state, setState] = useState<'idle' | 'ok' | 'err'>('idle')
-  const timer = useRef<number | null>(null)
-
-  useEffect(() => () => { if (timer.current) clearTimeout(timer.current) }, [])
+  const [flash, trigger] = useFlash(1600)
+  const [failed, setFailed] = useState(false)
 
   async function copy() {
     try {
       await navigator.clipboard.writeText(getText())
-      setState('ok')
+      setFailed(false)
     } catch {
-      setState('err')
+      setFailed(true)
     }
-    if (timer.current) clearTimeout(timer.current)
-    timer.current = window.setTimeout(() => setState('idle'), 1600)
+    trigger()
   }
 
   return (
     <button className={className} onClick={copy} type="button">
-      {state === 'ok' ? '✓ Copied' : state === 'err' ? 'Copy failed' : `⧉ ${label}`}
+      {flash ? (failed ? 'Copy failed' : '✓ Copied') : `⧉ ${label}`}
     </button>
   )
 }

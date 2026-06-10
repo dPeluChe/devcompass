@@ -188,6 +188,16 @@ export const CACHE_TTLS: Record<string, number> = {
 }
 
 /**
+ * Drop every cached pref under a prefix. Mutations MUST call this for the
+ * feeds they affect before invalidating react-query — the queryFn reads the
+ * IDB pref first, so invalidation alone would resurrect the pre-mutation state
+ * until the TTL expires.
+ */
+export async function clearPrefsByPrefix(prefix: string): Promise<number> {
+  return db.prefs.where('key').startsWith(prefix).delete()
+}
+
+/**
  * Sweep the prefs table and delete every TTL-bound row whose `updatedAt`
  * has aged past its bucket's window. Cheap to call — one scan + bulk
  * delete. Returns the number of rows evicted so callers can log it.
