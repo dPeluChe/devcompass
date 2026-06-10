@@ -26,7 +26,7 @@ devcompass is a browser-only single-page app. There is no backend that we operat
 | Surface | What is stored | Where |
 | --- | --- | --- |
 | Login | Raw PAT, ASCII-sanitized | `localStorage["devcompass.pat"]` |
-| Cache panel | Token reference key only | IndexedDB `devcompass.tokens` (id `current`) |
+| Cache panel | Token-keyed cache rows (masked in the UI) | IndexedDB `devcompass.prefs` |
 | Network | `Authorization: bearer <token>` | Request header to `api.github.com`, never to a server we operate |
 
 You can wipe everything from **Settings → Storage → Clear all cache**, or by deleting the `devcompass.pat` key and `devcompass` IndexedDB database from your browser.

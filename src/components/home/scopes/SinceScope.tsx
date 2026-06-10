@@ -1,19 +1,18 @@
-import { useState } from 'react'
 import { OrgChip } from '../OrgChip'
 import { useSinceLastVisit, type SinceEvent } from '../useSinceLastVisit'
+import { useFlash } from '../../../hooks/useFlash'
 import type { AttentionItem } from '../types'
 import { relativeTime } from '../../../utils/time'
 import { type ScopeProps } from './common'
 
 export function SinceScope({ repos, onOpenItem, onOpenRepo }: ScopeProps) {
   const { events, isFirstRun, snapshot, markSeen } = useSinceLastVisit(repos)
-  const [seen, setSeen] = useState(false)
+  const [seen, flashSeen] = useFlash(1500)
   const showEvents = !seen ? events : []
 
   async function handleMarkSeen() {
     await markSeen()
-    setSeen(true)
-    setTimeout(() => setSeen(false), 1500)
+    flashSeen()
   }
 
   function handleEvent(ev: SinceEvent) {

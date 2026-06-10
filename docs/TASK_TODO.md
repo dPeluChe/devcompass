@@ -26,14 +26,14 @@ Wave numbering comes from the 2026-06 product audit (architecture + UX + perf/se
 - [x] **Skeleton states** — shared ScopeSkeleton replaces raw "Loading…" in Issues/Notifications.
 - [x] **Text filter for long lists** — title/repo filter input in Issues + Notifications (shown past 8 items).
 
-## Pending — Wave 4 "trust before scale" (robustness)
+## In progress — Wave 4 "trust before scale" (robustness)
 
-- [ ] **Tests for high-risk modules** — api/_relay allowlist, sentry client (cursor/retry/env-normalize), useUnifiedIssues merge, utils/time boundaries, agentPrompt builders.
-- [ ] **Sanitize Sentry token on store** — sentryConfig should run sanitizeToken like the PAT does.
-- [ ] **db.tokens stores the token string** — keep only metadata (scopes/expiry).
-- [ ] **Relay hardening round 2** — response size cap, HTTP method restriction.
-- [ ] **Timer cleanup** — 4 setTimeout without unmount cleanup (SinceScope, DetailModalHeader, Checks, DetailModal status).
-- [ ] **API boundary validation** — gql/rest/sentryFetch all cast `as T` with no runtime shape check.
+- [x] **Tests for high-risk modules** — 29 tests across 7 files: relay allowlist/forwarding/size-cap, sentry client (proxy routing, cursor parse, fail-fast 4xx), normEnvironment, relativeTime boundaries (incl. the 0y regression), agentPrompt builders. (useUnifiedIssues merge needs renderHook → future with @testing-library.)
+- [x] **Sanitize Sentry token on store** — sentryConfig.update sanitizes at the storage boundary (getAuth already sanitized reads).
+- [x] **db.tokens dropped** — the table stored the raw token but had zero readers (saveTokenMeta/getTokenMeta/isTokenExpiringSoon were dead); Dexie v4 removes it; SECURITY.md/Settings copy updated.
+- [x] **Relay hardening round 2** — method allowlist (GET/POST/PUT/PATCH/DELETE → 405 otherwise) + 20MB response size cap (declared and actual).
+- [x] **Timer cleanup** — shared useFlash hook (clears on re-trigger + unmount) replaces the raw setTimeout in SinceScope, DetailModalHeader, Checks. (DetailModal's status effect already had cleanup.)
+- [x] **API boundary guards (cheap)** — gql throws on 200-with-no-data; fetchWorkflowRunJobs null-safe. Full schema validation (zod) stays longer-term.
 
 ## Pending — longer term
 

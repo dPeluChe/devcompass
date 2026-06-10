@@ -69,9 +69,18 @@ function errorResult(status: number, message: string): RelayResult {
   }
 }
 
+/** Methods the connectors actually use — everything else is rejected. */
+const ALLOWED_METHODS = new Set(['GET', 'POST', 'PUT', 'PATCH', 'DELETE'])
+
+/** Refuse to relay bodies past this size — protects the browser from a hostile upstream. */
+const MAX_RESPONSE_BYTES = 20 * 1024 * 1024 // 20 MB
+
 export async function relay(input: RelayInput): Promise<RelayResult> {
   const url = isAllowedTarget(input.targetUrl)
   if (!url) return errorResult(400, 'target not allowed (must be https + allowlisted host)')
+  if (!ALLOWED_METHODS.has(input.method.toUpperCase())) {
+    return errorResult(405, `method ${input.method} not allowed`)
+  }
 
   const fwd = new Headers()
   for (const h of FORWARD_REQUEST_HEADERS) {
@@ -101,5 +110,15 @@ export async function relay(input: RelayInput): Promise<RelayResult> {
   // browser fetch can read the cursor.
   headers['access-control-expose-headers'] = 'link, x-hits, x-max-hits'
 
-  return { status: upstream.status, headers, body: await upstream.arrayBuffer() }
+  // Size cap: trust content-length when present; otherwise verify after reading.
+  const declared = parseInt(upstream.headers.get('content-length') ?? '', 10)
+  if (Number.isFinite(declared) && declared > MAX_RESPONSE_BYTES) {
+    return errorResult(502, `upstream response too large (${declared} bytes)`)
+  }
+  const body = await upstream.arrayBuffer()
+  if (body.byteLength > MAX_RESPONSE_BYTES) {
+    return errorResult(502, `upstream response too large (${body.byteLength} bytes)`)
+  }
+
+  return { status: upstream.status, headers, body }
 }

@@ -28,6 +28,10 @@ export async function gql<T>(token: string, query: string, variables: Record<str
       if (json.errors) {
         throw new Error(json.errors.map((e: { message: string }) => e.message).join('; '))
       }
+      // Cheap boundary check: a 200 with no data is a malformed/proxy response,
+      // not a usable payload — fail loudly instead of letting `undefined as T`
+      // propagate into the UI.
+      if (json.data == null) throw new Error('GitHub API returned no data')
       return json.data as T
     } catch (e) {
       lastError = e instanceof Error ? e : new Error(String(e))

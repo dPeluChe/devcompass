@@ -41,15 +41,6 @@ export interface CachedOrg {
   order: number
 }
 
-export interface TokenMeta {
-  id: string
-  token: string
-  expiresAt: number | null
-  scopes: string[]
-  note: string
-  lastCheckedAt: number
-}
-
 export interface PinnedRepo {
   repoId: string
   nameWithOwner: string
@@ -76,7 +67,6 @@ class GHDatabase extends Dexie {
   repos!: Table<CachedRepo, string>
   orgs!: Table<CachedOrg, string>
   prefs!: Table<UserPrefs, string>
-  tokens!: Table<TokenMeta, string>
   pinnedRepos!: Table<PinnedRepo, string>
   snoozedPRs!: Table<SnoozedPR, string>
 
@@ -110,6 +100,10 @@ class GHDatabase extends Dexie {
       // untilTs lets us cheaply prune expired rows; no upgrade needed since the table is new.
       snoozedPRs: 'prId, untilTs'
     })
+
+    // v4 drops the tokens table: it stored the raw token string but had no
+    // readers — metadata lives in the tokenInfo pref cache instead.
+    this.version(4).stores({ tokens: null })
   }
 }
 
@@ -235,28 +229,6 @@ export async function getCachedPref<T>(key: string, ttlMs: number): Promise<T | 
   return row.value as T
 }
 
-export async function saveTokenMeta(token: string, expiresAt: number | null, scopes: string[], note = 'github_pat') {
-  await db.tokens.put({
-    id: 'current',
-    token,
-    expiresAt,
-    scopes,
-    note,
-    lastCheckedAt: Date.now()
-  })
-}
-
-export async function getTokenMeta(): Promise<TokenMeta | undefined> {
-  return db.tokens.get('current')
-}
-
-export async function isTokenExpiringSoon(daysThreshold = 7): Promise<boolean> {
-  const meta = await getTokenMeta()
-  if (!meta?.expiresAt) return false
-  const msFromNow = meta.expiresAt - Date.now()
-  return msFromNow < daysThreshold * 24 * 60 * 60 * 1000
-}
-
 export async function pinRepo(repoId: string, nameWithOwner: string) {
   await db.pinnedRepos.put({
     repoId,
@@ -282,7 +254,6 @@ export type StorageBreakdown = {
   repos: number
   orgs: number
   prefs: number
-  tokensMeta: number
   pinned: number
   snoozed: number
   prefKeys: PrefSummary[]
@@ -297,11 +268,10 @@ export type StorageBreakdown = {
  * responses are currently cached) and the browser-reported quota.
  */
 export async function getStorageBreakdown(): Promise<StorageBreakdown> {
-  const [repos, orgs, prefs, tokensMeta, pinned, snoozed, prefRows] = await Promise.all([
+  const [repos, orgs, prefs, pinned, snoozed, prefRows] = await Promise.all([
     db.repos.count(),
     db.orgs.count(),
     db.prefs.count(),
-    db.tokens.count(),
     db.pinnedRepos.count(),
     db.snoozedPRs.count(),
     db.prefs.toArray()
@@ -319,7 +289,6 @@ export async function getStorageBreakdown(): Promise<StorageBreakdown> {
     repos,
     orgs,
     prefs,
-    tokensMeta,
     pinned,
     snoozed,
     prefKeys: prefRows.map((r) => ({ key: r.key, updatedAt: r.updatedAt })).toSorted((a, b) => b.updatedAt - a.updatedAt),
