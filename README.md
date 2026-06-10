@@ -102,8 +102,7 @@ There is no backend — `dist/` is everything.
 
 | | URL | What it is |
 | --- | --- | --- |
-| 🌐 | **<https://dpeluche.github.io/devcompass/>** | Project landing page (what / why / screenshots) |
-| 🚀 | **<https://devcompass.vercel.app>** | Live app — paste a PAT and use it |
+| 🚀 | **<https://devcompass.vercel.app>** | Landing + app — logged out shows the landing; paste a PAT to use it |
 
 > First time visiting? The app will ask for a Personal Access Token. The page never sends it anywhere except `api.github.com` — verify in your browser DevTools → Network if you want to confirm.
 

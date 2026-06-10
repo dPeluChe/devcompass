@@ -151,16 +151,13 @@ npm run preview    # serve the built bundle locally
 
 ## Hosting split
 
-The repo deploys two surfaces from the same `main`:
+The repo deploys one surface from `main`:
 
 | Surface | Source | Host | URL |
 | --- | --- | --- | --- |
-| Landing page | `landing/` (static HTML/CSS) | GitHub Pages | <https://dpeluche.github.io/devcompass/> |
-| Live app | Vite build of `src/` | Vercel | <https://devcompass.vercel.app> |
+| Landing + app | Vite build of `src/` | Vercel | <https://devcompass.vercel.app> |
 
-`.github/workflows/pages.yml` only assembles the landing site (no Node build) and copies the screenshots from `docs/screenshots/`. It runs on push to `main` only when files under `landing/`, `docs/screenshots/`, or the workflow itself change.
-
-Vercel reads `vercel.json` for the SPA rewrite (everything → `/index.html`) and runs `npm run build` on push to `main`. There is no `VITE_BASE` override on Vercel — the app serves from the root.
+The landing lives in the app itself (`src/components/landing/`, lazy-loaded) and is served at `/` for logged-out visitors; once a token exists, `/` is the app. Vercel reads `vercel.json` for the SPA rewrite (everything except `/api` → `/index.html`) and runs `npm run build` on push to `main`. The app serves from the root.
 
 ## Token requirements
 
