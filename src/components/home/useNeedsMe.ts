@@ -1,7 +1,7 @@
 import { useQuery } from '@tanstack/react-query'
 import { searchPRs, type PullRequest } from '../../api/github'
 import { useEffect, useState } from 'react'
-import { getActiveSnoozes } from '../../store/db'
+import { getActiveSnoozes, getCachedPref, savePref, CACHE_TTLS } from '../../store/db'
 import {
   type AttentionItem,
   type Reason,
@@ -29,6 +29,10 @@ export function useNeedsMe(token: string, viewerLogin: string | undefined) {
     staleTime: 2 * 60 * 1000,
     queryFn: async (): Promise<AttentionItem[]> => {
       const me = viewerLogin!
+      // IDB-backed so reloads paint instantly (same pattern as Sentry/PR detail).
+      const prefKey = `needsMe:${me}`
+      const cached = await getCachedPref<AttentionItem[]>(prefKey, CACHE_TTLS['needsMe:'])
+      if (cached) return cached
       const [reviewRequested, authored, mentioned, assigned] = await Promise.all([
         searchPRs(token, `is:pr is:open review-requested:${me} archived:false sort:updated-desc`, 100),
         searchPRs(token, `is:pr is:open author:${me} archived:false sort:updated-desc`, 100),
@@ -86,9 +90,11 @@ export function useNeedsMe(token: string, viewerLogin: string | undefined) {
       // Strict reverse-chronological by updatedAt: the row's "9h"/"6mo" badge
       // matches the position. Severity is communicated by the dot color and the
       // reason chips, not by the order.
-      return Array.from(byId.values()).toSorted(
+      const result = Array.from(byId.values()).toSorted(
         (a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime()
       )
+      await savePref(prefKey, result)
+      return result
     }
   })
 }

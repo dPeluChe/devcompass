@@ -28,14 +28,23 @@ export type GitHubNotification = {
  * ones not synced. Default returns unread only. Needs the `notifications` or
  * `repo` scope.
  */
-export async function fetchNotifications(token: string, opts?: { all?: boolean; perPage?: number }): Promise<GitHubNotification[]> {
+export async function fetchNotifications(token: string, opts?: { all?: boolean; max?: number }): Promise<GitHubNotification[]> {
   if (token === DEMO_TOKEN) return DEMO_NOTIFICATIONS
-  const data = await rest(
-    token,
-    'GET',
-    `/notifications?all=${opts?.all ? 'true' : 'false'}&per_page=${opts?.perPage ?? 50}`
-  ) as GitHubNotification[]
-  return Array.isArray(data) ? data : []
+  const max = opts?.max ?? 200
+  const perPage = 50
+  const out: GitHubNotification[] = []
+  // Page until a short page or the cap — a full page means there's likely more.
+  for (let page = 1; out.length < max; page++) {
+    const data = await rest(
+      token,
+      'GET',
+      `/notifications?all=${opts?.all ? 'true' : 'false'}&per_page=${perPage}&page=${page}`
+    ) as GitHubNotification[]
+    if (!Array.isArray(data) || data.length === 0) break
+    out.push(...data)
+    if (data.length < perPage) break
+  }
+  return out.slice(0, max)
 }
 
 /** Best-effort web URL for a notification's subject (issues/PRs; falls back to the repo). */

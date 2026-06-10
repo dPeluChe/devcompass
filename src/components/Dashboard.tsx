@@ -67,6 +67,10 @@ export function Dashboard({ token, onLogout }: Props) {
       gotoView(action.view)
       return
     }
+    if (action.kind === 'scope') {
+      handleScopeChange(action.scope)
+      return
+    }
     if (action.kind === 'repo') {
       setSelected({ owner: action.repo.owner.login, name: action.repo.name })
       setView('repos')

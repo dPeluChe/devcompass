@@ -90,3 +90,19 @@ export function updateSentryIssueStatus(
 ): Promise<unknown> {
   return sentryMutate(`/organizations/${orgSlug}/issues/${issueId}/`, auth, 'PUT', { status })
 }
+
+/**
+ * Cursor-paginates fetchSentryIssues up to `max` issues — the cursor support
+ * existed in the client but was never consumed, silently capping at one page.
+ */
+export async function fetchAllSentryIssues(auth: SentryAuth, opts: IssueQuery, max = 300): Promise<SentryIssue[]> {
+  const out: SentryIssue[] = []
+  let cursor: string | undefined
+  while (out.length < max) {
+    const page = await fetchSentryIssues(auth, { ...opts, cursor, limit: Math.min(100, max - out.length) })
+    out.push(...page.data)
+    if (!page.nextCursor) break
+    cursor = page.nextCursor
+  }
+  return out.slice(0, max)
+}

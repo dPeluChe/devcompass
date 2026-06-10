@@ -5,11 +5,12 @@ import { DEMO_TOKEN, DEMO_SENTRY_ISSUES, DEMO_SENTRY_REPO_MAP } from '../../api/
 import type { SentryIssue, SentryIssueLevel } from '../../api/sentry'
 import { sentryConfigStore } from '../../store/sentryConfig'
 import { queryKeys } from '../../store/queries'
+import { getCachedPref, savePref, CACHE_TTLS } from '../../store/db'
 import { useSentryIssues, SENTRY_ISSUE_LIMIT } from './useSentryIssues'
 import type { DotLevel } from './types'
 
-/** Single-page fetch cap for the GitHub issue search (no cursor chain yet). */
-const GH_ISSUE_LIMIT = 50
+/** Pagination cap for the GitHub issue search (cursor-chained up to this many). */
+const GH_ISSUE_LIMIT = 200
 
 export type IssueSource = 'github' | 'sentry'
 
@@ -74,7 +75,15 @@ export function useUnifiedIssues(token: string, viewerLogin: string | undefined)
   const isDemo = token === DEMO_TOKEN
   const ghQuery = useQuery({
     queryKey: queryKeys.issueSearch(`assignee:${viewerLogin ?? ''}`),
-    queryFn: () => searchIssues(token, `is:issue is:open assignee:${viewerLogin}`, GH_ISSUE_LIMIT),
+    queryFn: async () => {
+      // IDB-backed so reloads paint instantly.
+      const prefKey = `issueSearch:${viewerLogin}`
+      const cached = await getCachedPref<IssueSearchResult[]>(prefKey, CACHE_TTLS['issueSearch:'])
+      if (cached) return cached
+      const fresh = await searchIssues(token, `is:issue is:open assignee:${viewerLogin}`, GH_ISSUE_LIMIT)
+      await savePref(prefKey, fresh)
+      return fresh
+    },
     enabled: !!viewerLogin,
     staleTime: 5 * 60 * 1000,
   })

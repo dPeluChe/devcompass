@@ -16,15 +16,15 @@ Wave numbering comes from the 2026-06 product audit (architecture + UX + perf/se
 - [x] **Sentry mutations** — resolve / ignore from the issue modal (PUT /organizations/:org/issues/:id via relay; 403 surfaces an event:write scope hint).
 - [x] **GitHub issue actions** — comment / close / reopen from GitHubIssueModal.
 
-## Pending — Wave 3 "seams" (navigation + consistency)
+## In progress — Wave 3 "seams" (navigation + consistency)
 
-- [ ] **Sentry issue → repo detail in-app** — modal + rows link to the mapped repo (projectRepoMap already knows it).
-- [ ] **Notification PR rows → in-app DetailModal** instead of always external GitHub.
-- [ ] **QuickSwitcher coverage** — issues, notifications, and the new scopes as jump targets.
-- [ ] **IDB cache for needsMe / issues / notifications** — same prefs-TTL pattern as Sentry/PR detail, so reloads paint instantly everywhere.
-- [ ] **Feed pagination** — consume Sentry nextCursor + GitHub Link header / search cursors instead of first-page-only.
-- [ ] **Skeleton states everywhere** — Issues/Notifications use raw "Loading…" text; NeedsScope-style skeletons.
-- [ ] **Text filter for long lists** — Issues / Notifications scopes.
+- [x] **Sentry issue → repo detail in-app** — "⊞ View repo" on the modal navigates to /repos/{owner}/{name} via the mapped repo.
+- [x] **Notification rows → in-app** — PR subjects open the DetailModal, Issue subjects open the GitHubIssueModal; other types fall back to GitHub. ↗ stays as the external escape.
+- [x] **QuickSwitcher coverage** — Digest / Needs me / Issues / Notifications / Since / Pinned as jump targets (kind: 'scope').
+- [x] **IDB cache for needsMe / issues / notifications** — prefs-TTL pattern (5m); mark-as-read persists the filtered set so reloads don't resurrect read rows; new prefixes registered in CACHE_TTLS.
+- [x] **Feed pagination** — searchIssues cursor-chains to 200, notifications page-chain to 200, Sentry consumes nextCursor to 300; truncation notes now reflect the higher caps.
+- [x] **Skeleton states** — shared ScopeSkeleton replaces raw "Loading…" in Issues/Notifications.
+- [x] **Text filter for long lists** — title/repo filter input in Issues + Notifications (shown past 8 items).
 
 ## Pending — Wave 4 "trust before scale" (robustness)
 
