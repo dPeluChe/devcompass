@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback, useMemo, type ReactNode } from 'react
 import type { Org, Repo, Viewer } from '../../api/github'
 import type { PinnedRepo } from '../../store/db'
 import { snoozePr } from '../../store/db'
+import { ErrorBoundary } from '../ErrorBoundary'
 import { Sidebar, type OrgEntry } from './Sidebar'
 import { UserFooter } from './UserFooter'
 import { ScopeView } from './ScopeView'
@@ -203,29 +204,33 @@ export function HomeShell({
         footer={<UserFooter viewer={viewer} collapsed={collapsed} onLogout={onLogout} />}
       />
 
-      {selectedRepo ? (
-        <RepoBrowser
-          token={token}
-          repos={repos}
-          current={selectedRepo}
-          onSelect={onOpenRepo}
-          onClose={() => onCloseSelectedRepo?.()}
-        />
-      ) : mainSlot ?? (
-        <ScopeView
-          scope={scope}
-          token={token}
-          viewer={viewer}
-          repos={repos}
-          pinned={pinned}
-          snoozes={snoozes}
-          onOpenItem={selectItem}
-          onSnoozeItem={handleSnooze}
-          onOpenRepo={onOpenRepo}
-          onTogglePinned={onTogglePinned}
-          onScopeChange={onSelectScope}
-        />
-      )}
+      {/* keyed by what's on screen so navigating away auto-resets a crashed view;
+          the sidebar lives outside the boundary and stays usable. */}
+      <ErrorBoundary key={selectedRepo ? `repo:${selectedRepo.owner}/${selectedRepo.name}` : mainSlot ? 'slot' : scope} label="this view">
+        {selectedRepo ? (
+          <RepoBrowser
+            token={token}
+            repos={repos}
+            current={selectedRepo}
+            onSelect={onOpenRepo}
+            onClose={() => onCloseSelectedRepo?.()}
+          />
+        ) : mainSlot ?? (
+          <ScopeView
+            scope={scope}
+            token={token}
+            viewer={viewer}
+            repos={repos}
+            pinned={pinned}
+            snoozes={snoozes}
+            onOpenItem={selectItem}
+            onSnoozeItem={handleSnooze}
+            onOpenRepo={onOpenRepo}
+            onTogglePinned={onTogglePinned}
+            onScopeChange={onSelectScope}
+          />
+        )}
+      </ErrorBoundary>
 
       <DetailModal
         token={token}

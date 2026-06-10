@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
+import { noteGraphqlRateLimit } from '../store/rateGate'
 import {
   fetchOrgReposSimple,
   fetchRateLimit,
@@ -60,6 +61,12 @@ export function useViewerData(token: string) {
     staleTime: 60 * 1000,
     enabled: !!token,
   })
+
+  // Feed the rate gate so passive refetching can pause when quota runs low.
+  useEffect(() => {
+    const rl = rateLimitQuery.data
+    if (rl) noteGraphqlRateLimit(rl.remaining, rl.limit, rl.resetAt)
+  }, [rateLimitQuery.data])
 
   const isInitialLoading = viewerQuery.isLoading || tokenInfoQuery.isLoading || rateLimitQuery.isLoading
 

@@ -1,6 +1,8 @@
 // Shared transport for the GitHub API layer. Internal to api/github — the barrel
 // does not re-export these, so callers go through the typed domain functions.
 
+import { noteRateHeaders } from '../../store/rateGate'
+
 const GH_GRAPHQL = 'https://api.github.com/graphql'
 
 export async function gql<T>(token: string, query: string, variables: Record<string, unknown> = {}): Promise<T> {
@@ -18,6 +20,8 @@ export async function gql<T>(token: string, query: string, variables: Record<str
         },
         body: JSON.stringify({ query, variables })
       })
+
+      noteRateHeaders(res.headers)
 
       if (!res.ok) {
         const text = await res.text()
@@ -60,6 +64,7 @@ export async function rest(token: string, method: string, path: string, body?: u
     },
     body: body == null ? undefined : JSON.stringify(body)
   })
+  noteRateHeaders(res.headers)
   if (!res.ok) {
     let detail: string
     try {
