@@ -61,7 +61,7 @@ export async function sentryFetch<T>(
 
 // Sentry cursor pagination (RFC5988): `<…>; rel="next"; results="true"; cursor="0:100:0"`.
 // Only a next link with results="true" actually has more.
-function parseNextCursor(link: string | null): string | null {
+export function parseNextCursor(link: string | null): string | null {
   if (!link) return null
   for (const part of link.split(',')) {
     if (part.includes('rel="next"') && part.includes('results="true"')) {

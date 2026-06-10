@@ -44,7 +44,9 @@ export const sentryConfigStore = create<SentryConfigState>()(
   persist(
     (set, get) => ({
       ...DEFAULTS,
-      update: (patch) => set(patch),
+      // Sanitize the token at the storage boundary too (same as the PAT) — getAuth
+      // re-sanitizes on read, but the persisted value shouldn't carry stray unicode.
+      update: (patch) => set(patch.token !== undefined ? { ...patch, token: sanitizeToken(patch.token) } : patch),
       reset: () => set(DEFAULTS),
       getAuth: () => {
         const s = get()

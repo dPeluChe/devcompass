@@ -261,8 +261,8 @@ export async function mergePullRequest(
 /** Lists jobs in a workflow run. Used to map a CheckRun.name to a job_id so we can fetch its logs. */
 export async function fetchWorkflowRunJobs(token: string, owner: string, name: string, runId: number): Promise<WorkflowJob[]> {
   if (token === DEMO_TOKEN) return []
-  const data = await rest(token, 'GET', `/repos/${owner}/${name}/actions/runs/${runId}/jobs?per_page=100`) as { jobs: WorkflowJob[] }
-  return data.jobs ?? []
+  const data = await rest(token, 'GET', `/repos/${owner}/${name}/actions/runs/${runId}/jobs?per_page=100`) as { jobs?: WorkflowJob[] } | null
+  return data?.jobs ?? []
 }
 
 /**

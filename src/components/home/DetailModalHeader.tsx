@@ -1,5 +1,6 @@
 import { useMemo, useState } from 'react'
 import { FaCodeBranch } from 'react-icons/fa'
+import { useFlash } from '../../hooks/useFlash'
 import type { PRDetail } from '../../api/github'
 import { ConfirmDialog } from '../ConfirmDialog'
 import { OrgChip } from './OrgChip'
@@ -79,7 +80,7 @@ function HeaderMeta({ detail, item }: { detail: PRDetail; item: AttentionItem })
 }
 
 function LinkActions({ item }: { item: AttentionItem }) {
-  const [copied, setCopied] = useState(false)
+  const [copied, flashCopied] = useFlash(1800)
   // When the Clipboard API fails (insecure context, denied permission, etc.)
   // we surface the URL in a styled dialog so the user can manually select +
   // copy. Replaces the old window.prompt fallback.
@@ -88,8 +89,7 @@ function LinkActions({ item }: { item: AttentionItem }) {
     const url = item.url || `${window.location.origin}${window.location.pathname}?pr=${item.org}/${item.repo}/${item.number}`
     try {
       await navigator.clipboard.writeText(url)
-      setCopied(true)
-      setTimeout(() => setCopied(false), 1800)
+      flashCopied()
     } catch {
       setFallbackUrl(url)
     }

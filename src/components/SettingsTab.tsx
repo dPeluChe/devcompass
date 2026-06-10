@@ -141,7 +141,7 @@ export function SettingsTab({ panel, onForceResync }: Props) {
             <li>
               <code>IndexedDB "devcompass"</code>
               <span className="muted">
-                Repos, orgs, pinned items, snoozes, token meta, and the per-API
+                Repos, orgs, pinned items, snoozes, and the per-API
                 response cache (viewer / tokenInfo / userOrgs / PR detail / branches /
                 since-last-visit snapshot). All scoped to this origin.
               </span>

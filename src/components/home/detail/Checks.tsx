@@ -6,6 +6,7 @@ import {
   type PRDetail,
   type WorkflowJob
 } from '../../../api/github'
+import { useFlash } from '../../../hooks/useFlash'
 
 const MAX_LOG_LINES = 500
 
@@ -144,14 +145,13 @@ function CheckItem({ row, token, owner, repo }: { row: CheckRow; token: string; 
   const [loading, setLoading] = useState(false)
   const [err, setErr] = useState<string | null>(null)
   const [matchedJob, setMatchedJob] = useState<WorkflowJob | null>(null)
-  const [copied, setCopied] = useState(false)
+  const [copied, flashCopied] = useFlash(1500)
 
   async function copyLog() {
     if (!log) return
     try {
       await navigator.clipboard.writeText(log)
-      setCopied(true)
-      setTimeout(() => setCopied(false), 1500)
+      flashCopied()
     } catch {
       // Fallback: select the <pre> text so the user can Cmd/Ctrl+C manually.
       const pre = document.querySelector<HTMLPreElement>('.hs-log-pre')
