@@ -601,3 +601,27 @@ export const DEMO_NOTIFICATIONS: GitHubNotification[] = [
   notif('N005', 'subscribed', 'Release', 'v15.4.0', 'vercel', 'next.js', 'releases/15.4.0', 2),
   notif('N006', 'comment', 'PullRequest', 'refactor(editor): extract BlockEditor to standalone package', 'linear', 'linear', 'pulls/2103', 1, 4),
 ]
+
+// ---------------------------------------------------------------------------
+// Digest v2 — merged PRs (one search window worth)
+// ---------------------------------------------------------------------------
+
+function mergedPR(number: number, title: string, org: string, repo: string, mergedDaysAgo: number, openForHours: number) {
+  const merged = new Date(new Date(ago(mergedDaysAgo)).getTime())
+  return {
+    number,
+    title,
+    url: `https://github.com/${org}/${repo}/pull/${number}`,
+    createdAt: new Date(merged.getTime() - openForHours * 3600_000).toISOString(),
+    mergedAt: merged.toISOString(),
+    repository: { nameWithOwner: `${org}/${repo}` },
+  }
+}
+
+export const DEMO_MERGED_PRS = [
+  mergedPR(86, 'fix(auth): refresh token race on concurrent tabs', 'iteris', 'platform-api', 0, 18),
+  mergedPR(212, 'feat(dashboard): export metrics panel as CSV', 'iteris', 'web-app', 1, 40),
+  mergedPR(15, 'feat(home): unified Issues feed', 'dPeluChe', 'devcompass', 2, 9),
+  mergedPR(84, 'chore(deps): bump fastify to v5', 'iteris', 'platform-api', 3, 64),
+  mergedPR(4690, 'fix(turbopack): sourcemaps for edge runtime', 'vercel', 'next.js', 5, 30),
+]

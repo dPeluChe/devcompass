@@ -40,7 +40,7 @@ Wave numbering comes from the 2026-06 product audit (architecture + UX + perf/se
 - [x] **Error boundaries** — app-level + per-view (sidebar survives a scope crash; keyed by view so navigating resets) + the /repos route.
 - [x] **Rate-limit aware fetching (v1)** — rateGate captures x-ratelimit-* headers passively from every gql/rest response + the dedicated rateLimit query; when the graphql/core pool drops under 5% (min 100), focus/reconnect refetches pause and the topbar shows ⚠ with a "paused until reset" tooltip. (Search pool ignored — it self-heals per minute.)
 - [x] **Since-last-visit polish** — events grouped by calendar day (Today / Yesterday / date) + filter chips by event kind with counts. (Window selector skipped honestly: events derive from the snapshot diff, so the snapshot IS the window.)
-- [ ] **Digest v2** *(next up)* — sparkline per repo, PRs merged in window, avg time-to-merge.
+- [x] **Digest v2** — commit-activity sparklines on Most active (ONE aliased GraphQL query for all top repos), "PRs merged" + "Avg time to merge" tiles (one search per window, involves:viewer); both IDB-cached 30m so window flips don't re-burn quota; demo-mode data included.
 - [ ] **Watching scope (auto-derived)** — PRs you authored awaiting reviewers, review-requested gone draft, pinned repos gone quiet. (Sidebar item removed until this is real.)
 - [ ] **Mobile / narrow viewport** — new scopes (issue groups, notifications, connector rows) inherit desktop flex; need responsive passes.
 - [ ] **Density modes** for repo cards (scan vs detail).

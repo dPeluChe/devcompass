@@ -3,6 +3,7 @@ import type { Repo, RepoOpenPR } from '../../../api/github'
 import type { ScopeKey } from '../types'
 import { type ScopeProps } from './common'
 import { ContributionHeatmap } from './ContributionHeatmap'
+import { useMergedStats, useRepoActivity, formatDuration } from '../useDigestExtras'
 
 type Window = '24h' | '7d' | '30d'
 const WINDOW_KEY = 'home.digestWindow'
@@ -43,6 +44,11 @@ export function DigestScope({ token, viewer, repos, pinned, onOpenRepo, onScopeC
 
   const stats = useMemo(() => computeDigest(repos, pinned.length, window), [repos, pinned.length, window])
 
+  // Digest v2 — one cached GraphQL call each: merged-PR stats for the window,
+  // and default-branch commit activity for the most-active repos (sparklines).
+  const mergedQuery = useMergedStats(token, viewer?.login, WINDOW_DAYS[window])
+  const activityQuery = useRepoActivity(token, stats.mostActive, WINDOW_DAYS[window])
+
   return (
     <main className="hs-main">
       <div className="hs-main-head">
@@ -70,6 +76,16 @@ export function DigestScope({ token, viewer, repos, pinned, onOpenRepo, onScopeC
         <DigestStat value={stats.openPRs} label="Open PRs" sub="across every visible repo" />
         <DigestStat value={stats.reposWithFailingCi} label="Repos with failing CI" sub="on at least one open PR" tone={stats.reposWithFailingCi > 0 ? 'warn' : undefined} />
         <DigestStat value={stats.stalePRs} label={`Stale PRs (>${STALE_PR_DAYS}d)`} sub="updated long ago" tone={stats.stalePRs > 0 ? 'warn' : undefined} />
+        <DigestStat
+          value={mergedQuery.data ? mergedQuery.data.count : '…'}
+          label="PRs merged"
+          sub="involving you, in window"
+        />
+        <DigestStat
+          value={mergedQuery.data?.avgTimeToMergeMs != null ? formatDuration(mergedQuery.data.avgTimeToMergeMs) : '—'}
+          label="Avg time to merge"
+          sub="open → merged"
+        />
         <DigestStat value={pinned.length} label="Pinned" sub="workbench shortcuts" />
       </section>
 
@@ -94,6 +110,7 @@ export function DigestScope({ token, viewer, repos, pinned, onOpenRepo, onScopeC
                     <span className="muted">/</span>
                     <span>{r.name}</span>
                   </span>
+                  <Sparkline buckets={activityQuery.data?.[r.nameWithOwner]} />
                   <span className="digest-row-meta muted">
                     pushed {shortAgo(r.pushedAt)}
                     {r.openPRs.totalCount > 0 && ` · ${r.openPRs.totalCount} PR${r.openPRs.totalCount === 1 ? '' : 's'}`}
@@ -163,6 +180,20 @@ export function DigestScope({ token, viewer, repos, pinned, onOpenRepo, onScopeC
         </ul>
       </section>
     </main>
+  )
+}
+
+/** Tiny commit-activity bars for a most-active row. Hidden until data lands. */
+function Sparkline({ buckets }: { buckets?: number[] }) {
+  if (!buckets) return <span className="digest-spark" aria-hidden />
+  const max = Math.max(...buckets, 1)
+  const total = buckets.reduce((a, b) => a + b, 0)
+  return (
+    <span className="digest-spark" title={`${total} commit${total === 1 ? '' : 's'} on the default branch in window`}>
+      {buckets.map((v, i) => (
+        <i key={i} style={{ height: `${Math.max(8, Math.round((v / max) * 100))}%`, opacity: v === 0 ? 0.25 : 0.9 }} />
+      ))}
+    </span>
   )
 }
 
