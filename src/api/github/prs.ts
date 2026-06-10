@@ -1,6 +1,6 @@
 import {
   DEMO_TOKEN, DEMO_PRS_REVIEW_REQUESTED, DEMO_PRS_AUTHORED,
-  DEMO_PRS_MENTIONED, DEMO_PRS_ASSIGNED, getDemoPRDetail
+  DEMO_PRS_MENTIONED, DEMO_PRS_ASSIGNED, DEMO_MERGED_PRS, getDemoPRDetail
 } from '../demo-data'
 import { gql, rest } from './client'
 import type { PullRequest, PRDetail, PRCommit, CheckContext, ReviewEvent, MergeMethod, WorkflowJob } from './types'
@@ -280,4 +280,44 @@ export async function fetchJobLogs(token: string, owner: string, name: string, j
   })
   if (!res.ok) throw new Error(`GitHub ${res.status} fetching logs`)
   return res.text()
+}
+
+export type MergedPR = {
+  number: number
+  title: string
+  url: string
+  createdAt: string
+  mergedAt: string
+  repository: { nameWithOwner: string }
+}
+
+/**
+ * PRs involving the viewer merged since `sinceIso` (one search, first page of
+ * 100 — digest-grade numbers, not an audit). Powers "merged in window" and
+ * avg time-to-merge on the Digest.
+ */
+export async function searchMergedPRs(token: string, login: string, sinceIso: string): Promise<MergedPR[]> {
+  if (token === DEMO_TOKEN) return DEMO_MERGED_PRS
+  const q = `is:pr is:merged involves:${login} merged:>=${sinceIso.slice(0, 10)} sort:updated-desc`
+  const data = await gql<{ search: { nodes: (MergedPR | Record<string, never>)[] } }>(
+    token,
+    `
+    query($q: String!) {
+      search(query: $q, type: ISSUE, first: 100) {
+        nodes {
+          ... on PullRequest {
+            number
+            title
+            url
+            createdAt
+            mergedAt
+            repository { nameWithOwner }
+          }
+        }
+      }
+    }
+  `,
+    { q }
+  )
+  return data.search.nodes.filter((n): n is MergedPR => !!(n as MergedPR).mergedAt)
 }

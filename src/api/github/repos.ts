@@ -318,3 +318,51 @@ export async function fetchBranches(token: string, owner: string, name: string):
     })
     .toSorted((a, b) => new Date(b.target.committedDate).getTime() - new Date(a.target.committedDate).getTime())
 }
+
+export type RepoCommitActivity = {
+  nameWithOwner: string
+  /** Default-branch commit timestamps (ms) since the window start, newest first. */
+  commitTimes: number[]
+}
+
+/**
+ * Default-branch commit timestamps for up to ~10 repos in ONE aliased GraphQL
+ * query — powers the Digest sparklines without per-repo request fan-out.
+ */
+export async function fetchReposCommitActivity(
+  token: string,
+  targets: { owner: string; name: string }[],
+  sinceIso: string
+): Promise<RepoCommitActivity[]> {
+  if (token === DEMO_TOKEN || targets.length === 0) {
+    // Deterministic demo shape: a gentle pseudo-activity curve per repo.
+    return targets.map((t, i) => ({
+      nameWithOwner: `${t.owner}/${t.name}`,
+      commitTimes: Array.from({ length: 6 + (i % 5) * 3 }, (_, k) =>
+        Date.now() - ((k * 37 + i * 13) % 96) * 3600_000),
+    }))
+  }
+  const aliases = targets.map((t, i) =>
+    `r${i}: repository(owner: ${JSON.stringify(t.owner)}, name: ${JSON.stringify(t.name)}) {
+      nameWithOwner
+      defaultBranchRef { target { ... on Commit { history(first: 100, since: $since) { nodes { committedDate } } } } }
+    }`
+  ).join('\n')
+  type AliasRepo = {
+    nameWithOwner: string
+    defaultBranchRef: { target: { history?: { nodes: { committedDate: string }[] } } | null } | null
+  } | null
+  const data = await gql<Record<string, AliasRepo>>(
+    token,
+    `query($since: GitTimestamp!) {\n${aliases}\n}`,
+    { since: sinceIso }
+  )
+  return targets.map((t, i) => {
+    const node = data[`r${i}`]
+    const commits = node?.defaultBranchRef?.target?.history?.nodes ?? []
+    return {
+      nameWithOwner: node?.nameWithOwner ?? `${t.owner}/${t.name}`,
+      commitTimes: commits.map((c) => new Date(c.committedDate).getTime()),
+    }
+  })
+}

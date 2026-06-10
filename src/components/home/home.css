@@ -1715,6 +1715,13 @@
 .digest-row:hover { background: var(--panel-2); }
 .digest-row-name { display: inline-flex; align-items: baseline; gap: 4px; font-size: 0.92em; }
 .digest-row-meta { font-size: 0.82em; }
+.digest-row { align-items: center; }
+.digest-spark {
+  display: inline-flex; align-items: flex-end; gap: 2px;
+  height: 16px; width: 76px; flex: 0 0 auto; margin-left: auto;
+}
+.digest-spark i { flex: 1; min-height: 2px; background: var(--accent); border-radius: 1px; }
+.digest-row-meta { flex: 0 0 auto; white-space: nowrap; }
 
 .digest-contributor-list {
   list-style: none;

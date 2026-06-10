@@ -184,7 +184,10 @@ export const CACHE_TTLS: Record<string, number> = {
   'needsMe:': 5 * 60 * 1000,
   'issueSearch:': 5 * 60 * 1000,
   'notifications:': 5 * 60 * 1000,
-  'sentryIssues:': 10 * 60 * 1000
+  'sentryIssues:': 10 * 60 * 1000,
+  // Digest v2 extras: slow-moving aggregates, one GraphQL call each per window.
+  'digestMerged:': 30 * 60 * 1000,
+  'digestActivity:': 30 * 60 * 1000
 }
 
 /**
