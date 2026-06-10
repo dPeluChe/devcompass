@@ -185,7 +185,12 @@ export const CACHE_TTLS: Record<string, number> = {
   'userOrgs:': 60 * 60 * 1000,
   'prDetail:': 15 * 60 * 1000,
   'branches:': 15 * 60 * 1000,
-  'contrib:': 12 * 60 * 60 * 1000
+  'contrib:': 12 * 60 * 60 * 1000,
+  // Inbox feeds: short windows (timely data) but enough for instant reload paint.
+  'needsMe:': 5 * 60 * 1000,
+  'issueSearch:': 5 * 60 * 1000,
+  'notifications:': 5 * 60 * 1000,
+  'sentryIssues:': 10 * 60 * 1000
 }
 
 /**

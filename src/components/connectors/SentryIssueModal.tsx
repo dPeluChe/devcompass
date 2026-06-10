@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import { useNavigate } from 'react-router-dom'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { extractExceptions, fetchSentryLatestEvent, updateSentryIssueStatus, type SentryIssue } from '../../api/sentry'
 import { sentryConfigStore } from '../../store/sentryConfig'
@@ -29,6 +30,7 @@ export function SentryIssueModal({ issue, onClose }: { issue: SentryIssue | null
   })
 
   const queryClient = useQueryClient()
+  const navigate = useNavigate()
   const [mutateError, setMutateError] = useState<string | null>(null)
   const statusMutation = useMutation({
     mutationFn: async (status: 'resolved' | 'ignored') => {
@@ -76,6 +78,13 @@ export function SentryIssueModal({ issue, onClose }: { issue: SentryIssue | null
 
         <div className="issue-modal-actions">
           <CopyButton getText={() => buildSentryAgentText(issue, exceptions, repo)} />
+          {repo && (
+            <button
+              className="hs-modal-btn"
+              title={`Open ${repo} in devcompass`}
+              onClick={() => { onClose(); navigate(`/repos/${repo}`) }}
+            >⊞ View repo</button>
+          )}
           {canMutate && (
             <>
               <button className="hs-modal-btn ok" onClick={() => statusMutation.mutate('resolved')} disabled={statusMutation.isPending}>

@@ -20,38 +20,53 @@ export type IssueSearchResult = {
  * Filters out PRs that the ISSUE search type also returns by keeping only nodes
  * resolved as Issue (they carry an id).
  */
-export async function searchIssues(token: string, query: string, first = 50): Promise<IssueSearchResult[]> {
+export async function searchIssues(token: string, query: string, max = 200): Promise<IssueSearchResult[]> {
   if (token === DEMO_TOKEN) return DEMO_ISSUES
-  const data = await gql<{ search: { nodes: (IssueSearchResult | Record<string, never>)[] } }>(
-    token,
-    `
-    query($q: String!, $first: Int!) {
-      search(query: $q, type: ISSUE, first: $first) {
-        nodes {
-          ... on Issue {
-            id
-            number
-            title
-            url
-            state
-            createdAt
-            updatedAt
-            author { login avatarUrl }
-            repository {
-              nameWithOwner
+  const out: IssueSearchResult[] = []
+  let after: string | null = null
+  // Cursor-paginate (50/page) up to `max` so big backlogs aren't silently
+  // first-page-only. The cap keeps a pathological account from burning quota.
+  while (out.length < max) {
+    const data: {
+      search: {
+        pageInfo: { hasNextPage: boolean; endCursor: string | null }
+        nodes: (IssueSearchResult | Record<string, never>)[]
+      }
+    } = await gql(
+      token,
+      `
+      query($q: String!, $first: Int!, $after: String) {
+        search(query: $q, type: ISSUE, first: $first, after: $after) {
+          pageInfo { hasNextPage endCursor }
+          nodes {
+            ... on Issue {
+              id
+              number
+              title
               url
-              owner { login avatarUrl }
+              state
+              createdAt
+              updatedAt
+              author { login avatarUrl }
+              repository {
+                nameWithOwner
+                url
+                owner { login avatarUrl }
+              }
+              labels(first: 8) { nodes { name color } }
+              comments { totalCount }
             }
-            labels(first: 8) { nodes { name color } }
-            comments { totalCount }
           }
         }
       }
-    }
-  `,
-    { q: query, first }
-  )
-  return data.search.nodes.filter((n): n is IssueSearchResult => !!(n as IssueSearchResult).id)
+    `,
+      { q: query, first: Math.min(50, max - out.length), after }
+    )
+    out.push(...data.search.nodes.filter((n): n is IssueSearchResult => !!(n as IssueSearchResult).id))
+    if (!data.search.pageInfo.hasNextPage) break
+    after = data.search.pageInfo.endCursor
+  }
+  return out
 }
 
 export type GitHubIssueDetail = {

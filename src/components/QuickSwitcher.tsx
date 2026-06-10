@@ -1,8 +1,10 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import type { Repo, RepoOpenPR } from '../api/github'
+import type { ScopeKey } from './home/types'
 
 export type QSAction =
   | { kind: 'view'; view: 'home' | 'repos' | 'config' }
+  | { kind: 'scope'; scope: ScopeKey }
   | { kind: 'repo'; repo: Repo }
   | { kind: 'pr'; repo: Repo; pr: RepoOpenPR }
 
@@ -26,6 +28,15 @@ const VIEWS: { view: 'home' | 'repos' | 'config'; label: string; hint: string }[
   { view: 'home', label: 'Home', hint: 'g h' },
   { view: 'repos', label: 'Repos', hint: 'g r' },
   { view: 'config', label: 'Config', hint: 'g c' }
+]
+
+const SCOPES: { scope: ScopeKey; label: string }[] = [
+  { scope: 'digest', label: 'Digest' },
+  { scope: 'needs', label: 'Needs me' },
+  { scope: 'issues', label: 'Issues' },
+  { scope: 'notifications', label: 'Notifications' },
+  { scope: 'since', label: 'Since last visit' },
+  { scope: 'pinned', label: 'Pinned' }
 ]
 
 export function QuickSwitcher({ open, onClose, onPick, repos }: Props) {
@@ -155,6 +166,20 @@ function buildItems(query: string, repos: Repo[]): Item[] {
         hint: v.hint,
         score: score + 50, // views rank a bit lower than direct matches
         action: { kind: 'view', view: v.view }
+      })
+    }
+  }
+
+  for (const s of SCOPES) {
+    const score = q ? matchScore(s.label.toLowerCase(), q) : 90
+    if (score > 0) {
+      out.push({
+        id: `scope:${s.scope}`,
+        primary: s.label,
+        secondary: 'scope',
+        hint: '',
+        score: score + 45,
+        action: { kind: 'scope', scope: s.scope }
       })
     }
   }

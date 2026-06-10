@@ -21,6 +21,20 @@ export type ScopeProps = {
   onScopeChange?: (key: ScopeKey) => void
 }
 
+/** Shared loading skeleton for scope bodies (NeedsScope-style bars). */
+export function ScopeSkeleton() {
+  return (
+    <section className="hs-surface">
+      <div className="hs-skeleton-block">
+        <div className="hs-skeleton-bar" style={{ width: '60%' }} />
+        <div className="hs-skeleton-bar" style={{ width: '40%' }} />
+        <div className="hs-skeleton-bar" style={{ width: '90%' }} />
+        <div className="hs-skeleton-bar" style={{ width: '75%' }} />
+      </div>
+    </section>
+  )
+}
+
 export function Header({ title, count, meta }: { title: string; count?: number; meta: string }) {
   return (
     <div className="hs-main-head">

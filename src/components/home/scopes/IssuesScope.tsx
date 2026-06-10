@@ -1,7 +1,7 @@
 import { useMemo, useState } from 'react'
 import { FaGithub } from 'react-icons/fa'
 import { SiSentry } from 'react-icons/si'
-import { Header, type ScopeProps } from './common'
+import { Header, ScopeSkeleton, type ScopeProps } from './common'
 import { useUnifiedIssues, type IssueSource, type UnifiedIssue } from '../useUnifiedIssues'
 import { SentryIssueModal } from '../../connectors/SentryIssueModal'
 import { GitHubIssueModal, type GitHubIssueRef } from '../GitHubIssueModal'
@@ -12,13 +12,18 @@ const UNMAPPED = '(no repo)'
 
 export function IssuesScope({ token, viewer }: ScopeProps) {
   const [filter, setFilter] = useState<'all' | IssueSource>('all')
+  const [textFilter, setTextFilter] = useState('')
   const [selectedSentry, setSelectedSentry] = useState<SentryIssue | null>(null)
   const [selectedGithub, setSelectedGithub] = useState<GitHubIssueRef | null>(null)
   const { items, isLoading, error, githubCount, sentryCount, truncated } = useUnifiedIssues(token, viewer?.login)
 
+  const q = textFilter.trim().toLowerCase()
   const filtered = useMemo(
-    () => (filter === 'all' ? items : items.filter((i) => i.source === filter)),
-    [items, filter]
+    () => items.filter((i) =>
+      (filter === 'all' || i.source === filter) &&
+      (!q || i.title.toLowerCase().includes(q) || (i.repo ?? '').toLowerCase().includes(q))
+    ),
+    [items, filter, q]
   )
 
   const groups = useMemo(() => {
@@ -65,17 +70,29 @@ export function IssuesScope({ token, viewer }: ScopeProps) {
         </p>
       )}
 
-      {isLoading && <div className="hs-empty"><strong>Loading…</strong></div>}
+      {items.length > 8 && (
+        <input
+          className="hs-scope-filter"
+          placeholder="Filter by title or repo…"
+          value={textFilter}
+          onChange={(e) => setTextFilter(e.target.value)}
+        />
+      )}
+
+      {isLoading && <ScopeSkeleton />}
       {error && (
         <div className="hs-empty" style={{ color: 'var(--danger)' }}>
           <strong>Failed to load GitHub issues.</strong>{error instanceof Error ? error.message : String(error)}
         </div>
       )}
-      {!isLoading && filtered.length === 0 && (
+      {!isLoading && items.length === 0 && (
         <div className="hs-empty">
           <strong>No open issues. 🎉</strong>
           GitHub issues assigned to you and unresolved Sentry errors show here.
         </div>
+      )}
+      {!isLoading && items.length > 0 && filtered.length === 0 && (
+        <div className="hs-empty"><strong>No matches.</strong></div>
       )}
 
       {groups.map(([repo, list]) => (
