@@ -1,14 +1,51 @@
+import { useState } from 'react'
 import { OrgChip } from '../OrgChip'
-import { useSinceLastVisit, type SinceEvent } from '../useSinceLastVisit'
+import { useSinceLastVisit, type SinceEvent, type SinceEventKind } from '../useSinceLastVisit'
 import { useFlash } from '../../../hooks/useFlash'
 import type { AttentionItem } from '../types'
 import { relativeTime } from '../../../utils/time'
 import { type ScopeProps } from './common'
 
+const KIND_CHIPS: { kind: SinceEventKind; label: string }[] = [
+  { kind: 'new-pr', label: 'new PRs' },
+  { kind: 'ci-changed', label: 'CI changed' },
+  { kind: 'merged-or-closed', label: 'closed · merged' },
+  { kind: 'commits', label: 'commits' },
+]
+
+/** "Today" / "Yesterday" / a readable date — calendar-day bucket for a timestamp. */
+function dayLabel(iso: string): string {
+  const d = new Date(iso)
+  const today = new Date()
+  const startOf = (x: Date) => new Date(x.getFullYear(), x.getMonth(), x.getDate()).getTime()
+  const diffDays = Math.round((startOf(today) - startOf(d)) / 86_400_000)
+  if (diffDays <= 0) return 'Today'
+  if (diffDays === 1) return 'Yesterday'
+  return d.toLocaleDateString(undefined, { weekday: 'short', month: 'short', day: 'numeric' })
+}
+
 export function SinceScope({ repos, onOpenItem, onOpenRepo }: ScopeProps) {
   const { events, isFirstRun, snapshot, markSeen } = useSinceLastVisit(repos)
   const [seen, flashSeen] = useFlash(1500)
+  const [kindFilter, setKindFilter] = useState<'all' | SinceEventKind>('all')
   const showEvents = !seen ? events : []
+
+  // Plain derivations (no useMemo): `events` is itself recomputed per render by
+  // useSinceLastVisit, so memoizing on it would never hit.
+  const counts = new Map<SinceEventKind, number>()
+  for (const ev of showEvents) counts.set(ev.kind, (counts.get(ev.kind) ?? 0) + 1)
+
+  const filtered = kindFilter === 'all' ? showEvents : showEvents.filter((ev) => ev.kind === kindFilter)
+
+  // Events arrive sorted desc — bucket them by calendar day, insertion order
+  // preserves the chronology.
+  const dayGroups = new Map<string, SinceEvent[]>()
+  for (const ev of filtered) {
+    const label = dayLabel(ev.time)
+    const list = dayGroups.get(label)
+    if (list) list.push(ev)
+    else dayGroups.set(label, [ev])
+  }
 
   async function handleMarkSeen() {
     await markSeen()
@@ -39,6 +76,19 @@ export function SinceScope({ repos, onOpenItem, onOpenRepo }: ScopeProps) {
         </button>
       </div>
 
+      {showEvents.length > 0 && (
+        <div className="hs-issue-filters">
+          <button className={kindFilter === 'all' ? 'active' : ''} onClick={() => setKindFilter('all')}>
+            All <span className="muted">{showEvents.length}</span>
+          </button>
+          {KIND_CHIPS.filter((c) => (counts.get(c.kind) ?? 0) > 0).map((c) => (
+            <button key={c.kind} className={kindFilter === c.kind ? 'active' : ''} onClick={() => setKindFilter(c.kind)}>
+              {c.label} <span className="muted">{counts.get(c.kind)}</span>
+            </button>
+          ))}
+        </div>
+      )}
+
       {isFirstRun ? (
         <div className="hs-empty">
           <strong>No baseline yet.</strong>
@@ -51,12 +101,19 @@ export function SinceScope({ repos, onOpenItem, onOpenRepo }: ScopeProps) {
           <strong>Nothing changed since you last looked.</strong>
           {snapshot && <span>You were last here {relativeTime(new Date(snapshot.takenAt).toISOString(), false)} ago.</span>}
         </div>
+      ) : filtered.length === 0 ? (
+        <div className="hs-empty"><strong>No events of this kind.</strong></div>
       ) : (
-        <section className="hs-surface">
-          {showEvents.map((ev) => (
-            <SinceRow key={ev.key} event={ev} onClick={() => handleEvent(ev)} />
-          ))}
-        </section>
+        [...dayGroups.entries()].map(([label, list]) => (
+          <section key={label} className="hs-issue-group">
+            <h3 className="hs-issue-group-head"><span className="hs-day-label">{label}</span><span className="muted"> · {list.length}</span></h3>
+            <div className="hs-surface">
+              {list.map((ev) => (
+                <SinceRow key={ev.key} event={ev} onClick={() => handleEvent(ev)} />
+              ))}
+            </div>
+          </section>
+        ))
       )}
     </main>
   )
