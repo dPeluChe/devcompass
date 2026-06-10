@@ -277,6 +277,7 @@
 .hs-issue-ext { flex: 0 0 auto; color: var(--muted); text-decoration: none; padding: 0 4px; }
 .hs-issue-ext:hover { color: var(--accent); }
 .hs-truncation-note { margin: -6px 0 14px; font-size: 0.8rem; }
+.hs-day-label { color: var(--text); }
 .hs-scope-filter {
   width: min(360px, 100%); box-sizing: border-box; margin: 0 0 14px; padding: 7px 11px;
   border: 1px solid var(--border); border-radius: 8px; background: var(--panel);
