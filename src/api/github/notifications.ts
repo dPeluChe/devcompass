@@ -1,4 +1,4 @@
-import { DEMO_TOKEN } from '../demo-data'
+import { DEMO_TOKEN, DEMO_NOTIFICATIONS } from '../demo-data'
 import { rest } from './client'
 
 export type GitHubNotification = {
@@ -29,7 +29,7 @@ export type GitHubNotification = {
  * `repo` scope.
  */
 export async function fetchNotifications(token: string, opts?: { all?: boolean; perPage?: number }): Promise<GitHubNotification[]> {
-  if (token === DEMO_TOKEN) return []
+  if (token === DEMO_TOKEN) return DEMO_NOTIFICATIONS
   const data = await rest(
     token,
     'GET',

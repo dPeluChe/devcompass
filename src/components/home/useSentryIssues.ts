@@ -8,6 +8,9 @@ import { queryKeys } from '../../store/queries'
 // re-pulled within ~10 min. Reuses the same prefs cache as viewer/PR detail.
 const TTL = 10 * 60 * 1000
 
+/** Single-page fetch cap (no cursor chain yet) — exported so consumers can flag truncation. */
+export const SENTRY_ISSUE_LIMIT = 100
+
 /**
  * Unresolved Sentry issues across the configured org (capped), cached to
  * IndexedDB. Shared by the Home Sentry scope and the sidebar count — react-query
@@ -30,7 +33,7 @@ export function useSentryIssues() {
         orgSlug: org,
         environment: env,
         query: 'is:unresolved',
-        limit: 100,
+        limit: SENTRY_ISSUE_LIMIT,
       })
       await savePref(key, data)
       return data

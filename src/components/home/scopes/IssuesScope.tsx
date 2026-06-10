@@ -14,7 +14,7 @@ export function IssuesScope({ token, viewer }: ScopeProps) {
   const [filter, setFilter] = useState<'all' | IssueSource>('all')
   const [selectedSentry, setSelectedSentry] = useState<SentryIssue | null>(null)
   const [selectedGithub, setSelectedGithub] = useState<GitHubIssueRef | null>(null)
-  const { items, isLoading, error, githubCount, sentryCount } = useUnifiedIssues(token, viewer?.login)
+  const { items, isLoading, error, githubCount, sentryCount, truncated } = useUnifiedIssues(token, viewer?.login)
 
   const filtered = useMemo(
     () => (filter === 'all' ? items : items.filter((i) => i.source === filter)),
@@ -54,6 +54,16 @@ export function IssuesScope({ token, viewer }: ScopeProps) {
           Sentry <span className="muted">{sentryCount}</span>
         </button>
       </div>
+
+      {(truncated.github || truncated.sentry) && (
+        <p className="hs-truncation-note muted">
+          Showing the first
+          {truncated.github ? ` ${githubCount} GitHub issues` : ''}
+          {truncated.github && truncated.sentry ? ' and' : ''}
+          {truncated.sentry ? ` ${sentryCount} Sentry issues` : ''}
+          {' '}— there may be more on the provider.
+        </p>
+      )}
 
       {isLoading && <div className="hs-empty"><strong>Loading…</strong></div>}
       {error && (

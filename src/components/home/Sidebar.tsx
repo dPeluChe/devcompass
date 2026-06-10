@@ -96,12 +96,6 @@ export function Sidebar({
     if (owned.length > 0) groups.push({ title: 'Orgs — Member', items: owned.map(toItem) })
     if (collaborators.length > 0) groups.push({ title: 'Orgs — Collaborator', items: collaborators.map(toItem) })
   }
-  groups.push({
-    title: 'Insights',
-    items: [
-      { key: 'rate', label: 'Token & rate', icon: '◎' }
-    ]
-  })
 
   return (
     <aside className={`hs-sidebar ${collapsed ? 'collapsed' : ''}`}>

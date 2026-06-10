@@ -1,4 +1,4 @@
-import { DEMO_TOKEN } from '../demo-data'
+import { DEMO_TOKEN, DEMO_ISSUES } from '../demo-data'
 import { gql } from './client'
 
 export type IssueSearchResult = {
@@ -21,7 +21,7 @@ export type IssueSearchResult = {
  * resolved as Issue (they carry an id).
  */
 export async function searchIssues(token: string, query: string, first = 50): Promise<IssueSearchResult[]> {
-  if (token === DEMO_TOKEN) return []
+  if (token === DEMO_TOKEN) return DEMO_ISSUES
   const data = await gql<{ search: { nodes: (IssueSearchResult | Record<string, never>)[] } }>(
     token,
     `

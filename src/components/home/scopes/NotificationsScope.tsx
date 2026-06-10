@@ -2,7 +2,7 @@ import { useMemo } from 'react'
 import { notificationWebUrl, type GitHubNotification } from '../../../api/github'
 import { relativeTime } from '../../../utils/time'
 import { OrgChip } from '../OrgChip'
-import { useNotifications } from '../useNotifications'
+import { useNotifications, NOTIFICATIONS_LIMIT } from '../useNotifications'
 import { Header, type ScopeProps } from './common'
 import type { DotLevel } from '../types'
 
@@ -50,6 +50,12 @@ export function NotificationsScope({ token }: ScopeProps) {
   return (
     <main className="hs-main">
       <Header title="Notifications" count={total} meta="unread · everything that involves you, across all repos" />
+
+      {total >= NOTIFICATIONS_LIMIT && (
+        <p className="hs-truncation-note muted">
+          Showing the {NOTIFICATIONS_LIMIT} most recent — there may be more on GitHub.
+        </p>
+      )}
 
       {isLoading && <div className="hs-empty"><strong>Loading…</strong></div>}
       {error && (
