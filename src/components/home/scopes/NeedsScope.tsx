@@ -1,14 +1,21 @@
 import { useMemo } from 'react'
 import { AttentionRow } from '../AttentionRow'
-import { useNeedsMe } from '../useNeedsMe'
+import { useNeedsMe, useReviewPool } from '../useNeedsMe'
 import { Header, type ScopeProps } from './common'
 
-export function NeedsScope({ token, viewer, snoozes, onOpenItem, onSnoozeItem }: ScopeProps) {
+export function NeedsScope({ token, viewer, repos, snoozes, onOpenItem, onSnoozeItem }: ScopeProps) {
   const { data, isLoading, error } = useNeedsMe(token, viewer?.login)
   const items = useMemo(
     () => (data ?? []).filter((i) => !snoozes.has(i.id)),
     [data, snoozes]
   )
+
+  // Discoverable: open PRs in your repos that aren't assigned/requested to you.
+  const pool = useReviewPool(token, viewer?.login, repos)
+  const poolItems = useMemo(() => {
+    const seen = new Set((data ?? []).map((i) => i.id))
+    return (pool.data ?? []).filter((i) => !seen.has(i.id) && !snoozes.has(i.id))
+  }, [pool.data, data, snoozes])
 
   return (
     <main className="hs-main">
@@ -35,7 +42,7 @@ export function NeedsScope({ token, viewer, snoozes, onOpenItem, onSnoozeItem }:
         </div>
       )}
 
-      {!isLoading && !error && items.length === 0 && (
+      {!isLoading && !error && items.length === 0 && poolItems.length === 0 && (
         <div className="hs-empty">
           <strong>Nothing needs you right now.</strong>
           When something comes up it shows here first.
@@ -53,6 +60,27 @@ export function NeedsScope({ token, viewer, snoozes, onOpenItem, onSnoozeItem }:
             />
           ))}
         </section>
+      )}
+
+      {/* Secondary: open PRs you could review but aren't on yet. */}
+      {poolItems.length > 0 && (
+        <>
+          <h3 className="hs-section-label">
+            Open in your repos
+            <span className="muted"> — not assigned to you, available to review</span>
+            {pool.truncated && <span className="muted"> · top orgs only</span>}
+          </h3>
+          <section className="hs-surface">
+            {poolItems.map((item) => (
+              <AttentionRow
+                key={item.id}
+                item={item}
+                onOpen={() => onOpenItem(item)}
+                onSnooze={() => onSnoozeItem(item)}
+              />
+            ))}
+          </section>
+        </>
       )}
     </main>
   )

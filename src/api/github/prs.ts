@@ -1,6 +1,6 @@
 import {
   DEMO_TOKEN, DEMO_PRS_REVIEW_REQUESTED, DEMO_PRS_AUTHORED,
-  DEMO_PRS_MENTIONED, DEMO_PRS_ASSIGNED, DEMO_MERGED_PRS, getDemoPRDetail
+  DEMO_PRS_MENTIONED, DEMO_PRS_ASSIGNED, DEMO_PRS_POOL, DEMO_MERGED_PRS, getDemoPRDetail
 } from '../demo-data'
 import { gql, rest } from './client'
 import type { PullRequest, PRDetail, PRCommit, CheckContext, ReviewEvent, MergeMethod, WorkflowJob } from './types'
@@ -13,6 +13,10 @@ type RawPR = Omit<PullRequest, 'ciState'> & {
 
 export async function searchPRs(token: string, query: string, first = 50): Promise<PullRequest[]> {
   if (token === DEMO_TOKEN) {
+    // Order matters: the review-pool query negates the reviewer/author/assignee
+    // qualifiers (so it also contains those substrings) — match it first via the
+    // unique `draft:false`.
+    if (query.includes('draft:false'))       return DEMO_PRS_POOL
     if (query.includes('review-requested:')) return DEMO_PRS_REVIEW_REQUESTED
     if (query.includes('author:'))           return DEMO_PRS_AUTHORED
     if (query.includes('mentions:'))         return DEMO_PRS_MENTIONED

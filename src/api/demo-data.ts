@@ -321,6 +321,22 @@ export const DEMO_PRS_ASSIGNED: PullRequest[] = [
   }),
 ]
 
+// Review pool: open PRs by teammates you could review but aren't assigned/requested on.
+export const DEMO_PRS_POOL: PullRequest[] = [
+  fullPR('PP01', 88, 'feat(billing): usage-based metering for the platform API', 'iteris', 'platform-api', 'sofiad', 0, 2, {
+    ciState: 'SUCCESS', reviewDecision: 'REVIEW_REQUIRED',
+    labels: [{ name: 'enhancement', color: '84b6eb' }], additions: 643, deletions: 88, changedFiles: 19, comments: 1,
+  }),
+  fullPR('PP02', 216, 'fix(web): debounce the search box to cut re-renders', 'iteris', 'web-app', 'carlosm', 0, 1, {
+    ciState: 'FAILURE', reviewDecision: 'REVIEW_REQUIRED',
+    labels: [{ name: 'performance', color: 'e4e669' }], additions: 31, deletions: 12, changedFiles: 3, comments: 0,
+  }),
+  fullPR('PP03', 7, 'docs: contributor guide + architecture diagram', 'iteris', 'infra', 'lucamb', 1, 3, {
+    ciState: 'SUCCESS', reviewDecision: 'REVIEW_REQUIRED',
+    labels: [{ name: 'documentation', color: '0075ca' }], additions: 210, deletions: 4, changedFiles: 2, comments: 2,
+  }),
+]
+
 // ---------------------------------------------------------------------------
 // Token info & rate limit
 // ---------------------------------------------------------------------------

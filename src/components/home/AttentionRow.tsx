@@ -44,6 +44,7 @@ function ReasonChips({ item, failingCheckName, changesRequestedBy, reviewerCount
   if (r.includes('stale')) out.push(<span key="s" className="hs-reason r-stale">stale {relativeTime(item.updatedAt, false)}</span>)
   if (r.includes('new-pr')) out.push(<span key="n" className="hs-reason r-new-pr">new</span>)
   if (r.includes('merged')) out.push(<span key="mg" className="hs-reason r-merged">merged</span>)
+  if (r.includes('review-pool')) out.push(<span key="rp" className="hs-reason r-review-pool">open · unassigned</span>)
 
   return <>{out}</>
 }

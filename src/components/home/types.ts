@@ -31,6 +31,8 @@ export type Reason =
   | 'changes'
   | 'new-pr'
   | 'merged'
+  /** Open PR in a repo you can see that isn't assigned/requested to you — discoverable to review. */
+  | 'review-pool'
 
 export type DotLevel = 'critical' | 'warn' | 'info' | 'ok' | 'muted'
 
@@ -77,7 +79,7 @@ export function dotForReasons(reasons: Reason[]): DotLevel {
   if (reasons.includes('ci-failing') || reasons.includes('changes')) return 'critical'
   if (reasons.includes('review-requested') || reasons.includes('assigned')) return 'warn'
   if (reasons.includes('mentioned') || reasons.includes('new-pr')) return 'info'
-  if (reasons.includes('merged')) return 'muted'
+  if (reasons.includes('merged') || reasons.includes('review-pool')) return 'muted'
   // A PR I authored with no urgent signal — green (mine, healthy).
   if (reasons.includes('my-pr')) return 'ok'
   return 'info'
