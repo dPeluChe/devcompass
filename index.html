@@ -3,11 +3,58 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <meta name="description" content="devcompass — local-first command center for your GitHub repos, PRs, and activity. No backend, your token stays in your browser." />
+
+    <title>devcompass — your complete cross-org GitHub panorama</title>
+    <meta name="description" content="devcompass is a local-first cockpit for everything you touch on GitHub — repos, PRs, issues and errors across every org, in one fast view. No backend, no signup; your token stays in your browser." />
+    <link rel="canonical" href="https://devcompass.app/" />
     <meta name="theme-color" content="#0d1117" />
-    <title>devcompass — GitHub command center</title>
+
+    <!-- Icons & PWA -->
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
     <link rel="apple-touch-icon" href="/icon-192.png" />
+    <link rel="manifest" href="/manifest.webmanifest" />
+
+    <!-- Open Graph (Slack / LinkedIn / Discord / Facebook) -->
+    <meta property="og:type" content="website" />
+    <meta property="og:site_name" content="devcompass" />
+    <meta property="og:url" content="https://devcompass.app/" />
+    <meta property="og:title" content="devcompass — your complete cross-org GitHub panorama" />
+    <meta property="og:description" content="A local-first cockpit for everything you touch on GitHub — repos, PRs, issues and errors across every org, in one fast view. No backend, no signup." />
+    <meta property="og:image" content="https://devcompass.app/og-image.png" />
+    <meta property="og:image:width" content="1200" />
+    <meta property="og:image:height" content="630" />
+
+    <!-- Twitter / X -->
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:title" content="devcompass — your complete cross-org GitHub panorama" />
+    <meta name="twitter:description" content="A local-first cockpit for everything you touch on GitHub — repos, PRs, issues and errors across every org. No backend, no signup." />
+    <meta name="twitter:image" content="https://devcompass.app/og-image.png" />
+
+    <!-- Structured data -->
+    <script type="application/ld+json">
+    {
+      "@context": "https://schema.org",
+      "@graph": [
+        {
+          "@type": "WebSite",
+          "@id": "https://devcompass.app/#website",
+          "url": "https://devcompass.app/",
+          "name": "devcompass",
+          "description": "Local-first cockpit for your cross-org GitHub panorama."
+        },
+        {
+          "@type": "SoftwareApplication",
+          "name": "devcompass",
+          "applicationCategory": "DeveloperApplication",
+          "operatingSystem": "Web",
+          "url": "https://devcompass.app/",
+          "description": "A local-first, backendless cockpit for everything you touch on GitHub — repos, PRs, issues and errors across every org. Bring your own token; it never leaves your browser.",
+          "offers": { "@type": "Offer", "price": "0", "priceCurrency": "USD" },
+          "license": "https://opensource.org/licenses/MIT"
+        }
+      ]
+    }
+    </script>
   </head>
   <body>
     <div id="root"></div>

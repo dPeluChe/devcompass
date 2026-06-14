@@ -155,9 +155,15 @@ The repo deploys one surface from `main`:
 
 | Surface | Source | Host | URL |
 | --- | --- | --- | --- |
-| Landing + app | Vite build of `src/` | Vercel | <https://devcompass.vercel.app> |
+| Landing + app | Vite build of `src/` | Vercel | <https://devcompass.app> |
 
 The landing lives in the app itself (`src/components/landing/`, lazy-loaded) and is served at `/` for logged-out visitors; once a token exists, `/` is the app. Vercel reads `vercel.json` for the SPA rewrite (everything except `/api` → `/index.html`) and runs `npm run build` on push to `main`. The app serves from the root.
+
+### SEO / sharing
+
+Static SEO lives in `index.html` (title, description, canonical → `https://devcompass.app/`, Open Graph + Twitter Card, JSON-LD `SoftwareApplication`/`WebSite`) plus `public/robots.txt`, `public/sitemap.xml`, and `public/manifest.webmanifest`. The social card image is `public/og-image.png` (1200×630) referenced by the OG/Twitter tags.
+
+**Manual step (one-time, in Vercel):** set `devcompass.app` as the **primary domain** so `devcompass.vercel.app` issues a 308 redirect to it — otherwise the two origins compete as duplicate content (the `canonical` tag mitigates but a redirect is cleaner).
 
 ## Token requirements
 
