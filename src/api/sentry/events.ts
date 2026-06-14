@@ -26,6 +26,14 @@ export type SentryLatestEvent = {
   dateCreated: string
   tags: SentryEventTag[]
   entries: { type: string; data: unknown }[]
+  /** "javascript" | "node" | "python" | … */
+  platform?: string
+  /** Processing problems Sentry hit (e.g. missing source maps) — explains minified frames. */
+  errors?: { type?: string; message?: string; data?: Record<string, unknown> }[]
+  /** Structured contexts: runtime / browser / os / device / app / … */
+  contexts?: Record<string, Record<string, unknown> | undefined>
+  user?: { id?: string; email?: string; username?: string; ip_address?: string } | null
+  sdk?: { name?: string; version?: string } | null
 }
 
 /** Distilled per-event context for the agent brief — the "filter #1" fields. */
@@ -38,15 +46,28 @@ export type SentryEventContext = {
   /** true=handled, false=unhandled crash, null=unknown. */
   handled: boolean | null
   url: string | null
+  /** HTTP method of the request that errored, when present. */
+  requestMethod: string | null
   /** "Safari 17.4 · iOS 17.4 · iPhone" from tags. */
   client: string | null
   transaction: string | null
+  /** "javascript" / "node" / … */
+  platform: string | null
+  /** "node v20.11" / "CPython 3.12" from contexts.runtime. */
+  runtime: string | null
+  /** "sentry.javascript.react@7.119.0". */
+  sdk: string | null
+  /** "id:123 · ana@x.com" — the affected end-user, when captured. */
+  user: string | null
+  /** Sentry's own processing errors (missing source maps, etc.). */
+  processingErrors: string[]
   breadcrumbs: SentryBreadcrumb[]
 }
 
 const EMPTY_CONTEXT: SentryEventContext = {
   eventId: null, dateCreated: null, environment: null, release: null,
-  handled: null, url: null, client: null, transaction: null, breadcrumbs: [],
+  handled: null, url: null, requestMethod: null, client: null, transaction: null,
+  platform: null, runtime: null, sdk: null, user: null, processingErrors: [], breadcrumbs: [],
 }
 
 /** The most recent event for an issue — carries the stacktrace + tags. */
@@ -96,11 +117,21 @@ export function extractEventContext(
   const client = [tagValue(event, 'browser'), tagValue(event, 'os'), tagValue(event, 'device')]
     .filter(Boolean).join(' · ') || null
 
-  let url = tagValue(event, 'url')
-  if (!url) {
-    const req = event.entries.find((e) => e.type === 'request')?.data as { url?: string } | undefined
-    url = req?.url ?? null
-  }
+  const request = event.entries.find((e) => e.type === 'request')?.data as { url?: string; method?: string } | undefined
+  const url = tagValue(event, 'url') ?? request?.url ?? null
+
+  const runtimeCtx = event.contexts?.runtime as { name?: string; version?: string } | undefined
+  const runtime = runtimeCtx?.name
+    ? `${runtimeCtx.name}${runtimeCtx.version ? ` ${runtimeCtx.version}` : ''}`
+    : null
+
+  const u = event.user
+  const user = u ? [u.id ? `id:${u.id}` : null, u.email ?? u.username ?? null].filter(Boolean).join(' · ') || null : null
+
+  const processingErrors = (event.errors ?? [])
+    .map((e) => e.message ?? (typeof e.data?.name === 'string' ? `${e.type}: ${e.data.name}` : e.type) ?? '')
+    .filter(Boolean)
+    .slice(0, 6)
 
   const crumbsData = event.entries.find((e) => e.type === 'breadcrumbs')?.data as
     | { values?: Record<string, unknown>[] } | undefined
@@ -122,8 +153,14 @@ export function extractEventContext(
     release: tagValue(event, 'release'),
     handled,
     url,
+    requestMethod: request?.method ?? null,
     client,
     transaction: tagValue(event, 'transaction'),
+    platform: event.platform ?? null,
+    runtime,
+    sdk: event.sdk?.name ? `${event.sdk.name}${event.sdk.version ? `@${event.sdk.version}` : ''}` : null,
+    user,
+    processingErrors,
     breadcrumbs,
   }
 }

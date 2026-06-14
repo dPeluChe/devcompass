@@ -11,6 +11,16 @@ function fmtTime(iso: string | null): string | null {
   return `${d.toISOString().slice(0, 16).replace('T', ' ')} UTC`
 }
 
+/** "12 in 24h · 340 in 14d" from the issue's event time series — is it growing or dead? */
+function trendLine(stats: SentryIssue['stats']): string | null {
+  const series = stats?.['14d'] ?? (stats ? Object.values(stats)[0] : undefined)
+  if (!series || series.length === 0) return null
+  const cutoff = Date.now() / 1000 - 24 * 3600
+  let last24 = 0, total = 0
+  for (const [ts, c] of series) { total += c; if (ts >= cutoff) last24 += c }
+  return `${last24} in 24h · ${total} in 14d`
+}
+
 /** Crash-first frames: in-app marked, consecutive duplicates collapsed, tail truncated. */
 function formatFrames(frames: SentryFrame[]): string[] {
   const ordered = [...frames].reverse()
@@ -35,16 +45,22 @@ function formatFrames(frames: SentryFrame[]): string[] {
  * `ctx` carries the per-event context (env/handled/release/client/breadcrumbs)
  * — pass {} when the latest event hasn't loaded yet and it degrades gracefully.
  */
+const RAW_JSON_CAP = 8000
+
 export function buildSentryAgentText(
   issue: SentryIssue,
   exceptions: SentryExceptionValue[],
   repo: string | null,
   ctx: Partial<SentryEventContext> = {},
+  rawEvent?: unknown,
 ): string {
   const primary = exceptions[0]
   const headType = primary?.type ?? issue.metadata?.type ?? null
   const headVal = primary?.value ?? issue.metadata?.value ?? issue.title
   const field = (label: string, value: string) => `${(label + ':').padEnd(14)}${value}`
+
+  // Prefer the issue-level isUnhandled, then the per-event mechanism/tag.
+  const unhandled = issue.isUnhandled ?? (ctx.handled == null ? null : !ctx.handled)
 
   const lines: string[] = [
     `Fix this Sentry error${repo ? ` in ${repo}` : ''}:`,
@@ -54,19 +70,31 @@ export function buildSentryAgentText(
   if (issue.culprit) lines.push(field('Culprit', issue.culprit))
   if (ctx.transaction) lines.push(field('Transaction', ctx.transaction))
   lines.push(field('Environment', ctx.environment ?? 'unknown'))
-  lines.push(field('Handled', ctx.handled === false ? 'no (unhandled)' : ctx.handled === true ? 'yes (handled)' : 'unknown'))
+  lines.push(field('Handled', unhandled === true ? 'no (unhandled)' : unhandled === false ? 'yes (handled)' : 'unknown'))
   lines.push(field('Level', issue.level))
+  if (issue.priority) lines.push(field('Priority', issue.priority))
   if (ctx.release) lines.push(field('Release', ctx.release))
+  if (ctx.platform || ctx.runtime) lines.push(field('Platform', [ctx.platform, ctx.runtime].filter(Boolean).join(' · ')))
   lines.push(field('Events', `${issue.count} · Users: ${issue.userCount}`))
+  const trend = trendLine(issue.stats)
+  if (trend) lines.push(field('Trend', trend))
   const first = fmtTime(issue.firstSeen); const last = fmtTime(issue.lastSeen)
   if (first) lines.push(field('First seen', first))
   if (last) lines.push(field('Last seen', last))
-  if (ctx.url) lines.push(field('URL', ctx.url))
+  if (ctx.url) lines.push(field('URL', `${ctx.requestMethod ? `${ctx.requestMethod} ` : ''}${ctx.url}`))
   if (ctx.client) lines.push(field('Client', ctx.client))
+  if (ctx.user) lines.push(field('User', ctx.user))
+  if (ctx.sdk) lines.push(field('SDK', ctx.sdk))
   lines.push(field('Sentry issue', issue.permalink))
   if (ctx.eventId) {
     const base = issue.permalink.endsWith('/') ? issue.permalink : `${issue.permalink}/`
     lines.push(field('This event', `${base}events/${ctx.eventId}/`))
+  }
+
+  // Surface Sentry's own processing problems — this is why prod frames are minified.
+  if (ctx.processingErrors && ctx.processingErrors.length > 0) {
+    lines.push('', '⚠ Sentry could not fully process this event (frames may be minified — upload source maps):')
+    for (const e of ctx.processingErrors) lines.push(`  - ${e}`)
   }
 
   for (const ex of exceptions) {
@@ -82,6 +110,14 @@ export function buildSentryAgentText(
     for (const c of ctx.breadcrumbs) {
       lines.push(`  ${c.ts}  ${c.label.padEnd(8)} ${c.message}`.trimEnd())
     }
+  }
+
+  // Full raw event last (collapsed) — the readable summary stays on top, but an
+  // agent gets the complete payload when it needs a field we didn't surface.
+  if (rawEvent) {
+    const json = JSON.stringify(rawEvent, null, 2)
+    const capped = json.length > RAW_JSON_CAP ? `${json.slice(0, RAW_JSON_CAP)}\n… (truncated — open "This event" for the full payload)` : json
+    lines.push('', '<details><summary>Raw event JSON</summary>', '', '```json', capped, '```', '</details>')
   }
 
   return lines.join('\n')

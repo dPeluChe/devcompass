@@ -46,6 +46,26 @@ describe('extractEventContext', () => {
     const ctx = extractEventContext(undefined, [])
     expect(ctx.handled).toBeNull()
     expect(ctx.breadcrumbs).toEqual([])
+    expect(ctx.processingErrors).toEqual([])
+  })
+
+  it('surfaces processing errors, runtime, user, sdk and request method', () => {
+    const ev = event({
+      platform: 'node',
+      errors: [{ type: 'js_no_source', message: 'Source map missing for index-BHCBVH7B.js' }],
+      contexts: { runtime: { name: 'node', version: 'v20.11' } },
+      user: { id: '123', email: 'ana@x.com' },
+      sdk: { name: 'sentry.javascript.react', version: '7.119.0' },
+      entries: [{ type: 'request', data: { url: '/api/action', method: 'POST' } }],
+    })
+    const ctx = extractEventContext(ev, [])
+    expect(ctx.processingErrors).toEqual(['Source map missing for index-BHCBVH7B.js'])
+    expect(ctx.platform).toBe('node')
+    expect(ctx.runtime).toBe('node v20.11')
+    expect(ctx.user).toBe('id:123 · ana@x.com')
+    expect(ctx.sdk).toBe('sentry.javascript.react@7.119.0')
+    expect(ctx.url).toBe('/api/action')
+    expect(ctx.requestMethod).toBe('POST')
   })
 })
 

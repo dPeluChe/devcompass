@@ -77,21 +77,32 @@ export function SentryIssueModal({ issue, onClose }: { issue: SentryIssue | null
           · first seen {relativeTime(issue.firstSeen)} · last {relativeTime(issue.lastSeen)}
         </div>
 
-        {(eventCtx.environment || eventCtx.handled !== null || eventCtx.release) && (
-          <div className="issue-modal-tags">
-            {eventCtx.environment && <span className="issue-tag">env: {eventCtx.environment}</span>}
-            {eventCtx.handled !== null && (
-              <span className={`issue-tag ${eventCtx.handled ? '' : 'crit'}`}>
-                {eventCtx.handled ? 'handled' : 'unhandled'}
-              </span>
-            )}
-            {eventCtx.release && <span className="issue-tag">release: {eventCtx.release}</span>}
-            {eventCtx.client && <span className="issue-tag">{eventCtx.client}</span>}
+        {(() => {
+          const unhandled = issue.isUnhandled ?? (eventCtx.handled == null ? null : !eventCtx.handled)
+          const show = eventCtx.environment || unhandled !== null || eventCtx.release || eventCtx.client
+          if (!show) return null
+          return (
+            <div className="issue-modal-tags">
+              {eventCtx.environment && <span className="issue-tag">env: {eventCtx.environment}</span>}
+              {unhandled !== null && (
+                <span className={`issue-tag ${unhandled ? 'crit' : ''}`}>{unhandled ? 'unhandled' : 'handled'}</span>
+              )}
+              {issue.priority && <span className="issue-tag">priority: {issue.priority}</span>}
+              {eventCtx.release && <span className="issue-tag">release: {eventCtx.release}</span>}
+              {eventCtx.client && <span className="issue-tag">{eventCtx.client}</span>}
+            </div>
+          )
+        })()}
+
+        {eventCtx.processingErrors.length > 0 && (
+          <div className="issue-modal-warn">
+            ⚠ Sentry couldn't fully process this event (frames may be minified — upload source maps):
+            <ul>{eventCtx.processingErrors.map((e, i) => <li key={i}>{e}</li>)}</ul>
           </div>
         )}
 
         <div className="issue-modal-actions">
-          <CopyButton getText={() => buildSentryAgentText(issue, exceptions, repo, eventCtx)} />
+          <CopyButton getText={() => buildSentryAgentText(issue, exceptions, repo, eventCtx, eventQuery.data)} />
           {repo && (
             <button
               className="hs-modal-btn"

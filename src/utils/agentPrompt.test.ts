@@ -56,6 +56,27 @@ describe('buildSentryAgentText', () => {
     expect(text).toContain('Handled:      unknown')
     expect(text).not.toContain('```')
   })
+
+  it('adds trend, processing-error block, issue-level unhandled, and raw JSON', () => {
+    const now = Date.now() / 1000
+    const issue = {
+      ...ISSUE,
+      isUnhandled: true,
+      priority: 'high',
+      stats: { '14d': [[now - 36 * 3600, 5], [now - 2 * 3600, 7]] as [number, number][] },
+    }
+    const text = buildSentryAgentText(issue, [], null, {
+      processingErrors: ['Source map missing for x.js'],
+      handled: true,  // overridden by issue.isUnhandled
+    }, { sample: 'payload' })
+    expect(text).toContain('Priority:     high')
+    expect(text).toContain('Trend:        7 in 24h · 12 in 14d')
+    expect(text).toContain('Handled:      no (unhandled)')                 // issue-level wins
+    expect(text).toContain('⚠ Sentry could not fully process this event')
+    expect(text).toContain('- Source map missing for x.js')
+    expect(text).toContain('<details><summary>Raw event JSON</summary>')
+    expect(text).toContain('"sample": "payload"')
+  })
 })
 
 describe('buildGithubIssueAgentText', () => {
