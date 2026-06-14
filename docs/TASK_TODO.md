@@ -48,8 +48,12 @@ Wave numbering comes from the 2026-06 product audit (architecture + UX + perf/se
 - [ ] **Multi-account** — switch between PATs without clearing cache.
 - [ ] **Linear / Jira / GitLab connectors** — same relay + connector pattern as Sentry.
 - [ ] **"Send to agent"** — evolve copy-for-agent into a direct handoff (batch triage → tasks).
+- [ ] **OG social card** — design `public/og-image.png` (1200×630, devcompass branding); the OG/Twitter tags already reference it. Until it exists, shares unfurl text-only.
+- [ ] **Vercel primary-domain redirect** *(manual)* — set `devcompass.app` primary so `devcompass.vercel.app` 308-redirects (kills duplicate-content competition; canonical already mitigates).
 
 ## Recently shipped
+
+- [x] **SEO pass** — `index.html` gets canonical (→ devcompass.app), Open Graph + Twitter Card, JSON-LD (SoftwareApplication + WebSite), refreshed title/description (panorama positioning); added `public/robots.txt`, `public/sitemap.xml`, `public/manifest.webmanifest`. OG image asset still pending.
 
 - [x] **Landing at /** — marketing landing lives in the app (lazy, logged-out root); standalone `landing/` + Pages workflow removed; hero with brand mark + two-line headline; local-only storage copy.
 - [x] **Notifications scope** — GitHub /notifications as a cross-repo "involves you" inbox, grouped by repo, sidebar badge.
