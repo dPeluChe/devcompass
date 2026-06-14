@@ -37,10 +37,12 @@ export function IssuesScope({ token, viewer }: ScopeProps) {
     for (const list of m.values()) {
       list.sort((a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime())
     }
+    // Repos with the most recent activity first (lists are sorted desc, so a
+    // group's recency is its first item). Unmapped Sentry issues sink last.
     return [...m.entries()].sort((a, b) => {
       if (a[0] === UNMAPPED) return 1
       if (b[0] === UNMAPPED) return -1
-      return a[0].localeCompare(b[0])
+      return new Date(b[1][0].updatedAt).getTime() - new Date(a[1][0].updatedAt).getTime()
     })
   }, [filtered])
 

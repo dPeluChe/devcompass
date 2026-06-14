@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { extractExceptions, fetchSentryLatestEvent, updateSentryIssueStatus, type SentryIssue } from '../../api/sentry'
+import { extractEventContext, extractExceptions, fetchSentryLatestEvent, updateSentryIssueStatus, type SentryIssue } from '../../api/sentry'
 import { sentryConfigStore } from '../../store/sentryConfig'
 import { clearPrefsByPrefix } from '../../store/db'
 import { relativeTime } from '../../utils/time'
@@ -49,6 +49,7 @@ export function SentryIssueModal({ issue, onClose }: { issue: SentryIssue | null
 
   if (!issue) return null
   const exceptions = extractExceptions(eventQuery.data)
+  const eventCtx = extractEventContext(eventQuery.data, exceptions)
   const cfgState = sentryConfigStore.getState()
   const repo = cfgState.projectRepoMap[issue.project.slug] ?? null
   // Mutations need a real connector (demo rows have none) + event:write.
@@ -76,8 +77,21 @@ export function SentryIssueModal({ issue, onClose }: { issue: SentryIssue | null
           · first seen {relativeTime(issue.firstSeen)} · last {relativeTime(issue.lastSeen)}
         </div>
 
+        {(eventCtx.environment || eventCtx.handled !== null || eventCtx.release) && (
+          <div className="issue-modal-tags">
+            {eventCtx.environment && <span className="issue-tag">env: {eventCtx.environment}</span>}
+            {eventCtx.handled !== null && (
+              <span className={`issue-tag ${eventCtx.handled ? '' : 'crit'}`}>
+                {eventCtx.handled ? 'handled' : 'unhandled'}
+              </span>
+            )}
+            {eventCtx.release && <span className="issue-tag">release: {eventCtx.release}</span>}
+            {eventCtx.client && <span className="issue-tag">{eventCtx.client}</span>}
+          </div>
+        )}
+
         <div className="issue-modal-actions">
-          <CopyButton getText={() => buildSentryAgentText(issue, exceptions, repo)} />
+          <CopyButton getText={() => buildSentryAgentText(issue, exceptions, repo, eventCtx)} />
           {repo && (
             <button
               className="hs-modal-btn"

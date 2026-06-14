@@ -2967,6 +2967,12 @@ kbd {
 .issue-modal-close { flex: 0 0 auto; background: none; border: none; color: var(--muted); font-size: 1.4rem; line-height: 1; cursor: pointer; }
 .issue-modal-close:hover { color: var(--text); }
 .issue-modal-meta { font-size: 0.8rem; }
+.issue-modal-tags { display: flex; flex-wrap: wrap; gap: 6px; margin: 8px 0 2px; }
+.issue-tag {
+  font-size: 0.72rem; padding: 2px 8px; border-radius: 999px;
+  border: 1px solid var(--border); background: var(--panel); color: var(--muted);
+}
+.issue-tag.crit { border-color: var(--danger); color: var(--danger); }
 .issue-modal-actions { display: flex; gap: 8px; flex-wrap: wrap; }
 .issue-modal-labels { display: flex; flex-wrap: wrap; gap: 6px; }
 .issue-modal-label { font-size: 0.74rem; border: 1px solid var(--border); border-radius: 999px; padding: 1px 8px; }
