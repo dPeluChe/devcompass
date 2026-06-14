@@ -77,6 +77,14 @@ describe('buildSentryAgentText', () => {
     expect(text).toContain('<details><summary>Raw event JSON</summary>')
     expect(text).toContain('"sample": "payload"')
   })
+
+  it('lists suspect commits with author and PR when present', () => {
+    const text = buildSentryAgentText(ISSUE, [], 'acme/api', {}, undefined, [
+      { shortSha: 'a1b2c3d', message: 'refactor session resolver', author: 'carlos', prNumber: 87, prUrl: 'https://github.com/acme/api/pull/87' },
+    ])
+    expect(text).toContain('Suspect commits (Sentry blame):')
+    expect(text).toContain('a1b2c3d "refactor session resolver" — @carlos (PR #87)')
+  })
 })
 
 describe('buildGithubIssueAgentText', () => {

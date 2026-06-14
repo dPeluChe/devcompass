@@ -1,6 +1,6 @@
 import { useMemo, useRef, useState } from 'react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
-import { sentryConfigStore } from '../../store/sentryConfig'
+import { sentryConfigStore, validateSentryTokenFormat } from '../../store/sentryConfig'
 import {
   fetchSentryCodeMappings,
   fetchSentryIssues,
@@ -259,6 +259,7 @@ function SetupForm({
   onConnect: () => void
 }) {
   const cfg = sentryConfigStore()
+  const tokenCheck = validateSentryTokenFormat(cfg.token)
   return (
     <>
       <details className="connector-help">
@@ -287,7 +288,9 @@ function SetupForm({
             value={cfg.token}
             onChange={(e) => cfg.update({ token: e.target.value })}
             autoComplete="off"
+            aria-invalid={tokenCheck.warning ? true : undefined}
           />
+          {tokenCheck.warning && <span className="connector-field-hint warn">{tokenCheck.warning}</span>}
         </label>
         <label>
           <span>Organization slug</span>

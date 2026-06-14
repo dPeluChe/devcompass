@@ -1,5 +1,5 @@
 import type { GitHubIssueDetail } from '../api/github'
-import type { SentryEventContext, SentryExceptionValue, SentryFrame, SentryIssue } from '../api/sentry'
+import type { SentryEventContext, SentryExceptionValue, SentryFrame, SentryIssue, SentrySuspectCommit } from '../api/sentry'
 
 const FRAME_LIMIT = 15
 
@@ -53,6 +53,7 @@ export function buildSentryAgentText(
   repo: string | null,
   ctx: Partial<SentryEventContext> = {},
   rawEvent?: unknown,
+  suspectCommits: SentrySuspectCommit[] = [],
 ): string {
   const primary = exceptions[0]
   const headType = primary?.type ?? issue.metadata?.type ?? null
@@ -89,6 +90,16 @@ export function buildSentryAgentText(
   if (ctx.eventId) {
     const base = issue.permalink.endsWith('/') ? issue.permalink : `${issue.permalink}/`
     lines.push(field('This event', `${base}events/${ctx.eventId}/`))
+  }
+
+  // Sentry's blame for the issue — where the agent should start looking.
+  if (suspectCommits.length > 0) {
+    lines.push('', 'Suspect commits (Sentry blame):')
+    for (const c of suspectCommits) {
+      const pr = c.prNumber ? ` (PR #${c.prNumber})` : ''
+      const by = c.author ? ` — @${c.author}` : ''
+      lines.push(`  ${c.shortSha} "${c.message}"${by}${pr}`)
+    }
   }
 
   // Surface Sentry's own processing problems — this is why prod frames are minified.

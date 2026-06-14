@@ -164,3 +164,52 @@ export function extractEventContext(
     breadcrumbs,
   }
 }
+
+/** A commit Sentry blames for an issue (its "suspect commits" feature). */
+export type SentrySuspectCommit = {
+  shortSha: string
+  message: string
+  author: string | null
+  prNumber: number | null
+  prUrl: string | null
+}
+
+type RawCommitter = {
+  author?: { name?: string; email?: string; username?: string } | null
+  commits?: {
+    id?: string
+    message?: string
+    pullRequest?: { externalUrl?: string; title?: string } | null
+  }[]
+}
+
+/**
+ * Suspect commits Sentry attributes to an issue — needs the GitHub integration
+ * + commit tracking configured on the Sentry side. Returns [] (never throws) so
+ * it's silent until that's set up; the endpoint 404s when unconfigured.
+ */
+export async function fetchSentrySuspectCommits(auth: SentryAuth, issueId: string): Promise<SentrySuspectCommit[]> {
+  let committers: RawCommitter[]
+  try {
+    const { data } = await sentryFetch<{ committers?: RawCommitter[] }>(`/issues/${issueId}/committers/`, auth)
+    committers = data.committers ?? []
+  } catch {
+    return []
+  }
+  const out: SentrySuspectCommit[] = []
+  for (const c of committers) {
+    const author = c.author?.username ?? c.author?.name ?? c.author?.email ?? null
+    for (const commit of c.commits ?? []) {
+      const prUrl = commit.pullRequest?.externalUrl ?? null
+      out.push({
+        shortSha: (commit.id ?? '').slice(0, 7),
+        message: (commit.message ?? '').split('\n')[0].slice(0, 100),
+        author,
+        prNumber: prUrl ? Number(prUrl.match(/\/pull\/(\d+)/)?.[1]) || null : null,
+        prUrl,
+      })
+      if (out.length >= 3) return out
+    }
+  }
+  return out
+}
