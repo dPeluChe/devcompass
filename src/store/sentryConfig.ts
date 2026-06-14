@@ -3,6 +3,22 @@ import { persist } from 'zustand/middleware'
 import type { SentryAuth } from '../api/sentry'
 import { sanitizeToken } from './sanitizeToken'
 
+/** User Auth Tokens are `sntryu_` + ~58 chars (≈65–75 total). Org tokens are `sntrys_`. */
+export function validateSentryTokenFormat(raw: string): { ok: boolean; warning: string | null } {
+  const t = sanitizeToken(raw)
+  if (!t) return { ok: false, warning: null }
+  if (t.startsWith('sntrys_')) {
+    return { ok: false, warning: 'That looks like an Organization token (sntrys_) — use a User Auth Token (sntryu_); org tokens can\'t read your projects.' }
+  }
+  if (!t.startsWith('sntryu_')) {
+    return { ok: false, warning: 'A Sentry User Auth Token starts with "sntryu_".' }
+  }
+  if (t.length < 65 || t.length > 75) {
+    return { ok: false, warning: `Unexpected length (${t.length} chars) — a Sentry user token is normally ~65–75.` }
+  }
+  return { ok: true, warning: null }
+}
+
 export interface SentryConfig {
   /** BYO Sentry auth token (sentry.io → Settings → Auth Tokens). */
   token: string

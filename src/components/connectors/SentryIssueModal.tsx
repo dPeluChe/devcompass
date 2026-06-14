@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { extractExceptions, fetchSentryLatestEvent, updateSentryIssueStatus, type SentryIssue } from '../../api/sentry'
+import { extractEventContext, extractExceptions, fetchSentryLatestEvent, fetchSentrySuspectCommits, updateSentryIssueStatus, type SentryIssue } from '../../api/sentry'
 import { sentryConfigStore } from '../../store/sentryConfig'
 import { clearPrefsByPrefix } from '../../store/db'
 import { relativeTime } from '../../utils/time'
@@ -29,6 +29,16 @@ export function SentryIssueModal({ issue, onClose }: { issue: SentryIssue | null
     queryFn: async () => (await fetchSentryLatestEvent(sentryConfigStore.getState().getAuth(), issue!.id)).data,
   })
 
+  // Suspect commits: only when a real connector is configured; returns [] (no
+  // throw) until the Sentry-side GitHub integration + commit tracking is set up.
+  const suspectQuery = useQuery({
+    queryKey: ['sentry', 'committers', issue?.id],
+    enabled: open && sentryConfigStore.getState().isConfigured(),
+    staleTime: 10 * 60 * 1000,
+    retry: false,
+    queryFn: () => fetchSentrySuspectCommits(sentryConfigStore.getState().getAuth(), issue!.id),
+  })
+
   const queryClient = useQueryClient()
   const navigate = useNavigate()
   const [mutateError, setMutateError] = useState<string | null>(null)
@@ -49,6 +59,8 @@ export function SentryIssueModal({ issue, onClose }: { issue: SentryIssue | null
 
   if (!issue) return null
   const exceptions = extractExceptions(eventQuery.data)
+  const eventCtx = extractEventContext(eventQuery.data, exceptions)
+  const suspects = suspectQuery.data ?? []
   const cfgState = sentryConfigStore.getState()
   const repo = cfgState.projectRepoMap[issue.project.slug] ?? null
   // Mutations need a real connector (demo rows have none) + event:write.
@@ -76,8 +88,32 @@ export function SentryIssueModal({ issue, onClose }: { issue: SentryIssue | null
           · first seen {relativeTime(issue.firstSeen)} · last {relativeTime(issue.lastSeen)}
         </div>
 
+        {(() => {
+          const unhandled = issue.isUnhandled ?? (eventCtx.handled == null ? null : !eventCtx.handled)
+          const show = eventCtx.environment || unhandled !== null || eventCtx.release || eventCtx.client
+          if (!show) return null
+          return (
+            <div className="issue-modal-tags">
+              {eventCtx.environment && <span className="issue-tag">env: {eventCtx.environment}</span>}
+              {unhandled !== null && (
+                <span className={`issue-tag ${unhandled ? 'crit' : ''}`}>{unhandled ? 'unhandled' : 'handled'}</span>
+              )}
+              {issue.priority && <span className="issue-tag">priority: {issue.priority}</span>}
+              {eventCtx.release && <span className="issue-tag">release: {eventCtx.release}</span>}
+              {eventCtx.client && <span className="issue-tag">{eventCtx.client}</span>}
+            </div>
+          )
+        })()}
+
+        {eventCtx.processingErrors.length > 0 && (
+          <div className="issue-modal-warn">
+            ⚠ Sentry couldn't fully process this event (frames may be minified — upload source maps):
+            <ul>{eventCtx.processingErrors.map((e, i) => <li key={i}>{e}</li>)}</ul>
+          </div>
+        )}
+
         <div className="issue-modal-actions">
-          <CopyButton getText={() => buildSentryAgentText(issue, exceptions, repo)} />
+          <CopyButton getText={() => buildSentryAgentText(issue, exceptions, repo, eventCtx, eventQuery.data, suspects)} />
           {repo && (
             <button
               className="hs-modal-btn"
@@ -99,6 +135,19 @@ export function SentryIssueModal({ issue, onClose }: { issue: SentryIssue | null
         </div>
 
         {mutateError && <div className="hs-status hs-status-err" style={{ whiteSpace: 'pre-line' }}>{mutateError}</div>}
+
+        {suspects.length > 0 && (
+          <div className="sentry-suspects">
+            <span className="muted">Suspect commit{suspects.length > 1 ? 's' : ''}:</span>
+            {suspects.map((c, i) => (
+              <span key={i} className="sentry-suspect">
+                <code>{c.shortSha}</code> {c.message}
+                {c.author && <span className="muted"> — @{c.author}</span>}
+                {c.prUrl && <a href={c.prUrl} target="_blank" rel="noopener noreferrer"> PR #{c.prNumber}</a>}
+              </span>
+            ))}
+          </div>
+        )}
 
         <div className="issue-modal-body">
           {eventQuery.isLoading && <p className="muted">Loading latest event…</p>}

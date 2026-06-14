@@ -2931,6 +2931,9 @@ kbd {
 .connector-form { display: flex; flex-direction: column; gap: 12px; max-width: 560px; margin-top: 14px; }
 .connector-form label { display: flex; flex-direction: column; gap: 4px; font-size: 0.82rem; color: var(--muted); }
 .connector-form label > span { font-weight: 500; }
+.connector-field-hint { font-weight: 400; font-size: 0.76rem; }
+.connector-field-hint.warn { color: var(--danger); }
+.connector-form input[aria-invalid="true"] { border-color: var(--danger); }
 .connector-form input,
 .connector-form select {
   padding: 8px 10px; border-radius: 8px; border: 1px solid var(--border);
@@ -2967,6 +2970,20 @@ kbd {
 .issue-modal-close { flex: 0 0 auto; background: none; border: none; color: var(--muted); font-size: 1.4rem; line-height: 1; cursor: pointer; }
 .issue-modal-close:hover { color: var(--text); }
 .issue-modal-meta { font-size: 0.8rem; }
+.issue-modal-tags { display: flex; flex-wrap: wrap; gap: 6px; margin: 8px 0 2px; }
+.issue-tag {
+  font-size: 0.72rem; padding: 2px 8px; border-radius: 999px;
+  border: 1px solid var(--border); background: var(--panel); color: var(--muted);
+}
+.issue-tag.crit { border-color: var(--danger); color: var(--danger); }
+.issue-modal-warn {
+  margin: 10px 0 2px; padding: 9px 12px; border-radius: 8px; font-size: 0.8rem;
+  border: 1px solid var(--danger); background: color-mix(in srgb, var(--danger) 8%, transparent); color: var(--text);
+}
+.issue-modal-warn ul { margin: 4px 0 0; padding-left: 18px; color: var(--muted); }
+.sentry-suspects { display: flex; flex-direction: column; gap: 4px; margin: 10px 0 2px; font-size: 0.82rem; }
+.sentry-suspect code { font-size: 0.78rem; color: var(--accent); margin-right: 4px; }
+.sentry-suspect a { color: var(--accent); text-decoration: none; }
 .issue-modal-actions { display: flex; gap: 8px; flex-wrap: wrap; }
 .issue-modal-labels { display: flex; flex-wrap: wrap; gap: 6px; }
 .issue-modal-label { font-size: 0.74rem; border: 1px solid var(--border); border-radius: 999px; padding: 1px 8px; }

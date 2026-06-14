@@ -37,6 +37,12 @@ export type SentryIssue = {
   permalink: string
   project: { id: string; slug: string; name: string }
   metadata?: { type?: string; value?: string; filename?: string }
+  /** Issue-level "this is an uncaught crash" flag — more reliable than the event mechanism. */
+  isUnhandled?: boolean
+  /** Sentry's computed priority (high | medium | low), when the project uses it. */
+  priority?: string
+  /** Per-window event time series ([unixSeconds, count]) keyed by period, e.g. "24h" / "14d". */
+  stats?: Record<string, [number, number][]>
 }
 
 export type SentryEnvironment = { name: string }
