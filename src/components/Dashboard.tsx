@@ -198,7 +198,10 @@ export function Dashboard({ token, onLogout }: Props) {
           </div>
         </header>
 
-        {(data.isLoading || data.progressMsg) && !selected && view !== 'config' ? (
+        {/* Skeleton only when there's nothing cached to show yet. Once cached
+            repos are painted (data.isLoading is false), keep rendering them and
+            let the background refresh run silently — the topbar shows "· cache". */}
+        {data.isLoading && !selected && view !== 'config' ? (
           <HomeSkeleton progressMsg={data.progressMsg} />
         ) : (
           <HomeShell

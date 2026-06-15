@@ -50,6 +50,7 @@ export function useViewerData(token: string) {
   const [loadedFromCache, setLoadedFromCache] = useState(false)
   const [lastSyncAt, setLastSyncAt] = useState<number | null>(null)
   const inFlight = useRef(false)
+  const syncTriggered = useRef(false)
 
   const viewerQuery = useCachedQuery('viewer', token, () => fetchViewer(token))
   const tokenInfoQuery = useCachedQuery('tokenInfo', token, () => fetchTokenInfo(token), !!token)
@@ -181,11 +182,33 @@ export function useViewerData(token: string) {
     }
   }, [token])
 
+  // Local-first paint: show cached repos from IndexedDB the moment the hook
+  // mounts — independent of the viewer/org queries, which may hit the network
+  // when their 1h TTL lapsed or the token changed (prefs are token-keyed; repos
+  // are not). Without this the list waited behind those fetches on every visit.
   useEffect(() => {
-    if (viewerQuery.data && userOrgsQuery.data && repos.length === 0) {
+    syncTriggered.current = false
+    if (token === DEMO_TOKEN) return
+    let alive = true
+    getAllCachedRepos()
+      .then((cached) => {
+        if (alive && cached.length > 0) {
+          setRepos((prev) => (prev.length === 0 ? sortRepos(cached) : prev))
+          setLoadedFromCache(true)
+        }
+      })
+      .catch(() => { /* IDB unavailable — fall through to the network sync */ })
+    return () => { alive = false }
+  }, [token])
+
+  // Background sync runs once viewer+orgs resolve. Gated on a ref (not
+  // repos.length) so the instant cache paint above doesn't suppress it.
+  useEffect(() => {
+    if (viewerQuery.data && userOrgsQuery.data && !syncTriggered.current) {
+      syncTriggered.current = true
       loadRepos(viewerQuery.data, userOrgsQuery.data)
     }
-  }, [viewerQuery.data, userOrgsQuery.data, loadRepos, repos.length])
+  }, [viewerQuery.data, userOrgsQuery.data, loadRepos])
 
   const refresh = useCallback(async () => {
     // Drop the IDB scalar caches so the refetch hits the network instead of
