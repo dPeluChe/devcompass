@@ -59,7 +59,10 @@ export function useViewerData(token: string) {
   const rateLimitQuery = useQuery({
     queryKey: ['rateLimit', token],
     queryFn: () => fetchRateLimit(token),
-    staleTime: 60 * 1000,
+    // 5min, not 60s: the rate gate already updates from the x-ratelimit-* headers
+    // on every gql/rest call (noteRateHeaders), so this dedicated query only feeds
+    // the topbar number — no need to re-POST it on every quick revisit.
+    staleTime: 5 * 60 * 1000,
     enabled: !!token,
   })
 
