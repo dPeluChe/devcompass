@@ -145,14 +145,11 @@ export function SentryConnector({ repos }: { repos: Repo[] }) {
   }
 
   return (
-    <section className="config-section">
-      <div className="config-section-header">
-        <h2>Sentry</h2>
-        <span className="muted">
-          BYO token, stays in your browser. Requests route through the same-origin
-          relay (<code>/api/proxy</code>) since Sentry's API blocks direct browser calls.
-        </span>
-      </div>
+    <div className="connector-body">
+      <p className="muted connector-intro">
+        BYO token, stays in your browser. Requests route through the same-origin
+        relay (<code>/api/proxy</code>) since Sentry's API blocks direct browser calls.
+      </p>
 
       {showSetup ? (
         <SetupForm
@@ -244,7 +241,7 @@ export function SentryConnector({ repos }: { repos: Repo[] }) {
           )}
         </>
       )}
-    </section>
+    </div>
   )
 }
 

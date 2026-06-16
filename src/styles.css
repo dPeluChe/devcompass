@@ -2933,6 +2933,26 @@ kbd {
 .connector-form label > span { font-weight: 500; }
 .connector-field-hint { font-weight: 400; font-size: 0.76rem; }
 .connector-field-hint.warn { color: var(--danger); }
+
+/* ---- Integrations hub (connector cards) ---- */
+.int-cards { display: flex; flex-direction: column; gap: 10px; }
+.int-card { border: 1px solid var(--border); border-radius: 10px; background: var(--panel); overflow: hidden; }
+.int-card.open { border-color: var(--accent); }
+.int-card-head {
+  display: flex; align-items: center; gap: 12px; width: 100%; padding: 12px 14px;
+  background: none; border: none; color: var(--text); font: inherit; text-align: left; cursor: pointer;
+}
+.int-card.soon .int-card-head { cursor: default; opacity: 0.55; }
+.int-card-icon { flex: 0 0 auto; font-size: 1.3rem; display: inline-flex; }
+.int-card-id { flex: 1; display: flex; flex-direction: column; gap: 1px; min-width: 0; }
+.int-card-id strong { font-size: 0.95rem; }
+.int-card-id .muted { font-size: 0.78rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.int-status { flex: 0 0 auto; font-size: 0.72rem; padding: 2px 9px; border-radius: 999px; border: 1px solid var(--border); color: var(--muted); }
+.int-status.ok { color: #3fb950; border-color: #3fb950; }
+.int-status.warn { color: #e9a23b; border-color: #e9a23b; }
+.int-chevron { flex: 0 0 auto; color: var(--muted); font-size: 0.8rem; }
+.int-card-body { padding: 4px 14px 16px; border-top: 1px solid var(--border); }
+.connector-intro { font-size: 0.82rem; margin: 8px 0 12px; }
 .connector-form input[aria-invalid="true"] { border-color: var(--danger); }
 .connector-form input,
 .connector-form select {

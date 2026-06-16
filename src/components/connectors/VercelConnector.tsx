@@ -51,14 +51,11 @@ export function VercelConnector() {
   }
 
   return (
-    <section className="config-section">
-      <div className="config-section-header">
-        <h2><SiVercel style={{ verticalAlign: '-2px' }} /> Vercel</h2>
-        <span className="muted">
-          BYO access token, stays in your browser. Surfaces deployments per repo (status,
-          commit, target). Routes through the same-origin relay (<code>/api/proxy</code>).
-        </span>
-      </div>
+    <div className="connector-body">
+      <p className="muted connector-intro">
+        BYO access token, stays in your browser. Surfaces deployments per repo (status,
+        commit, target). Routes through the same-origin relay (<code>/api/proxy</code>).
+      </p>
 
       {showSetup ? (
         <div className="connector-form">
@@ -125,6 +122,6 @@ export function VercelConnector() {
           )}
         </>
       )}
-    </section>
+    </div>
   )
 }
