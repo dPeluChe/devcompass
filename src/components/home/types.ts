@@ -58,6 +58,8 @@ export type AttentionItem = {
   author: PullRequest['author']
   /** Head branch the PR is built from, when known. */
   branch?: string
+  /** Base branch the PR targets (e.g. "main"). */
+  baseBranch?: string
   reasons: Reason[]
   dot: DotLevel
 }

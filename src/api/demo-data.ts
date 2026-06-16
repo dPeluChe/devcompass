@@ -241,6 +241,7 @@ function fullPR(
     state: 'OPEN',
     isDraft: opts.isDraft ?? false,
     headRefName: opts.branch ?? `${title.match(/^(\w+)/)?.[1] ?? 'pr'}/${number}`,
+    baseRefName: 'main',
     createdAt: ago(createdDaysAgo),
     updatedAt: ago(updatedDaysAgo),
     author: { login: authorLogin, avatarUrl: ghAvatar(authorLogin) },

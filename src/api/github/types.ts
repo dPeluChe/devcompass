@@ -99,6 +99,8 @@ export type PullRequest = {
   ciState: string | null
   /** Head branch the PR is built from (e.g. "feat/foo"). */
   headRefName?: string
+  /** Base branch the PR targets (e.g. "main"). */
+  baseRefName?: string
 }
 
 export type FileChange = {
