@@ -64,7 +64,6 @@ function DeployRow({ d, onOpen }: { d: VercelDeployment; onOpen: () => void }) {
       <span className="hs-dot critical" />
       <div className="hs-row-main">
         <div className="hs-row-title">
-          <span className="hs-source-badge vercel">▲ Vercel</span>
           <OrgChip login={org} avatarUrl={`https://github.com/${org}.png`} />
           <span className="hs-org-name">{org}</span>
           <span className="hs-sep">/</span>
@@ -72,6 +71,7 @@ function DeployRow({ d, onOpen }: { d: VercelDeployment; onOpen: () => void }) {
           <span className="hs-pr-title">{title}</span>
         </div>
         <div className="hs-row-meta">
+          <span className="hs-source-badge vercel">▲ Vercel</span>
           <span className="hs-reason r-ci-failing">deploy failed</span>
           <span className="hs-row-time">{relativeTime(new Date(d.created).toISOString(), false)}</span>
           {ref && <span className="hs-branch" title={`Branch: ${ref}`}>⎇ {ref}</span>}
