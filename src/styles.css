@@ -3062,6 +3062,14 @@ kbd {
 .rel-table tr.full td:first-child { box-shadow: inset 2px 0 0 #3fb950; }
 .rel-ext { color: var(--muted); font-size: 0.78em; }
 
+/* ---- Deploy modal build log ---- */
+.deploy-log-head { margin: 0 0 6px; font-size: 0.82rem; color: var(--muted); }
+.deploy-log {
+  margin: 0; padding: 12px 14px; background: var(--bg); border: 1px solid var(--border); border-radius: 8px;
+  font-size: 0.78rem; line-height: 1.5; white-space: pre-wrap; word-break: break-word;
+  max-height: 360px; overflow-y: auto; color: var(--text);
+}
+
 /* ---- Vercel deployments (repo-detail tab) ---- */
 .vercel-deploys { display: flex; flex-direction: column; }
 .vercel-deploy {

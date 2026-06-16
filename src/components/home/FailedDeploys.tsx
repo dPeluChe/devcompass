@@ -1,14 +1,12 @@
-import { useState } from 'react'
+import { useMemo, useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
-import {
-  fetchFailedDeployments, fetchVercelBuildLogs, repoFromDeployment, type VercelDeployment,
-} from '../../api/vercel'
+import { fetchFailedDeployments, repoFromDeployment, type VercelDeployment } from '../../api/vercel'
 import { vercelConfigStore, vercelAuthFor } from '../../store/vercelConfig'
 import { DEMO_TOKEN } from '../../api/demo-data'
 import { getCachedPref, savePref, CACHE_TTLS } from '../../store/db'
-import { buildVercelDeployAgentText } from '../../utils/agentPrompt'
 import { relativeTime } from '../../utils/time'
-import { useFlash } from '../../hooks/useFlash'
+import { OrgChip } from './OrgChip'
+import { DeployModal } from './DeployModal'
 
 /** Failed production deploys across the account. Shared by key, so calling it in
     both NeedsScope (for the count) and the section below fetches once. */
@@ -29,10 +27,13 @@ export function useFailedDeploys(token: string) {
   })
 }
 
-/** Failed production deploys across the account — shown at the top of Needs me. */
+/** Failed production deploys, rendered like the PR attention rows (newest first),
+    opening an in-app modal — shown at the top of Needs me. */
 export function FailedDeploys({ token }: { token: string }) {
-  const deploys = useFailedDeploys(token).data ?? []
-  if (deploys.length === 0) return null
+  const [selected, setSelected] = useState<VercelDeployment | null>(null)
+  const { data } = useFailedDeploys(token)
+  const sorted = useMemo(() => [...(data ?? [])].sort((a, b) => b.created - a.created), [data])
+  if (sorted.length === 0) return null
 
   return (
     <>
@@ -41,48 +42,37 @@ export function FailedDeploys({ token }: { token: string }) {
         <span className="muted"> — production builds that broke</span>
       </h3>
       <section className="hs-surface">
-        {deploys.map((d) => <DeployAlertRow key={d.uid} token={token} d={d} />)}
+        {sorted.map((d) => <DeployRow key={d.uid} d={d} onOpen={() => setSelected(d)} />)}
       </section>
+      <DeployModal deploy={selected} token={token} onClose={() => setSelected(null)} />
     </>
   )
 }
 
-function DeployAlertRow({ token, d }: { token: string; d: VercelDeployment }) {
+function DeployRow({ d, onOpen }: { d: VercelDeployment; onOpen: () => void }) {
   const repo = repoFromDeployment(d)
-  const sha = d.meta?.githubCommitSha?.slice(0, 7)
-  const href = d.inspectorUrl ?? (d.url ? `https://${d.url}` : undefined)
-  const [copied, flash] = useFlash(1600)
-  const [busy, setBusy] = useState(false)
-
-  async function copyLog() {
-    setBusy(true)
-    try {
-      const log = await fetchVercelBuildLogs(vercelAuthFor(token), d.uid)
-      await navigator.clipboard.writeText(buildVercelDeployAgentText(d, repo, log))
-      flash()
-    } catch {
-      flash()
-    } finally {
-      setBusy(false)
-    }
-  }
+  const [org, name] = (repo ?? `/${d.name}`).split('/')
+  const ref = d.meta?.githubCommitRef
+  const title = d.meta?.githubCommitMessage?.split('\n')[0] ?? 'production deploy failed'
 
   return (
-    <div className="hs-notif-row">
+    <div className="hs-row" role="button" tabIndex={0} onClick={onOpen}
+      onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onOpen() } }}>
       <span className="hs-dot critical" />
-      <div className="hs-notif-main">
-        <span className="hs-notif-title">
-          {repo ? <strong>{repo}</strong> : d.name} — {d.meta?.githubCommitMessage?.split('\n')[0] ?? 'production deploy failed'}
-        </span>
-        <div className="hs-notif-meta muted">
-          deploy failed{sha ? ` · ${sha}` : ''}{d.meta?.githubCommitRef ? ` · ${d.meta.githubCommitRef}` : ''}
-          {d.meta?.githubCommitAuthorName ? ` · @${d.meta.githubCommitAuthorName}` : ''} · {relativeTime(new Date(d.created).toISOString())}
+      <div className="hs-row-main">
+        <div className="hs-row-title">
+          <OrgChip login={org} avatarUrl={`https://github.com/${org}.png`} />
+          <span className="hs-org-name">{org}</span>
+          <span className="hs-sep">/</span>
+          <span className="hs-repo-name">{name}</span>
+          <span className="hs-pr-title">{title}</span>
+        </div>
+        <div className="hs-row-meta">
+          <span className="hs-reason r-ci-failing">deploy failed</span>
+          <span className="hs-row-time">{relativeTime(new Date(d.created).toISOString(), false)}</span>
+          {ref && <span className="hs-branch" title={`Branch: ${ref}`}>⎇ {ref}</span>}
         </div>
       </div>
-      <button className="hs-modal-btn" onClick={copyLog} disabled={busy} title="Copy build log for agent">
-        {copied ? '✓ Copied' : busy ? '…' : '⧉ Build log'}
-      </button>
-      {href && <a className="hs-issue-ext" href={href} target="_blank" rel="noopener noreferrer" title="Open in Vercel">↗</a>}
     </div>
   )
 }
