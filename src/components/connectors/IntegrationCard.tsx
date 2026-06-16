@@ -33,12 +33,13 @@ export function IntegrationCard({ icon, name, sub, status, defaultOpen, children
   )
 }
 
-/** Compact placeholder for a connector on the roadmap (logo + name chip). */
-export function SoonChip({ icon, name }: { icon: ReactNode; name: string }) {
+/** Compact placeholder for a connector on the roadmap (logo + name + how it connects). */
+export function SoonChip({ icon, name, type }: { icon: ReactNode; name: string; type?: string }) {
   return (
-    <div className="int-soon-chip" title={`${name} — coming soon`}>
+    <div className="int-soon-chip" title={`${name}${type ? ` · ${type} API` : ''} — coming soon`}>
       <span className="int-soon-icon">{icon}</span>
       <span>{name}</span>
+      {type && <span className="int-soon-type">{type}</span>}
     </div>
   )
 }

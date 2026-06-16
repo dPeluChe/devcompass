@@ -2962,6 +2962,9 @@ kbd {
 }
 .int-soon-chip:hover { opacity: 1; }
 .int-soon-icon { font-size: 1rem; display: inline-flex; }
+.int-soon-type { font-size: 0.6rem; letter-spacing: 0.02em; padding: 0 5px; border-radius: 4px; background: var(--bg); border: 1px solid var(--border); }
+.int-roadmap-group { margin-bottom: 12px; }
+.int-roadmap-layer { display: block; font-size: 0.68rem; text-transform: uppercase; letter-spacing: 0.05em; margin: 0 0 6px; }
 .connector-form input[aria-invalid="true"] { border-color: var(--danger); }
 .connector-form input,
 .connector-form select {

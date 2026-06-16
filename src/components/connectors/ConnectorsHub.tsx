@@ -1,8 +1,9 @@
 import { FaGithub } from 'react-icons/fa'
 import {
   SiSentry, SiVercel, SiLinear, SiJira, SiGitlab, SiBitbucket, SiNetlify,
-  SiCloudflare, SiRailway, SiDatadog, SiGrafana, SiRollbar, SiAsana, SiNotion,
-  SiSlack, SiPagerduty,
+  SiCloudflare, SiRailway, SiRender, SiFlydotio, SiDatadog, SiGrafana, SiRollbar,
+  SiNewrelic, SiCircleci, SiAsana, SiNotion, SiTrello, SiClickup, SiShortcut,
+  SiSlack, SiPagerduty, SiOpsgenie, SiDiscord,
 } from 'react-icons/si'
 import type { Org, Repo, TokenInfo } from '../../api/github'
 import { sentryConfigStore } from '../../store/sentryConfig'
@@ -11,22 +12,44 @@ import { SentryConnector } from './SentryConnector'
 import { VercelConnector } from './VercelConnector'
 import { IntegrationCard, SoonChip } from './IntegrationCard'
 
-// Roadmap — one or two per panorama layer (source · deploy · monitoring · PM · alerts).
-const SOON = [
-  { icon: <SiGitlab />, name: 'GitLab' },
-  { icon: <SiBitbucket />, name: 'Bitbucket' },
-  { icon: <SiNetlify />, name: 'Netlify' },
-  { icon: <SiCloudflare />, name: 'Cloudflare' },
-  { icon: <SiRailway />, name: 'Railway' },
-  { icon: <SiDatadog />, name: 'Datadog' },
-  { icon: <SiGrafana />, name: 'Grafana' },
-  { icon: <SiRollbar />, name: 'Rollbar' },
-  { icon: <SiLinear />, name: 'Linear' },
-  { icon: <SiJira />, name: 'Jira' },
-  { icon: <SiAsana />, name: 'Asana' },
-  { icon: <SiNotion />, name: 'Notion' },
-  { icon: <SiSlack />, name: 'Slack' },
-  { icon: <SiPagerduty />, name: 'PagerDuty' },
+// Roadmap grouped by panorama layer, tagged with how each one connects (all via
+// the same allowlisted relay — REST/GraphQL with a BYO token, OAuth where needed).
+const ROADMAP: { layer: string; items: { icon: React.ReactNode; name: string; type: string }[] }[] = [
+  { layer: 'Source', items: [
+    { icon: <SiGitlab />, name: 'GitLab', type: 'REST' },
+    { icon: <SiBitbucket />, name: 'Bitbucket', type: 'REST' },
+  ] },
+  { layer: 'Deploy', items: [
+    { icon: <SiNetlify />, name: 'Netlify', type: 'REST' },
+    { icon: <SiCloudflare />, name: 'Cloudflare', type: 'REST' },
+    { icon: <SiRailway />, name: 'Railway', type: 'GraphQL' },
+    { icon: <SiRender />, name: 'Render', type: 'REST' },
+    { icon: <SiFlydotio />, name: 'Fly.io', type: 'REST' },
+  ] },
+  { layer: 'Monitoring', items: [
+    { icon: <SiDatadog />, name: 'Datadog', type: 'REST' },
+    { icon: <SiGrafana />, name: 'Grafana', type: 'REST' },
+    { icon: <SiRollbar />, name: 'Rollbar', type: 'REST' },
+    { icon: <SiNewrelic />, name: 'New Relic', type: 'GraphQL' },
+  ] },
+  { layer: 'CI / CD', items: [
+    { icon: <SiCircleci />, name: 'CircleCI', type: 'REST' },
+  ] },
+  { layer: 'Project tracking', items: [
+    { icon: <SiLinear />, name: 'Linear', type: 'GraphQL' },
+    { icon: <SiJira />, name: 'Jira', type: 'REST' },
+    { icon: <SiAsana />, name: 'Asana', type: 'REST' },
+    { icon: <SiNotion />, name: 'Notion', type: 'REST' },
+    { icon: <SiTrello />, name: 'Trello', type: 'REST' },
+    { icon: <SiClickup />, name: 'ClickUp', type: 'REST' },
+    { icon: <SiShortcut />, name: 'Shortcut', type: 'REST' },
+  ] },
+  { layer: 'Alerts & comms', items: [
+    { icon: <SiSlack />, name: 'Slack', type: 'OAuth' },
+    { icon: <SiPagerduty />, name: 'PagerDuty', type: 'REST' },
+    { icon: <SiOpsgenie />, name: 'Opsgenie', type: 'REST' },
+    { icon: <SiDiscord />, name: 'Discord', type: 'OAuth' },
+  ] },
 ]
 
 /**
@@ -96,10 +119,15 @@ export function ConnectorsHub({ tokenInfo, orgs, repos, errors }: {
 
       </div>
 
-      <p className="int-soon-head muted">More connectors on the roadmap</p>
-      <div className="int-soon-grid">
-        {SOON.map((s) => <SoonChip key={s.name} icon={s.icon} name={s.name} />)}
-      </div>
+      <p className="int-soon-head muted">More connectors on the roadmap — all via the same allowlisted relay (BYO token).</p>
+      {ROADMAP.map((g) => (
+        <div key={g.layer} className="int-roadmap-group">
+          <span className="int-roadmap-layer muted">{g.layer}</span>
+          <div className="int-soon-grid">
+            {g.items.map((s) => <SoonChip key={s.name} icon={s.icon} name={s.name} type={s.type} />)}
+          </div>
+        </div>
+      ))}
     </section>
   )
 }
