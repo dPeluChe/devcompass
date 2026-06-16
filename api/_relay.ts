@@ -12,6 +12,8 @@
 export const ALLOWED_HOST_PATTERNS: RegExp[] = [
   // Sentry SaaS incl. regional hosts (us./de.sentry.io) and sentry.io itself.
   /^([a-z0-9-]+\.)?sentry\.io$/i,
+  // Vercel REST API (deployments connector).
+  /^api\.vercel\.com$/i,
   // Future connectors — add + test one at a time:
   // /^api\.linear\.app$/i,
   // /^[a-z0-9-]+\.atlassian\.net$/i,

@@ -5,6 +5,7 @@ import { sentryConfigStore } from '../store/sentryConfig'
 import { OrgManager } from './OrgManager'
 import { SettingsTab } from './SettingsTab'
 import { SentryConnector } from './connectors/SentryConnector'
+import { VercelConnector } from './connectors/VercelConnector'
 
 export function ConfigView({
   tokenInfo,
@@ -135,7 +136,12 @@ export function ConfigView({
           </section>
         )}
 
-        {section === 'connectors' && <SentryConnector repos={repos} />}
+        {section === 'connectors' && (
+          <>
+            <SentryConnector repos={repos} />
+            <VercelConnector />
+          </>
+        )}
 
         {section === 'storage' && <SettingsTab panel="storage" onForceResync={onForceResync} />}
         {section === 'cache' && <SettingsTab panel="cache" onForceResync={onForceResync} />}

@@ -32,7 +32,7 @@ export function RdLoading() {
   )
 }
 
-export type Tab = 'overview' | 'commits' | 'prs' | 'issues' | 'releases' | 'sentry'
+export type Tab = 'overview' | 'commits' | 'prs' | 'issues' | 'releases' | 'sentry' | 'deployments'
 
 type RdTabsProps = {
   tab: Tab
@@ -43,9 +43,11 @@ type RdTabsProps = {
   releaseCount: number
   /** Shown only when this repo has a mapped Sentry project. */
   showSentry?: boolean
+  /** Shown only when this repo has a mapped Vercel project. */
+  showDeployments?: boolean
 }
 
-export function RdTabs({ tab, onChange, commitCount, prCount, issueCount, releaseCount, showSentry }: RdTabsProps) {
+export function RdTabs({ tab, onChange, commitCount, prCount, issueCount, releaseCount, showSentry, showDeployments }: RdTabsProps) {
   return (
     <nav className="rd-tabs" aria-label="Repo sections">
       <TabButton active={tab === 'overview'} onClick={() => onChange('overview')} label="Overview" />
@@ -53,6 +55,7 @@ export function RdTabs({ tab, onChange, commitCount, prCount, issueCount, releas
       <TabButton active={tab === 'prs'} onClick={() => onChange('prs')} label="Pull requests" count={prCount} />
       <TabButton active={tab === 'issues'} onClick={() => onChange('issues')} label="Issues" count={issueCount} />
       <TabButton active={tab === 'releases'} onClick={() => onChange('releases')} label="Releases" count={releaseCount} />
+      {showDeployments && <TabButton active={tab === 'deployments'} onClick={() => onChange('deployments')} label="Deployments" />}
       {showSentry && <TabButton active={tab === 'sentry'} onClick={() => onChange('sentry')} label="Sentry" />}
     </nav>
   )

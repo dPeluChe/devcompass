@@ -46,6 +46,7 @@ Wave numbering comes from the 2026-06 product audit (architecture + UX + perf/se
 - [ ] **Density modes** for repo cards (scan vs detail).
 - [ ] **Fine-grained PAT support** — currently classic only.
 - [ ] **Multi-account** — switch between PATs without clearing cache.
+- [ ] **Vercel connector — Phase 2/3** — Phase 1 (deployments tab) shipped. Next: failed deploys as Needs-me attention items; "copy build log for agent"; **release health** correlation (Sentry release sha ↔ Vercel deploy ↔ commit/PR) — the cross-source crown jewel.
 - [ ] **Linear / Jira / GitLab connectors** — same relay + connector pattern as Sentry.
 - [ ] **"Send to agent"** — evolve copy-for-agent into a direct handoff (batch triage → tasks).
 - [ ] **OG social card** — design `public/og-image.png` (1200×630, devcompass branding); the OG/Twitter tags already reference it. Until it exists, shares unfurl text-only.

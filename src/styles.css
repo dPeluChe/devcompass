@@ -3002,6 +3002,27 @@ kbd {
 .connector-help ol { margin: 8px 0; padding-left: 20px; display: flex; flex-direction: column; gap: 4px; }
 .connector-help a { color: var(--accent); }
 .connector-map-list { list-style: none; padding: 0; margin: 0; display: flex; flex-direction: column; gap: 5px; }
+
+/* ---- Vercel deployments (repo-detail tab) ---- */
+.vercel-deploys { display: flex; flex-direction: column; }
+.vercel-deploy {
+  display: flex; align-items: center; gap: 10px; padding: 9px 12px; text-decoration: none; color: inherit;
+  border-bottom: 1px solid var(--border);
+}
+.vercel-deploy:last-child { border-bottom: none; }
+.vercel-deploy:hover { background: var(--panel-2, var(--panel)); }
+.vercel-state {
+  flex: 0 0 auto; font-size: 0.7rem; text-transform: uppercase; letter-spacing: 0.03em;
+  padding: 2px 8px; border-radius: 999px; border: 1px solid var(--border); color: var(--muted);
+}
+.vercel-state.s-ok { color: #3fb950; border-color: #3fb950; }
+.vercel-state.s-crit { color: var(--danger); border-color: var(--danger); }
+.vercel-state.s-warn { color: #e9a23b; border-color: #e9a23b; }
+.vercel-target { flex: 0 0 auto; font-size: 0.72rem; color: var(--muted); }
+.vercel-deploy-main { flex: 1; display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.vercel-deploy-msg { font-size: 0.9rem; color: var(--text); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.vercel-deploy-meta { font-size: 0.78rem; }
+.vercel-deploy-meta code { font-size: 0.74rem; }
 .connector-map-row { display: flex; align-items: center; gap: 8px; font-size: 0.85rem; padding: 6px 10px; border: 1px solid var(--border); border-radius: 6px; }
 .connector-map-project { flex: 0 0 180px; display: flex; align-items: center; gap: 6px; min-width: 0; font-weight: 500; color: var(--text); }
 .connector-map-project-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
