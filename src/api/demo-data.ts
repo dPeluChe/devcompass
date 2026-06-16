@@ -231,6 +231,7 @@ function fullPR(
     comments?: number
     isPrivate?: boolean
     branch?: string
+    base?: string
   } = {},
 ): PullRequest {
   return {
@@ -241,7 +242,7 @@ function fullPR(
     state: 'OPEN',
     isDraft: opts.isDraft ?? false,
     headRefName: opts.branch ?? `${title.match(/^(\w+)/)?.[1] ?? 'pr'}/${number}`,
-    baseRefName: 'main',
+    baseRefName: opts.base ?? 'main',
     createdAt: ago(createdDaysAgo),
     updatedAt: ago(updatedDaysAgo),
     author: { login: authorLogin, avatarUrl: ghAvatar(authorLogin) },
@@ -269,7 +270,7 @@ export const DEMO_PRS_REVIEW_REQUESTED: PullRequest[] = [
   }),
   fullPR('P060', 8342, 'fix(realtime): reconnection backoff exceeds 30 s limit', 'supabase', 'supabase', 'sujay-r', 1, 3, {
     labels: [{ name: 'bug', color: 'd73a4a' }, { name: 'performance', color: 'e4e669' }],
-    reviewDecision: 'REVIEW_REQUIRED',
+    reviewDecision: 'REVIEW_REQUIRED', base: 'develop',
     additions: 87, deletions: 42, changedFiles: 4, comments: 3,
   }),
   fullPR('P080', 2103, 'refactor(editor): extract BlockEditor to standalone package', 'linear', 'linear', 'emilwidlund', 1, 7, {
@@ -332,7 +333,7 @@ export const DEMO_PRS_POOL: PullRequest[] = [
     labels: [{ name: 'enhancement', color: '84b6eb' }], additions: 643, deletions: 88, changedFiles: 19, comments: 1,
   }),
   fullPR('PP02', 216, 'fix(web): debounce the search box to cut re-renders', 'iteris', 'web-app', 'carlosm', 0, 1, {
-    ciState: 'FAILURE', reviewDecision: 'REVIEW_REQUIRED',
+    ciState: 'FAILURE', reviewDecision: 'REVIEW_REQUIRED', base: 'staging',
     labels: [{ name: 'performance', color: 'e4e669' }], additions: 31, deletions: 12, changedFiles: 3, comments: 0,
   }),
   fullPR('PP03', 7, 'docs: contributor guide + architecture diagram', 'iteris', 'infra', 'lucamb', 1, 3, {
@@ -685,7 +686,11 @@ const DEMO_VERCEL_DEPLOYMENTS: Record<string, VercelDeployment[]> = {
     deploy('dpl_d2', 'dPeluChe/devcompass', 'BUILDING', null, 0, 0, 'baaca1c', 'feat/vercel', 'feat(needs): review pool', 'dPeluChe'),
   ],
   'iteris/platform-api': [
+    deploy('dpl_p2', 'iteris/platform-api', 'ERROR', 'production', 0, 4, 'b7c8d9e', 'main', 'fix(rate-limiter): sliding window resets on distributed nodes', 'carlosm'),
     deploy('dpl_p1', 'iteris/platform-api', 'READY', 'production', 1, 4, 'c3d4e5f', 'main', 'feat(auth): migrate from JWT HS256 to RS256', 'dPeluChe'),
+  ],
+  'iteris/iteris-landing': [
+    deploy('dpl_l1', 'iteris/iteris-landing', 'ERROR', 'production', 1, 8, 'e1f2a3b', 'main', 'feat(landing): hero redesign + pricing section', 'sofiad'),
   ],
 }
 
