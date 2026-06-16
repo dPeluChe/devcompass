@@ -3060,6 +3060,7 @@ kbd {
 .rel-table td a { color: var(--text); text-decoration: none; }
 .rel-table td a:hover { color: var(--accent); }
 .rel-table tr.full td:first-child { box-shadow: inset 2px 0 0 #3fb950; }
+.rel-ext { color: var(--muted); font-size: 0.78em; }
 
 /* ---- Vercel deployments (repo-detail tab) ---- */
 .vercel-deploys { display: flex; flex-direction: column; }

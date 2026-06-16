@@ -28,6 +28,8 @@ export interface VercelConfig {
   projectRepoMap: Record<string, string>
   /** Vercel project id → display name, for the tab title. */
   projectNames: Record<string, string>
+  /** Vercel project id → live production URL. */
+  projectUrls: Record<string, string>
 }
 
 const DEFAULTS: VercelConfig = {
@@ -37,6 +39,7 @@ const DEFAULTS: VercelConfig = {
   enabled: false,
   projectRepoMap: {},
   projectNames: {},
+  projectUrls: {},
 }
 
 interface VercelConfigState extends VercelConfig {

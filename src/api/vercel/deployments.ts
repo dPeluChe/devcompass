@@ -8,6 +8,13 @@ export function repoFromProject(p: VercelProject): string | null {
   return null
 }
 
+/** Production URL for a project — prefers a custom domain, falls back to <name>.vercel.app. */
+export function prodUrlForProject(p: VercelProject): string {
+  const aliases = p.targets?.production?.alias ?? []
+  const chosen = aliases.find((a) => !a.endsWith('.vercel.app')) ?? aliases[0] ?? `${p.name}.vercel.app`
+  return chosen.startsWith('http') ? chosen : `https://${chosen}`
+}
+
 /** Normalize the deployment's effective state (state ?? readyState). */
 export function deploymentState(d: VercelDeployment): VercelDeploymentState {
   return d.state ?? d.readyState ?? 'QUEUED'

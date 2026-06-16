@@ -2,7 +2,7 @@ import { useState } from 'react'
 import { SiVercel } from 'react-icons/si'
 import { FaGithub } from 'react-icons/fa'
 import { vercelConfigStore, validateVercelTokenFormat } from '../../store/vercelConfig'
-import { validateVercelToken, repoFromProject } from '../../api/vercel'
+import { validateVercelToken, repoFromProject, prodUrlForProject } from '../../api/vercel'
 
 // Auth failures are the common first-run snag — point at the likely causes.
 function describeError(e: unknown): string {
@@ -32,11 +32,12 @@ export function VercelConnector() {
       // The git link IS the mapping — seed it directly (only github-linked projects).
       const projectRepoMap: Record<string, string> = {}
       const projectNames: Record<string, string> = {}
+      const projectUrls: Record<string, string> = {}
       for (const p of projects) {
         const repo = repoFromProject(p)
-        if (repo) { projectRepoMap[p.id] = repo; projectNames[p.id] = p.name }
+        if (repo) { projectRepoMap[p.id] = repo; projectNames[p.id] = p.name; projectUrls[p.id] = prodUrlForProject(p) }
       }
-      cfg.update({ enabled: true, projectRepoMap, projectNames })
+      cfg.update({ enabled: true, projectRepoMap, projectNames, projectUrls })
       setEditing(false)
     } catch (e) {
       setError(describeError(e))

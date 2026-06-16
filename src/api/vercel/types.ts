@@ -17,6 +17,8 @@ export type VercelProject = {
     repo?: string
     productionBranch?: string
   } | null
+  /** Production target — carries the live domain aliases when present. */
+  targets?: { production?: { alias?: string[]; url?: string } | null } | null
 }
 
 export type VercelDeployment = {
