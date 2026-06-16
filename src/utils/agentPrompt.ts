@@ -1,5 +1,26 @@
 import type { GitHubIssueDetail } from '../api/github'
 import type { SentryEventContext, SentryExceptionValue, SentryFrame, SentryIssue, SentrySuspectCommit } from '../api/sentry'
+import type { VercelDeployment } from '../api/vercel'
+
+/** Paste-ready brief for a failed Vercel deployment: commit context + build log tail. */
+export function buildVercelDeployAgentText(d: VercelDeployment, repo: string | null, log: string): string {
+  const sha = d.meta?.githubCommitSha?.slice(0, 7)
+  const lines = [
+    `Fix this failed Vercel deployment${repo ? ` in ${repo}` : ''}:`,
+    '',
+    `Target: ${d.target === 'production' ? 'production' : 'preview'}`,
+    d.meta?.githubCommitRef ? `Branch: ${d.meta.githubCommitRef}` : '',
+    sha ? `Commit: ${sha}${d.meta?.githubCommitMessage ? ` — ${d.meta.githubCommitMessage.split('\n')[0]}` : ''}` : '',
+    d.meta?.githubCommitAuthorName ? `Author: @${d.meta.githubCommitAuthorName}` : '',
+    d.inspectorUrl ? `Inspector: ${d.inspectorUrl}` : '',
+    '',
+    'Build log (tail):',
+    '```',
+    log || '(no log available)',
+    '```',
+  ].filter((l) => l !== '')
+  return lines.join('\n')
+}
 
 const FRAME_LIMIT = 15
 

@@ -62,6 +62,7 @@ export function useNeedsMe(token: string, viewerLogin: string | undefined) {
           ciState: pr.ciState,
           reviewDecision: pr.reviewDecision,
           author: pr.author,
+          branch: pr.headRefName,
           reasons: [reason],
           dot: 'info'
         })
@@ -118,7 +119,8 @@ function prToPoolItem(pr: PullRequest): AttentionItem {
     id: pr.id, org, orgAvatarUrl: pr.repository.owner?.avatarUrl, repo,
     nameWithOwner: pr.repository.nameWithOwner, number: pr.number, title: pr.title,
     url: pr.url, isDraft: pr.isDraft, updatedAt: pr.updatedAt, ciState: pr.ciState,
-    reviewDecision: pr.reviewDecision, author: pr.author, reasons: ['review-pool'], dot: 'muted',
+    reviewDecision: pr.reviewDecision, author: pr.author, branch: pr.headRefName,
+    reasons: ['review-pool'], dot: 'muted',
   }
 }
 

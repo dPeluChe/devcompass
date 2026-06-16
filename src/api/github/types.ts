@@ -97,6 +97,8 @@ export type PullRequest = {
   deletions: number
   changedFiles: number
   ciState: string | null
+  /** Head branch the PR is built from (e.g. "feat/foo"). */
+  headRefName?: string
 }
 
 export type FileChange = {

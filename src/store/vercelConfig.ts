@@ -1,6 +1,7 @@
 import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
 import type { VercelAuth } from '../api/vercel'
+import { DEMO_TOKEN } from '../api/demo-data'
 import { sanitizeToken } from './sanitizeToken'
 
 /** Vercel access tokens have no fixed public prefix; just sanity-check length. */
@@ -70,3 +71,10 @@ export const vercelConfigStore = create<VercelConfigState>()(
     { name: 'devcompass-vercel-config' }
   )
 )
+
+/** Resolve the Vercel auth for a given app token — demo gets a demo auth, else the store's. */
+export function vercelAuthFor(token: string): VercelAuth {
+  return token === DEMO_TOKEN
+    ? { token: DEMO_TOKEN, teamId: '', proxyBase: '' }
+    : vercelConfigStore.getState().getAuth()
+}

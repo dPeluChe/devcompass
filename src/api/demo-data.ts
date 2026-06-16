@@ -230,6 +230,7 @@ function fullPR(
     changedFiles?: number
     comments?: number
     isPrivate?: boolean
+    branch?: string
   } = {},
 ): PullRequest {
   return {
@@ -239,6 +240,7 @@ function fullPR(
     url: `https://github.com/${org}/${repo}/pull/${number}`,
     state: 'OPEN',
     isDraft: opts.isDraft ?? false,
+    headRefName: opts.branch ?? `${title.match(/^(\w+)/)?.[1] ?? 'pr'}/${number}`,
     createdAt: ago(createdDaysAgo),
     updatedAt: ago(updatedDaysAgo),
     author: { login: authorLogin, avatarUrl: ghAvatar(authorLogin) },
@@ -692,4 +694,28 @@ export function demoVercelDeployments(repoOrId: string): VercelDeployment[] {
   const proj = DEMO_VERCEL_PROJECTS.find((p) => p.id === repoOrId)
   if (proj?.link?.org && proj.link.repo) return DEMO_VERCEL_DEPLOYMENTS[`${proj.link.org}/${proj.link.repo}`] ?? []
   return []
+}
+
+/** Demo failed production deployments (the Needs-me alert), newest first. */
+export function demoFailedDeployments(): VercelDeployment[] {
+  return Object.values(DEMO_VERCEL_DEPLOYMENTS)
+    .flat()
+    .filter((d) => d.state === 'ERROR' && d.target === 'production')
+    .sort((a, b) => b.created - a.created)
+}
+
+export function demoVercelBuildLog(_id: string): string {
+  return [
+    '$ npm run build',
+    '> web-app@2.0.0 build',
+    '> vite build',
+    '',
+    'vite v6.0.1 building for production...',
+    'transforming...',
+    'src/routes/dashboard.tsx:142:18 - error TS2339:',
+    "  Property 'metrics' does not exist on type 'WebSocketFeed'.",
+    '',
+    'ERROR: "tsc -b" exited with 2.',
+    'Error: Command "npm run build" exited with 1',
+  ].join('\n')
 }

@@ -1,8 +1,10 @@
+import { useState, type MouseEvent } from 'react'
 import { useQuery } from '@tanstack/react-query'
-import { fetchVercelDeployments, deploymentState, type VercelDeployment, type VercelDeploymentState } from '../../api/vercel'
-import { vercelConfigStore } from '../../store/vercelConfig'
-import { DEMO_TOKEN } from '../../api/demo-data'
+import { fetchVercelDeployments, fetchVercelBuildLogs, deploymentState, repoFromDeployment, type VercelDeployment, type VercelDeploymentState } from '../../api/vercel'
+import { vercelAuthFor } from '../../store/vercelConfig'
+import { buildVercelDeployAgentText } from '../../utils/agentPrompt'
 import { relativeTime } from '../../utils/time'
+import { useFlash } from '../../hooks/useFlash'
 import { EmptyState, RdLoading, Surface } from './common'
 
 const STATE_TONE: Record<VercelDeploymentState, string> = {
@@ -18,14 +20,7 @@ export function DeploymentsTab({ token, projectId, projectName, repo }: {
 }) {
   const query = useQuery({
     queryKey: ['vercel', 'deployments', token, projectId, repo],
-    queryFn: () => {
-      // Demo mode has no real connector — pass the demo token so the fetcher
-      // serves canned deployments.
-      const auth = token === DEMO_TOKEN
-        ? { token: DEMO_TOKEN, teamId: '', proxyBase: '' }
-        : vercelConfigStore.getState().getAuth()
-      return fetchVercelDeployments(auth, { projectId, repo })
-    },
+    queryFn: () => fetchVercelDeployments(vercelAuthFor(token), { projectId, repo }),
     staleTime: 60 * 1000,
   })
 
@@ -39,17 +34,32 @@ export function DeploymentsTab({ token, projectId, projectName, repo }: {
     <Surface title={title} wide>
       {deps.length === 0
         ? <EmptyState label="No deployments for this project yet." />
-        : <div className="vercel-deploys">{deps.map((d) => <DeployRow key={d.uid} d={d} />)}</div>}
+        : <div className="vercel-deploys">{deps.map((d) => <DeployRow key={d.uid} token={token} d={d} />)}</div>}
     </Surface>
   )
 }
 
-function DeployRow({ d }: { d: VercelDeployment }) {
+function DeployRow({ token, d }: { token: string; d: VercelDeployment }) {
   const state = deploymentState(d)
   const sha = d.meta?.githubCommitSha?.slice(0, 7)
   const ref = d.meta?.githubCommitRef
   const msg = d.meta?.githubCommitMessage?.split('\n')[0]
   const href = d.inspectorUrl ?? (d.url ? `https://${d.url}` : undefined)
+  const [copied, flash] = useFlash(1600)
+  const [busy, setBusy] = useState(false)
+
+  async function copyLog(e: MouseEvent) {
+    e.preventDefault(); e.stopPropagation()
+    setBusy(true)
+    try {
+      const log = await fetchVercelBuildLogs(vercelAuthFor(token), d.uid)
+      await navigator.clipboard.writeText(buildVercelDeployAgentText(d, repoFromDeployment(d), log))
+    } finally {
+      setBusy(false)
+      flash()
+    }
+  }
+
   return (
     <a className="vercel-deploy" href={href} target="_blank" rel="noopener noreferrer">
       <span className={`vercel-state s-${STATE_TONE[state]}`}>{state.toLowerCase()}</span>
@@ -62,6 +72,11 @@ function DeployRow({ d }: { d: VercelDeployment }) {
           {' · '}{relativeTime(new Date(d.created).toISOString())}
         </span>
       </div>
+      {state === 'ERROR' && (
+        <button className="hs-modal-btn" onClick={copyLog} disabled={busy} title="Copy build log for agent">
+          {copied ? '✓ Copied' : busy ? '…' : '⧉ Build log'}
+        </button>
+      )}
     </a>
   )
 }

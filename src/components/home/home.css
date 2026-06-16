@@ -280,6 +280,11 @@
 .hs-day-label { color: var(--text); }
 .hs-section-label { font-size: 0.82rem; font-weight: 600; margin: 22px 0 10px; }
 .hs-reason.r-review-pool { background: var(--panel); color: var(--muted); border: 1px solid var(--border); }
+.hs-branch {
+  font-family: var(--mono, ui-monospace, monospace); font-size: 0.72rem; color: var(--muted);
+  background: var(--panel); border: 1px solid var(--border); border-radius: 5px; padding: 1px 6px;
+  max-width: 220px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
 .hs-scope-filter {
   width: min(360px, 100%); box-sizing: border-box; margin: 0 0 14px; padding: 7px 11px;
   border: 1px solid var(--border); border-radius: 8px; background: var(--panel);

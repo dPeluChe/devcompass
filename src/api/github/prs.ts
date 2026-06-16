@@ -37,6 +37,7 @@ export async function searchPRs(token: string, query: string, first = 50): Promi
             url
             state
             isDraft
+            headRefName
             createdAt
             updatedAt
             author { login avatarUrl }

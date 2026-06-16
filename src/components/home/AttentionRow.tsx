@@ -118,6 +118,7 @@ export function AttentionRow(props: Props) {
           <span className="hs-pr-title">{item.isDraft ? 'Draft: ' : ''}{item.title}</span>
         </div>
         <div className="hs-row-meta">
+          {item.branch && <span className="hs-branch" title={`Branch: ${item.branch}`}>⎇ {item.branch}</span>}
           <ReasonChips {...props} />
           <span className="hs-row-time">{relativeTime(item.updatedAt, false)}</span>
         </div>

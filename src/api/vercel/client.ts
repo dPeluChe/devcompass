@@ -53,3 +53,17 @@ export async function vercelFetch<T>(
   }
   throw lastError ?? new Error('Vercel request failed')
 }
+
+/** Raw-text GET (the build-events endpoint returns NDJSON, not a JSON body). No retry. */
+export async function vercelFetchText(path: string, auth: VercelAuth, params?: Record<string, string | number | undefined>): Promise<string> {
+  const upstream = new URL(VERCEL_BASE + path)
+  if (params) for (const [k, v] of Object.entries(params)) { if (v !== undefined && v !== '') upstream.searchParams.set(k, String(v)) }
+  if (auth.teamId) upstream.searchParams.set('teamId', auth.teamId)
+  const proxied = `${auth.proxyBase || '/api/proxy'}?url=${encodeURIComponent(upstream.toString())}`
+  const res = await fetch(proxied, {
+    headers: { Authorization: `Bearer ${auth.token}`, Accept: 'application/json' },
+    signal: AbortSignal.timeout(TIMEOUT_MS),
+  })
+  if (!res.ok) throw new Error(`Vercel ${res.status}: ${(await res.text().catch(() => '')).slice(0, 200) || res.statusText}`)
+  return res.text()
+}

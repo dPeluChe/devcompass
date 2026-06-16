@@ -189,7 +189,9 @@ export const CACHE_TTLS: Record<string, number> = {
   'digestMerged:': 30 * 60 * 1000,
   'digestActivity:': 30 * 60 * 1000,
   // Review pool: one cross-org PR search, timely but reload-instant.
-  'reviewPool:': 5 * 60 * 1000
+  'reviewPool:': 5 * 60 * 1000,
+  // Vercel failed-deploys alert (one cross-account call).
+  'vercelFailed:': 5 * 60 * 1000
 }
 
 /**

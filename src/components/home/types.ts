@@ -56,6 +56,8 @@ export type AttentionItem = {
   ciState: string | null
   reviewDecision: PullRequest['reviewDecision']
   author: PullRequest['author']
+  /** Head branch the PR is built from, when known. */
+  branch?: string
   reasons: Reason[]
   dot: DotLevel
 }

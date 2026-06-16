@@ -1,7 +1,25 @@
 import { describe, expect, it } from 'vitest'
-import { buildGithubIssueAgentText, buildSentryAgentText } from './agentPrompt'
+import { buildGithubIssueAgentText, buildSentryAgentText, buildVercelDeployAgentText } from './agentPrompt'
 import type { GitHubIssueDetail } from '../api/github'
 import type { SentryIssue } from '../api/sentry'
+import type { VercelDeployment } from '../api/vercel'
+
+describe('buildVercelDeployAgentText', () => {
+  it('includes repo, commit context and a fenced build-log tail', () => {
+    const d = {
+      uid: 'dpl_1', name: 'web-app', url: 'web-app.vercel.app', created: 0, state: 'ERROR', target: 'production',
+      inspectorUrl: 'https://vercel.com/x/web-app/dpl_1',
+      meta: { githubCommitSha: 'a1b2c3d4', githubCommitRef: 'main', githubCommitMessage: 'broke it\nbody', githubCommitAuthorName: 'sofiad' },
+    } as VercelDeployment
+    const text = buildVercelDeployAgentText(d, 'iteris/web-app', 'ERROR: tsc exited with 2')
+    expect(text).toContain('Fix this failed Vercel deployment in iteris/web-app:')
+    expect(text).toContain('Target: production')
+    expect(text).toContain('Branch: main')
+    expect(text).toContain('Commit: a1b2c3d — broke it')
+    expect(text).toContain('```')
+    expect(text).toContain('ERROR: tsc exited with 2')
+  })
+})
 
 const ISSUE: SentryIssue = {
   id: '1', shortId: 'API-3K', title: "TypeError: Cannot read 'orgId'",
