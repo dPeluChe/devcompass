@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
-import { fetchFailedDeployments, repoFromDeployment, type VercelDeployment } from '../../api/vercel'
+import { fetchFailedDeployments, repoFromDeployment, deployFields, type VercelDeployment } from '../../api/vercel'
 import { vercelConfigStore, vercelAuthFor } from '../../store/vercelConfig'
 import { DEMO_TOKEN } from '../../api/demo-data'
 import { getCachedPref, savePref, getDismissedDeploys, CACHE_TTLS } from '../../store/db'
@@ -55,8 +55,8 @@ export function FailedDeploys({ token }: { token: string }) {
 function DeployRow({ d, onOpen }: { d: VercelDeployment; onOpen: () => void }) {
   const repo = repoFromDeployment(d)
   const [org, name] = (repo ?? `/${d.name}`).split('/')
-  const ref = d.meta?.githubCommitRef
-  const title = d.meta?.githubCommitMessage?.split('\n')[0] ?? 'production deploy failed'
+  const { ref, message } = deployFields(d)
+  const title = message ?? 'production deploy failed'
 
   return (
     <div className="hs-row" role="button" tabIndex={0} onClick={onOpen}

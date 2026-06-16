@@ -1,6 +1,6 @@
 import { useState, type MouseEvent } from 'react'
 import { useQuery } from '@tanstack/react-query'
-import { fetchVercelDeployments, fetchVercelBuildLogs, deploymentState, repoFromDeployment, type VercelDeployment, type VercelDeploymentState } from '../../api/vercel'
+import { fetchVercelDeployments, fetchVercelBuildLogs, deploymentState, repoFromDeployment, deployFields, type VercelDeployment, type VercelDeploymentState } from '../../api/vercel'
 import { vercelAuthFor } from '../../store/vercelConfig'
 import { buildVercelDeployAgentText } from '../../utils/agentPrompt'
 import { relativeTime } from '../../utils/time'
@@ -41,9 +41,7 @@ export function DeploymentsTab({ token, projectId, projectName, repo }: {
 
 function DeployRow({ token, d }: { token: string; d: VercelDeployment }) {
   const state = deploymentState(d)
-  const sha = d.meta?.githubCommitSha?.slice(0, 7)
-  const ref = d.meta?.githubCommitRef
-  const msg = d.meta?.githubCommitMessage?.split('\n')[0]
+  const { sha, ref, message, author } = deployFields(d)
   const href = d.inspectorUrl ?? (d.url ? `https://${d.url}` : undefined)
   const [copied, flash] = useFlash(1600)
   const [busy, setBusy] = useState(false)
@@ -65,10 +63,10 @@ function DeployRow({ token, d }: { token: string; d: VercelDeployment }) {
       <span className={`vercel-state s-${STATE_TONE[state]}`}>{state.toLowerCase()}</span>
       <span className="vercel-target">{d.target === 'production' ? 'prod' : 'preview'}</span>
       <div className="vercel-deploy-main">
-        <span className="vercel-deploy-msg">{msg ?? d.url}</span>
+        <span className="vercel-deploy-msg">{message ?? d.url}</span>
         <span className="vercel-deploy-meta muted">
           {sha && <code>{sha}</code>}{ref ? ` · ${ref}` : ''}
-          {d.meta?.githubCommitAuthorName ? ` · @${d.meta.githubCommitAuthorName}` : d.creator?.username ? ` · @${d.creator.username}` : ''}
+          {author ? ` · @${author}` : ''}
           {' · '}{relativeTime(new Date(d.created).toISOString())}
         </span>
       </div>

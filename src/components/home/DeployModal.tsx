@@ -1,6 +1,6 @@
 import { useEffect } from 'react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
-import { fetchVercelBuildLogs, deploymentState, repoFromDeployment, type VercelDeployment } from '../../api/vercel'
+import { fetchVercelBuildLogs, deploymentState, repoFromDeployment, deployFields, type VercelDeployment } from '../../api/vercel'
 import { vercelAuthFor } from '../../store/vercelConfig'
 import { dismissDeploy } from '../../store/db'
 import { buildVercelDeployAgentText } from '../../utils/agentPrompt'
@@ -38,9 +38,7 @@ export function DeployModal({ deploy, token, onClose }: { deploy: VercelDeployme
   if (!deploy) return null
   const state = deploymentState(deploy)
   const repo = repoFromDeployment(deploy)
-  const sha = deploy.meta?.githubCommitSha?.slice(0, 7)
-  const ref = deploy.meta?.githubCommitRef
-  const msg = deploy.meta?.githubCommitMessage?.split('\n')[0]
+  const { sha, fullSha, ref, message, author } = deployFields(deploy)
   const log = logQuery.data ?? ''
 
   return (
@@ -51,14 +49,14 @@ export function DeployModal({ deploy, token, onClose }: { deploy: VercelDeployme
         <header className="issue-modal-head">
           <span className="hs-source-badge vercel">▲ Vercel</span>
           <span className="connector-issue-level" style={{ background: state === 'ERROR' ? 'var(--danger)' : '#3fb950' }}>{state.toLowerCase()}</span>
-          <h2 className="issue-modal-title">{msg ?? `${repo ?? deploy.name} deploy`}</h2>
+          <h2 className="issue-modal-title">{message ?? `${repo ?? deploy.name} deploy`}</h2>
           <button className="issue-modal-close" onClick={onClose} title="Close (esc)">×</button>
         </header>
 
         <div className="issue-modal-meta muted">
           {repo && <code>{repo}</code>} · {deploy.target === 'production' ? 'production' : 'preview'}
           {sha ? ` · ${sha}` : ''}{ref ? ` · ${ref}` : ''}
-          {deploy.meta?.githubCommitAuthorName ? ` · @${deploy.meta.githubCommitAuthorName}` : ''}
+          {author ? ` · @${author}` : ''}
           {' · '}{relativeTime(new Date(deploy.created).toISOString())}
         </div>
 
@@ -66,7 +64,7 @@ export function DeployModal({ deploy, token, onClose }: { deploy: VercelDeployme
           <CopyButton getText={() => buildVercelDeployAgentText(deploy, repo, log)} />
           <button className="hs-modal-btn ok" onClick={markHandled} title="Acknowledge — removes it from your Needs me alert">✓ Mark as handled</button>
           {deploy.inspectorUrl && <a className="hs-modal-btn link" href={deploy.inspectorUrl} target="_blank" rel="noopener noreferrer">Open in Vercel ↗</a>}
-          {repo && sha && <a className="hs-modal-btn link" href={`https://github.com/${repo}/commit/${deploy.meta?.githubCommitSha}`} target="_blank" rel="noopener noreferrer">Commit ↗</a>}
+          {repo && fullSha && <a className="hs-modal-btn link" href={`https://github.com/${repo}/commit/${fullSha}`} target="_blank" rel="noopener noreferrer">Commit ↗</a>}
           {repo && ref && <a className="hs-modal-btn link" href={`https://github.com/${repo}/tree/${ref}`} target="_blank" rel="noopener noreferrer">Branch ↗</a>}
         </div>
 

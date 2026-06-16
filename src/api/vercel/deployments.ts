@@ -20,6 +20,18 @@ export function deploymentState(d: VercelDeployment): VercelDeploymentState {
   return d.state ?? d.readyState ?? 'QUEUED'
 }
 
+/** Display fields derived from a deployment's git commit meta (one place, used by every row/modal). */
+export function deployFields(d: VercelDeployment) {
+  const m = d.meta
+  return {
+    sha: m?.githubCommitSha?.slice(0, 7) ?? null,
+    fullSha: m?.githubCommitSha ?? null,
+    ref: m?.githubCommitRef ?? null,
+    message: m?.githubCommitMessage?.split('\n')[0] ?? null,
+    author: m?.githubCommitAuthorName ?? d.creator?.username ?? null,
+  }
+}
+
 /** List the account's projects (first page, 100). Used to seed project→repo mapping. */
 export async function fetchVercelProjects(auth: VercelAuth): Promise<VercelProject[]> {
   if (auth.token === DEMO_TOKEN) return DEMO_VERCEL_PROJECTS
