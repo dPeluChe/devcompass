@@ -8,7 +8,7 @@ import { validateVercelToken, repoFromProject } from '../../api/vercel'
 function describeError(e: unknown): string {
   const msg = e instanceof Error ? e.message : String(e)
   if (/\b40[13]\b/.test(msg)) {
-    return `${msg}\n→ Create a token at vercel.com → Settings → Tokens. For a Team account, set the Team ID/slug below (personal tokens can't see team projects).`
+    return `${msg}\n→ Use a Personal Access Token (Account Settings → Tokens) — not a Vercel App Token or an API Gateway Key. If your projects live under a Team, scope the token to it and set the Team ID/slug below.`
   }
   return msg
 }
@@ -60,10 +60,10 @@ export function VercelConnector() {
       {showSetup ? (
         <div className="connector-form">
           <label>
-            <span>Access token</span>
+            <span>Personal Access Token</span>
             <input
               type="password"
-              placeholder="Vercel token…"
+              placeholder="Vercel Personal Access Token…"
               value={cfg.token}
               onChange={(e) => cfg.update({ token: e.target.value })}
               autoComplete="off"
@@ -90,9 +90,9 @@ export function VercelConnector() {
           <details className="connector-help">
             <summary>How to get a Vercel token</summary>
             <ol>
-              <li>Open <a href="https://vercel.com/account/tokens" target="_blank" rel="noopener noreferrer">vercel.com → Settings → Tokens</a>.</li>
-              <li>Create a token (scope it to the team if you use one).</li>
-              <li>For a Team account, also set the <strong>Team ID/slug</strong> above so team projects are visible.</li>
+              <li>Open <a href="https://vercel.com/account/settings/tokens" target="_blank" rel="noopener noreferrer">Vercel → Account Settings → Tokens</a> (under <strong>Security &amp; Privacy</strong>).</li>
+              <li>Create a <strong>Personal Access Token</strong>. <span className="muted">Not a <em>Vercel App Token</em> (those are for OAuth/Marketplace apps) nor an <em>API Gateway Key</em> — neither can read your projects here.</span></li>
+              <li>If your projects live under a <strong>Team</strong>, scope the token to it and set the <strong>Team ID/slug</strong> above (it's in your team URL, e.g. <code>vercel.com/your-team</code>).</li>
             </ol>
           </details>
         </div>
