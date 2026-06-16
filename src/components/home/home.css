@@ -286,6 +286,11 @@
   max-width: 340px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
 }
 .hs-branch-arrow { opacity: 0.6; }
+.hs-source-badge {
+  flex: 0 0 auto; font-size: 0.62rem; font-weight: 600; letter-spacing: 0.04em;
+  padding: 1px 6px; border-radius: 4px; border: 1px solid var(--border); color: var(--muted);
+}
+.hs-source-badge.vercel { color: var(--text); border-color: var(--muted); }
 .hs-scope-filter {
   width: min(360px, 100%); box-sizing: border-box; margin: 0 0 14px; padding: 7px 11px;
   border: 1px solid var(--border); border-radius: 8px; background: var(--panel);

@@ -3,7 +3,7 @@ import { useQuery } from '@tanstack/react-query'
 import { fetchFailedDeployments, repoFromDeployment, type VercelDeployment } from '../../api/vercel'
 import { vercelConfigStore, vercelAuthFor } from '../../store/vercelConfig'
 import { DEMO_TOKEN } from '../../api/demo-data'
-import { getCachedPref, savePref, CACHE_TTLS } from '../../store/db'
+import { getCachedPref, savePref, getDismissedDeploys, CACHE_TTLS } from '../../store/db'
 import { relativeTime } from '../../utils/time'
 import { OrgChip } from './OrgChip'
 import { DeployModal } from './DeployModal'
@@ -18,11 +18,14 @@ export function useFailedDeploys(token: string) {
     staleTime: 5 * 60 * 1000,
     queryFn: async () => {
       const key = `vercelFailed:${token}`
-      const cached = await getCachedPref<VercelDeployment[]>(key, CACHE_TTLS['vercelFailed:'])
-      if (cached) return cached
-      const deploys = await fetchFailedDeployments(vercelAuthFor(token), 15)
-      await savePref(key, deploys)
-      return deploys
+      let deploys = await getCachedPref<VercelDeployment[]>(key, CACHE_TTLS['vercelFailed:'])
+      if (!deploys) {
+        deploys = await fetchFailedDeployments(vercelAuthFor(token), 15)
+        await savePref(key, deploys)
+      }
+      // Drop the ones the user already marked as handled.
+      const dismissed = await getDismissedDeploys()
+      return deploys.filter((d) => !dismissed.has(d.uid))
     },
   })
 }
@@ -61,6 +64,7 @@ function DeployRow({ d, onOpen }: { d: VercelDeployment; onOpen: () => void }) {
       <span className="hs-dot critical" />
       <div className="hs-row-main">
         <div className="hs-row-title">
+          <span className="hs-source-badge vercel">▲ Vercel</span>
           <OrgChip login={org} avatarUrl={`https://github.com/${org}.png`} />
           <span className="hs-org-name">{org}</span>
           <span className="hs-sep">/</span>

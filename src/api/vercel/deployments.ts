@@ -72,13 +72,14 @@ export async function fetchVercelBuildLogs(auth: VercelAuth, deploymentId: strin
   if (auth.token === DEMO_TOKEN) return demoVercelBuildLog(deploymentId)
   const raw = (await vercelFetchText(`/v2/deployments/${deploymentId}/events`, auth, { builds: 1, limit: 1000 })).trim()
   const lines: string[] = []
+  let handled = false
   if (raw.startsWith('[')) {
     try {
       const arr = JSON.parse(raw) as LogEvent[]
-      if (Array.isArray(arr)) for (const ev of arr) { const t = eventText(ev); if (t) lines.push(t) }
-    } catch { /* fall through to NDJSON */ }
+      if (Array.isArray(arr)) { handled = true; for (const ev of arr) { const t = eventText(ev); if (t) lines.push(t) } }
+    } catch { /* not a JSON array — fall through to NDJSON */ }
   }
-  if (lines.length === 0) {
+  if (!handled) {
     for (const line of raw.split('\n')) {
       if (!line.trim()) continue
       try { const t = eventText(JSON.parse(line) as LogEvent); if (t) lines.push(t) }

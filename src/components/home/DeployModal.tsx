@@ -1,7 +1,8 @@
 import { useEffect } from 'react'
-import { useQuery } from '@tanstack/react-query'
+import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { fetchVercelBuildLogs, deploymentState, repoFromDeployment, type VercelDeployment } from '../../api/vercel'
 import { vercelAuthFor } from '../../store/vercelConfig'
+import { dismissDeploy } from '../../store/db'
 import { buildVercelDeployAgentText } from '../../utils/agentPrompt'
 import { relativeTime } from '../../utils/time'
 import { CopyButton } from '../CopyButton'
@@ -9,6 +10,14 @@ import { CopyButton } from '../CopyButton'
 /** In-app detail for a failed (or any) Vercel deployment: commit context + build log. */
 export function DeployModal({ deploy, token, onClose }: { deploy: VercelDeployment | null; token: string; onClose: () => void }) {
   const open = !!deploy
+  const queryClient = useQueryClient()
+
+  async function markHandled() {
+    if (!deploy) return
+    await dismissDeploy(deploy.uid)
+    queryClient.invalidateQueries({ queryKey: ['vercel', 'failed-deploys'] })
+    onClose()
+  }
 
   useEffect(() => {
     if (!open) return
@@ -40,7 +49,8 @@ export function DeployModal({ deploy, token, onClose }: { deploy: VercelDeployme
         onKeyDown={(e) => { if (e.key === 'Escape') onClose() }} />
       <div className="issue-modal" role="dialog" aria-modal="true">
         <header className="issue-modal-head">
-          <span className={`connector-issue-level`} style={{ background: state === 'ERROR' ? 'var(--danger)' : '#3fb950' }}>{state.toLowerCase()}</span>
+          <span className="hs-source-badge vercel">▲ Vercel</span>
+          <span className="connector-issue-level" style={{ background: state === 'ERROR' ? 'var(--danger)' : '#3fb950' }}>{state.toLowerCase()}</span>
           <h2 className="issue-modal-title">{msg ?? `${repo ?? deploy.name} deploy`}</h2>
           <button className="issue-modal-close" onClick={onClose} title="Close (esc)">×</button>
         </header>
@@ -54,6 +64,7 @@ export function DeployModal({ deploy, token, onClose }: { deploy: VercelDeployme
 
         <div className="issue-modal-actions">
           <CopyButton getText={() => buildVercelDeployAgentText(deploy, repo, log)} />
+          <button className="hs-modal-btn ok" onClick={markHandled} title="Acknowledge — removes it from your Needs me alert">✓ Mark as handled</button>
           {deploy.inspectorUrl && <a className="hs-modal-btn link" href={deploy.inspectorUrl} target="_blank" rel="noopener noreferrer">Open in Vercel ↗</a>}
           {repo && sha && <a className="hs-modal-btn link" href={`https://github.com/${repo}/commit/${deploy.meta?.githubCommitSha}`} target="_blank" rel="noopener noreferrer">Commit ↗</a>}
           {repo && ref && <a className="hs-modal-btn link" href={`https://github.com/${repo}/tree/${ref}`} target="_blank" rel="noopener noreferrer">Branch ↗</a>}
@@ -63,7 +74,11 @@ export function DeployModal({ deploy, token, onClose }: { deploy: VercelDeployme
           <h4 className="deploy-log-head">Build log</h4>
           {logQuery.isLoading && <p className="muted">Loading build log…</p>}
           {logQuery.error && <p className="muted">Couldn't load the log ({logQuery.error instanceof Error ? logQuery.error.message : String(logQuery.error)}).</p>}
-          {logQuery.data !== undefined && <pre className="deploy-log">{log || '(empty)'}</pre>}
+          {logQuery.data !== undefined && (
+            log
+              ? <pre className="deploy-log">{log}</pre>
+              : <p className="muted">No build log available — Vercel prunes build logs for older deployments. Open it in Vercel for the full output.</p>
+          )}
         </div>
       </div>
     </div>

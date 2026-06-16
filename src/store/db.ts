@@ -167,6 +167,18 @@ export async function getPref<T>(key: string, defaultValue: T): Promise<T> {
   return row ? (row.value as T) : defaultValue
 }
 
+const DISMISSED_DEPLOYS_KEY = 'vercelDismissedDeploys'
+
+/** Deploys the user has marked as handled (local acknowledgement; not a Vercel change). */
+export async function getDismissedDeploys(): Promise<Set<string>> {
+  return new Set(await getPref<string[]>(DISMISSED_DEPLOYS_KEY, []))
+}
+
+export async function dismissDeploy(uid: string): Promise<void> {
+  const arr = await getPref<string[]>(DISMISSED_DEPLOYS_KEY, [])
+  if (!arr.includes(uid)) await savePref(DISMISSED_DEPLOYS_KEY, [...arr, uid])
+}
+
 /**
  * Single source of truth for which prefs keys are TTL-bound caches and their
  * freshness windows. Used by `pruneExpiredCachePrefs` and by the Cache tab
