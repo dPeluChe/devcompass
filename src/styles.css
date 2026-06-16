@@ -2965,6 +2965,17 @@ kbd {
 .int-soon-type { font-size: 0.6rem; letter-spacing: 0.02em; padding: 0 5px; border-radius: 4px; background: var(--bg); border: 1px solid var(--border); }
 .int-roadmap-group { margin-bottom: 12px; }
 .int-roadmap-layer { display: block; font-size: 0.68rem; text-transform: uppercase; letter-spacing: 0.05em; margin: 0 0 6px; }
+.int-roadmap-toggle {
+  background: none; border: none; color: var(--text); font: inherit; font-size: 0.84rem;
+  cursor: pointer; padding: 10px 0 4px; margin-top: 10px; display: inline-flex; align-items: center; gap: 7px;
+}
+.int-roadmap-toggle:hover { color: var(--accent); }
+.int-roadmap { margin-top: 4px; }
+.int-request {
+  display: inline-flex; align-items: center; gap: 7px; margin-top: 8px; font-size: 0.82rem;
+  color: var(--accent); text-decoration: none; padding: 8px 13px; border: 1px dashed var(--border); border-radius: 8px;
+}
+.int-request:hover { border-color: var(--accent); }
 .connector-form input[aria-invalid="true"] { border-color: var(--danger); }
 .connector-form input,
 .connector-form select {

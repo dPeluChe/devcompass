@@ -1,3 +1,4 @@
+import { useState } from 'react'
 import { FaGithub } from 'react-icons/fa'
 import {
   SiSentry, SiVercel, SiLinear, SiJira, SiGitlab, SiBitbucket, SiNetlify,
@@ -119,16 +120,39 @@ export function ConnectorsHub({ tokenInfo, orgs, repos, errors }: {
 
       </div>
 
-      <p className="int-soon-head muted">More connectors on the roadmap — all via the same allowlisted relay (BYO token).</p>
-      {ROADMAP.map((g) => (
-        <div key={g.layer} className="int-roadmap-group">
-          <span className="int-roadmap-layer muted">{g.layer}</span>
-          <div className="int-soon-grid">
-            {g.items.map((s) => <SoonChip key={s.name} icon={s.icon} name={s.name} type={s.type} />)}
-          </div>
-        </div>
-      ))}
+      <RoadmapSection />
     </section>
+  )
+}
+
+const ROADMAP_COUNT = ROADMAP.reduce((n, g) => n + g.items.length, 0)
+const REQUEST_URL = 'https://github.com/dPeluChe/devcompass/issues/new?labels=connector&title=Connector%20request:%20'
+
+function RoadmapSection() {
+  const [open, setOpen] = useState(false)
+  return (
+    <>
+      <button className="int-roadmap-toggle" onClick={() => setOpen((o) => !o)} aria-expanded={open}>
+        <span className="int-chevron">{open ? '▾' : '▸'}</span>
+        View next integrations <span className="muted">({ROADMAP_COUNT} on the roadmap)</span>
+      </button>
+      {open && (
+        <div className="int-roadmap">
+          <p className="int-soon-head muted">All via the same allowlisted relay (BYO token).</p>
+          {ROADMAP.map((g) => (
+            <div key={g.layer} className="int-roadmap-group">
+              <span className="int-roadmap-layer muted">{g.layer}</span>
+              <div className="int-soon-grid">
+                {g.items.map((s) => <SoonChip key={s.name} icon={s.icon} name={s.name} type={s.type} />)}
+              </div>
+            </div>
+          ))}
+          <a className="int-request" href={REQUEST_URL} target="_blank" rel="noopener noreferrer">
+            <FaGithub /> Request an integration ↗
+          </a>
+        </div>
+      )}
+    </>
   )
 }
 
