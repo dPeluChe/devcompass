@@ -3045,6 +3045,21 @@ kbd {
 .connector-help ol { margin: 8px 0; padding-left: 20px; display: flex; flex-direction: column; gap: 4px; }
 .connector-help a { color: var(--accent); }
 .connector-map-list { list-style: none; padding: 0; margin: 0; display: flex; flex-direction: column; gap: 5px; }
+.connector-map-list.scroll { max-height: 320px; overflow-y: auto; padding-right: 4px; }
+.connector-map-list a { color: var(--muted); text-decoration: none; }
+.connector-map-list a:hover { color: var(--accent); }
+
+/* ---- Relationships matrix ---- */
+.rel-summary { margin: 0 0 12px; font-size: 0.85rem; }
+.rel-full-count { color: #3fb950; }
+.rel-table { width: 100%; border-collapse: collapse; font-size: 0.86rem; }
+.rel-table th { text-align: left; font-weight: 600; color: var(--muted); font-size: 0.76rem; padding: 7px 10px; border-bottom: 1px solid var(--border); }
+.rel-table th svg { vertical-align: -2px; margin-right: 5px; }
+.rel-table td { padding: 8px 10px; border-bottom: 1px solid var(--border); }
+.rel-table tbody tr:hover { background: var(--panel); }
+.rel-table td a { color: var(--text); text-decoration: none; }
+.rel-table td a:hover { color: var(--accent); }
+.rel-table tr.full td:first-child { box-shadow: inset 2px 0 0 #3fb950; }
 
 /* ---- Vercel deployments (repo-detail tab) ---- */
 .vercel-deploys { display: flex; flex-direction: column; }

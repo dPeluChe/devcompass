@@ -3,6 +3,7 @@ import type { Org, Repo, TokenInfo } from '../api/github'
 import { OrgManager } from './OrgManager'
 import { SettingsTab } from './SettingsTab'
 import { ConnectorsHub } from './connectors/ConnectorsHub'
+import { RelationshipsView } from './RelationshipsView'
 
 export function ConfigView({
   tokenInfo,
@@ -17,7 +18,7 @@ export function ConfigView({
   errors: { source: string; message: string }[]
   onForceResync: () => void
 }) {
-  const [section, setSection] = useState<'orgs' | 'connectors' | 'storage' | 'cache' | 'pinned' | 'appearance'>('orgs')
+  const [section, setSection] = useState<'orgs' | 'connectors' | 'relationships' | 'storage' | 'cache' | 'pinned' | 'appearance'>('orgs')
 
   // Collaborator-only orgs: own at least one repo that arrived via the viewer's
   // COLLABORATOR affiliation but aren't in viewer.organizations / /user/orgs.
@@ -43,6 +44,9 @@ export function ConfigView({
         </button>
         <button className={`config-tab ${section === 'connectors' ? 'active' : ''}`} onClick={() => setSection('connectors')}>
           Connectors
+        </button>
+        <button className={`config-tab ${section === 'relationships' ? 'active' : ''}`} onClick={() => setSection('relationships')}>
+          Relationships
         </button>
         <button className={`config-tab ${section === 'storage' ? 'active' : ''}`} onClick={() => setSection('storage')}>
           Storage
@@ -94,6 +98,8 @@ export function ConfigView({
         {section === 'connectors' && (
           <ConnectorsHub tokenInfo={tokenInfo} orgs={orgs} repos={repos} errors={errors} />
         )}
+
+        {section === 'relationships' && <RelationshipsView />}
 
         {section === 'storage' && <SettingsTab panel="storage" onForceResync={onForceResync} />}
         {section === 'cache' && <SettingsTab panel="cache" onForceResync={onForceResync} />}

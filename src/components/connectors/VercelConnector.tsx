@@ -99,7 +99,7 @@ export function VercelConnector() {
       ) : (
         <>
           <div className="connector-status">
-            <span className="hs-status hs-status-ok">✓ Connected · {mappings.length} linked project{mappings.length === 1 ? '' : 's'}</span>
+            <span className="hs-status hs-status-ok">✓ Connected</span>
             <div className="connector-status-actions">
               <button className="hs-modal-btn" onClick={connect} disabled={connecting}>{connecting ? 'Refreshing…' : '↻ Refresh'}</button>
               <button className="hs-modal-btn" onClick={() => setEditing(true)}>Edit credentials</button>
@@ -110,15 +110,19 @@ export function VercelConnector() {
           {mappings.length === 0 ? (
             <p className="muted">No GitHub-linked Vercel projects found on this account/team.</p>
           ) : (
-            <ul className="connector-map-list">
-              {mappings.map(([id, repo]) => (
-                <li key={id}>
-                  <SiVercel className="muted" /> <strong>{cfg.projectNames[id] ?? id}</strong>
-                  <span className="muted"> → </span>
-                  <FaGithub className="muted" /> {repo}
-                </li>
-              ))}
-            </ul>
+            <>
+              <p className="muted connector-intro" style={{ margin: '4px 0 8px' }}>{mappings.length} project{mappings.length === 1 ? '' : 's'} → repo (auto-linked from each project's git connection):</p>
+              <ul className="connector-map-list scroll">
+                {mappings.map(([id, repo]) => (
+                  <li key={id}>
+                    <SiVercel className="muted" /> <strong>{cfg.projectNames[id] ?? id}</strong>
+                    <span className="muted"> → </span>
+                    <FaGithub className="muted" />
+                    <a href={`https://github.com/${repo}`} target="_blank" rel="noopener noreferrer">{repo}</a>
+                  </li>
+                ))}
+              </ul>
+            </>
           )}
         </>
       )}
