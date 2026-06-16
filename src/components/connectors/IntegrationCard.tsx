@@ -7,28 +7,15 @@ export type IntStatus = { tone: 'ok' | 'warn' | 'muted'; label: string }
  * status pill, expand to reveal its setup/diagnostics. `comingSoon` renders a
  * disabled placeholder for connectors we haven't built yet.
  */
-export function IntegrationCard({ icon, name, sub, status, defaultOpen, comingSoon, children }: {
+export function IntegrationCard({ icon, name, sub, status, defaultOpen, children }: {
   icon: ReactNode
   name: string
   sub?: string
   status?: IntStatus
   defaultOpen?: boolean
-  comingSoon?: boolean
   children?: ReactNode
 }) {
   const [open, setOpen] = useState(defaultOpen ?? false)
-
-  if (comingSoon) {
-    return (
-      <div className="int-card soon">
-        <div className="int-card-head" aria-disabled>
-          <span className="int-card-icon">{icon}</span>
-          <div className="int-card-id"><strong>{name}</strong>{sub && <span className="muted">{sub}</span>}</div>
-          <span className="int-status muted">soon</span>
-        </div>
-      </div>
-    )
-  }
 
   return (
     <div className={`int-card ${open ? 'open' : ''}`}>
@@ -42,6 +29,16 @@ export function IntegrationCard({ icon, name, sub, status, defaultOpen, comingSo
         <span className="int-chevron">{open ? '▾' : '▸'}</span>
       </button>
       {open && <div className="int-card-body">{children}</div>}
+    </div>
+  )
+}
+
+/** Compact placeholder for a connector on the roadmap (logo + name chip). */
+export function SoonChip({ icon, name }: { icon: ReactNode; name: string }) {
+  return (
+    <div className="int-soon-chip" title={`${name} — coming soon`}>
+      <span className="int-soon-icon">{icon}</span>
+      <span>{name}</span>
     </div>
   )
 }

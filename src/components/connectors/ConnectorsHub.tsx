@@ -1,11 +1,33 @@
 import { FaGithub } from 'react-icons/fa'
-import { SiSentry, SiVercel, SiLinear, SiJira } from 'react-icons/si'
+import {
+  SiSentry, SiVercel, SiLinear, SiJira, SiGitlab, SiBitbucket, SiNetlify,
+  SiCloudflare, SiRailway, SiDatadog, SiGrafana, SiRollbar, SiAsana, SiNotion,
+  SiSlack, SiPagerduty,
+} from 'react-icons/si'
 import type { Org, Repo, TokenInfo } from '../../api/github'
 import { sentryConfigStore } from '../../store/sentryConfig'
 import { vercelConfigStore } from '../../store/vercelConfig'
 import { SentryConnector } from './SentryConnector'
 import { VercelConnector } from './VercelConnector'
-import { IntegrationCard } from './IntegrationCard'
+import { IntegrationCard, SoonChip } from './IntegrationCard'
+
+// Roadmap — one or two per panorama layer (source · deploy · monitoring · PM · alerts).
+const SOON = [
+  { icon: <SiGitlab />, name: 'GitLab' },
+  { icon: <SiBitbucket />, name: 'Bitbucket' },
+  { icon: <SiNetlify />, name: 'Netlify' },
+  { icon: <SiCloudflare />, name: 'Cloudflare' },
+  { icon: <SiRailway />, name: 'Railway' },
+  { icon: <SiDatadog />, name: 'Datadog' },
+  { icon: <SiGrafana />, name: 'Grafana' },
+  { icon: <SiRollbar />, name: 'Rollbar' },
+  { icon: <SiLinear />, name: 'Linear' },
+  { icon: <SiJira />, name: 'Jira' },
+  { icon: <SiAsana />, name: 'Asana' },
+  { icon: <SiNotion />, name: 'Notion' },
+  { icon: <SiSlack />, name: 'Slack' },
+  { icon: <SiPagerduty />, name: 'PagerDuty' },
+]
 
 /**
  * One hub for every integration. GitHub is the core/primary card (the auth gate);
@@ -72,8 +94,11 @@ export function ConnectorsHub({ tokenInfo, orgs, repos, errors }: {
           <VercelConnector />
         </IntegrationCard>
 
-        <IntegrationCard icon={<SiLinear />} name="Linear" sub="issues + projects" comingSoon />
-        <IntegrationCard icon={<SiJira />} name="Jira" sub="tickets" comingSoon />
+      </div>
+
+      <p className="int-soon-head muted">More connectors on the roadmap</p>
+      <div className="int-soon-grid">
+        {SOON.map((s) => <SoonChip key={s.name} icon={s.icon} name={s.name} />)}
       </div>
     </section>
   )

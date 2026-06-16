@@ -2953,6 +2953,15 @@ kbd {
 .int-chevron { flex: 0 0 auto; color: var(--muted); font-size: 0.8rem; }
 .int-card-body { padding: 4px 14px 16px; border-top: 1px solid var(--border); }
 .connector-intro { font-size: 0.82rem; margin: 8px 0 12px; }
+.int-soon-head { font-size: 0.78rem; margin: 20px 0 9px; }
+.int-soon-grid { display: flex; flex-wrap: wrap; gap: 8px; }
+.int-soon-chip {
+  display: inline-flex; align-items: center; gap: 6px; font-size: 0.8rem; color: var(--muted);
+  padding: 5px 11px; border: 1px solid var(--border); border-radius: 999px; background: var(--panel);
+  opacity: 0.72; transition: opacity 0.15s ease;
+}
+.int-soon-chip:hover { opacity: 1; }
+.int-soon-icon { font-size: 1rem; display: inline-flex; }
 .connector-form input[aria-invalid="true"] { border-color: var(--danger); }
 .connector-form input,
 .connector-form select {
