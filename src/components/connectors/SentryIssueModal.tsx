@@ -59,20 +59,22 @@ export function SentryIssueModal({ issue, token, onClose }: { issue: SentryIssue
     onError: (e) => setMutateError(e instanceof Error ? e.message : String(e)),
   })
 
+  const exceptions = extractExceptions(eventQuery.data)
+  const eventCtx = extractEventContext(eventQuery.data, exceptions)
+
   // Release health: correlate this issue's release sha to a Vercel deploy of the
-  // same repo → "shipped in deploy X (PR #N)".
+  // same repo → "shipped in deploy X (PR #N)". Only fetch deploys once we know
+  // there's a release to match — no point burning a Vercel call otherwise.
   const mappedRepo = issue ? (sentryConfigStore.getState().projectRepoMap[issue.project.slug] ?? null) : null
   const vercelProject = mappedRepo ? vercelConfigStore.getState().projectForRepo(mappedRepo) : null
   const deployQuery = useQuery({
     queryKey: ['vercel', 'release-deploys', vercelProject?.id, mappedRepo],
-    enabled: open && !!vercelProject,
+    enabled: open && !!vercelProject && !!eventCtx.release,
     staleTime: 5 * 60 * 1000,
-    queryFn: () => fetchVercelDeployments(vercelAuthFor(token), { projectId: vercelProject!.id, repo: mappedRepo! }),
+    queryFn: () => fetchVercelDeployments(vercelAuthFor(token), { projectId: vercelProject!.id, repo: mappedRepo!, limit: 40 }),
   })
 
   if (!issue) return null
-  const exceptions = extractExceptions(eventQuery.data)
-  const eventCtx = extractEventContext(eventQuery.data, exceptions)
   const suspects = suspectQuery.data ?? []
   const cfgState = sentryConfigStore.getState()
   const repo = cfgState.projectRepoMap[issue.project.slug] ?? null
