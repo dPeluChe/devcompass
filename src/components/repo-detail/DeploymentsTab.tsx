@@ -1,7 +1,7 @@
 import { useState, type MouseEvent } from 'react'
-import { useQuery } from '@tanstack/react-query'
-import { fetchVercelDeployments, fetchVercelBuildLogs, deploymentState, repoFromDeployment, deployFields, type VercelDeployment, type VercelDeploymentState } from '../../api/vercel'
+import { fetchVercelBuildLogs, deploymentState, repoFromDeployment, deployFields, type VercelDeployment, type VercelDeploymentState } from '../../api/vercel'
 import { vercelAuthFor } from '../../store/vercelConfig'
+import { useVercelDeployments } from '../connectors/useVercelDeployments'
 import { buildVercelDeployAgentText } from '../../utils/agentPrompt'
 import { relativeTime } from '../../utils/time'
 import { useFlash } from '../../hooks/useFlash'
@@ -18,11 +18,7 @@ const STATE_TONE: Record<VercelDeploymentState, string> = {
 export function DeploymentsTab({ token, projectId, projectName, repo }: {
   token: string; projectId: string; projectName: string; repo: string
 }) {
-  const query = useQuery({
-    queryKey: ['vercel', 'deployments', token, projectId, repo],
-    queryFn: () => fetchVercelDeployments(vercelAuthFor(token), { projectId, repo }),
-    staleTime: 60 * 1000,
-  })
+  const query = useVercelDeployments(token, projectId, repo)
 
   const title = `Vercel · ${projectName}`
   if (query.isLoading) return <Surface title={title}><RdLoading /></Surface>

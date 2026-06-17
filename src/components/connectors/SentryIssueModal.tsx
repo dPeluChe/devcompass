@@ -2,9 +2,10 @@ import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { extractEventContext, extractExceptions, fetchSentryLatestEvent, fetchSentrySuspectCommits, updateSentryIssueStatus, type SentryIssue } from '../../api/sentry'
-import { fetchVercelDeployments, matchReleaseToDeploy, prNumberFromDeploy } from '../../api/vercel'
+import { matchReleaseToDeploy, prNumberFromDeploy } from '../../api/vercel'
 import { sentryConfigStore } from '../../store/sentryConfig'
-import { vercelConfigStore, vercelAuthFor } from '../../store/vercelConfig'
+import { vercelConfigStore } from '../../store/vercelConfig'
+import { useVercelDeployments } from './useVercelDeployments'
 import { clearPrefsByPrefix } from '../../store/db'
 import { relativeTime } from '../../utils/time'
 import { buildSentryAgentText } from '../../utils/agentPrompt'
@@ -67,11 +68,9 @@ export function SentryIssueModal({ issue, token, onClose }: { issue: SentryIssue
   // there's a release to match — no point burning a Vercel call otherwise.
   const mappedRepo = issue ? (sentryConfigStore.getState().projectRepoMap[issue.project.slug] ?? null) : null
   const vercelProject = mappedRepo ? vercelConfigStore.getState().projectForRepo(mappedRepo) : null
-  const deployQuery = useQuery({
-    queryKey: ['vercel', 'release-deploys', vercelProject?.id, mappedRepo],
+  const deployQuery = useVercelDeployments(token, vercelProject?.id, mappedRepo ?? undefined, {
     enabled: open && !!vercelProject && !!eventCtx.release,
-    staleTime: 5 * 60 * 1000,
-    queryFn: () => fetchVercelDeployments(vercelAuthFor(token), { projectId: vercelProject!.id, repo: mappedRepo!, limit: 40 }),
+    limit: 40,
   })
 
   if (!issue) return null
