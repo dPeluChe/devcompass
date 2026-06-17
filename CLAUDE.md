@@ -25,9 +25,11 @@ devcompass is a single-page React app that talks directly to GitHub from the bro
 - Nested routes `repos/:owner/:name` and `prs/:owner/:name/:number` render full-page `RepoDetail` / `PRDetail` overlays.
 - `App.tsx` is just the token gate around `<Dashboard>`. The `Dashboard` component (`src/components/Dashboard.tsx`, ~1500 LOC) is the main workbench shell that hosts repos, PRs, and config tabs.
 
-### GitHub API layer — `src/api/github.ts`
+### API layers — `src/api/github/`, `src/api/sentry/`, `src/api/vercel/`
 
-All GitHub access lives here — GraphQL via `https://api.github.com/graphql` plus a couple of REST hops for things GraphQL can't expose.
+All GitHub access lives in `src/api/github/` (a folder of domain modules — `client`, `repos`, `prs`, `issues`, `notifications`, `account` — behind a barrel `index.ts`) — GraphQL via `https://api.github.com/graphql` plus a couple of REST hops for things GraphQL can't expose.
+
+The **Sentry** and **Vercel** connectors live in `src/api/sentry/` and `src/api/vercel/`. They can't be called from the browser (no CORS), so every request is forwarded through the **same-origin relay** (`api/_relay.ts` → exposed as the Vercel edge function `api/proxy.ts` and a Vite dev middleware). The relay is a deliberately strict credential-forwarder: **host allowlist only** (`ALLOWED_HOST_PATTERNS` — add + test one host at a time), https only, forwards just `authorization`/`content-type`/`accept`, strips `set-cookie`, `redirect: 'manual'` (anti-SSRF), 25s timeout, 20MB cap, method allowlist. BYO connector tokens stay in the browser (`store/sentryConfig.ts`, `store/vercelConfig.ts`).
 
 - `gql()` is the shared GraphQL client. It retries 3× with a 2s delay on any failure (network or GraphQL `errors` array). Don't add a separate retry layer on top.
 - The repo sync lives in `useViewerData` (`src/hooks/useViewerData.ts`), not the API layer. `loadRepos` there merges viewer + org logins, then fetches each via `fetchViewerReposSimple` / `fetchOrgReposSimple` through a bounded-concurrency pool, dedupes by repo `id`, and reports per-org partial failures instead of throwing. The API layer just exposes the per-source paginating fetchers; orchestration/caching is the hook's job.
@@ -43,7 +45,8 @@ The codebase splits state by lifetime/scope. When adding state, pick the right l
 | Auth token | `src/store/auth.ts` | `localStorage` only. `auth.set/get/clear`. Sanitizes to printable ASCII before storing — pasted tokens often pick up NBSP/zero-width chars that break `fetch` headers. |
 | Server cache | `src/store/queries.ts` | TanStack Query client + `queryKeys` registry. 5min `staleTime`, 1 retry, refetch on focus/reconnect. Components call `useQuery` directly with these keys; there is no per-resource hook wrapper. |
 | Org config | `src/store/orgConfig.ts` | Persisted Zustand store under `devcompass-org-config`. Per-org `enabled` / `syncEnabled` / `lastSyncedAt`. `orgNeedsSync()` triggers a re-sync after 1h. |
-| Persistent data | `src/store/db.ts` | Dexie/IndexedDB at name `devcompass`. Tables: `repos`, `orgs`, `prefs`, `tokens`, `pinnedRepos`. Schema is versioned — v2 added `tokens`, `pinnedRepos`, `orgs.order`. **Bump the version and write an upgrade in `db.ts` when changing schema.** |
+| Connectors | `src/store/sentryConfig.ts`, `src/store/vercelConfig.ts` | Persisted Zustand stores (`devcompass-sentry-config`, `devcompass-vercel-config`). BYO token (sanitized at the boundary) + project→repo maps. Consumed by the connectors hub, repo-detail tabs, and the Relationships matrix. |
+| Persistent data | `src/store/db.ts` | Dexie/IndexedDB at name `devcompass`, **version 4**. Tables: `repos`, `orgs`, `prefs`, `pinnedRepos`, `snoozedPRs`. (v4 dropped the dead `tokens` table.) `prefs` holds the TTL-bound cache — `CACHE_TTLS` is the single source of truth for prefixes/windows. **Bump the version and write an upgrade in `db.ts` when changing schema.** |
 
 Only `useGlobalShortcuts` lives in `src/hooks/`. Domain hooks (`useNeedsMe`, `useSinceLastVisit`) live next to their feature in `src/components/home/`.
 

@@ -13,10 +13,16 @@ The app is structured around the **HomeShell**: a persistent sidebar + main colu
 ```text
 src/
   api/
-    github.ts             GitHub GraphQL + REST, retry, fragments. Single source of API truth.
+    github/               GitHub GraphQL + REST (client, repos, prs, issues, notifications, account), retry, fragments.
+    sentry/               Sentry connector (client via relay, issues, events) — routed through api/_relay.
+    vercel/               Vercel connector (client via relay, deployments) — projects, deployments, build logs.
+    demo-data.ts          Static fixtures for demo mode (token `__demo__`) across every source.
   components/
     Dashboard.tsx         Top-level workbench shell. Owns view + scope state, drives HomeShell.
-    SettingsTab.tsx       Config view: Orgs, Token, Storage, Cache, Pinned, Org order.
+    ConfigView.tsx        Config tabs: Orgs, Connectors (hub), Relationships, Storage, Cache, Pinned, Appearance.
+    connectors/           Connectors hub: ConnectorsHub + IntegrationCard cards, GitHubAccessPanel, SentryConnector, VercelConnector.
+    RelationshipsView.tsx Cross-connector matrix: repo ↔ Sentry project ↔ Vercel project (+ live URL).
+    SettingsTab.tsx       Storage / Cache / Pinned / Appearance panels rendered inside ConfigView.
     RepoBrowser.tsx       Wrapper around repo-detail when navigating in-app.
     SanitizedMarkdown.tsx DOMPurify wrapper for PR / repo markdown.
     TokenSetup.tsx        Login screen.
@@ -92,7 +98,8 @@ The load sequence Dashboard depends on:
 | Auth token | `store/auth.ts` | localStorage | Bearer token for every API call. Sanitized to printable ASCII. |
 | Server cache | `store/queries.ts` | in-memory + IDB | TanStack Query (`5min staleTime`, 1 retry, refetch on focus). |
 | Org config | `store/orgConfig.ts` | localStorage (Zustand persist) | Per-org enabled / syncEnabled flags. |
-| Persistent data | `store/db.ts` | IndexedDB (Dexie) | Repos, orgs, prefs, tokens, pinnedRepos, snoozedPRs. |
+| Connectors | `store/sentryConfig.ts`, `store/vercelConfig.ts` | localStorage (Zustand persist) | BYO token + project→repo maps for Sentry / Vercel. Forwarded only via the same-origin relay. |
+| Persistent data | `store/db.ts` | IndexedDB (Dexie v4) | Repos, orgs, prefs (TTL-bound cache + dismissed deploys), pinnedRepos, snoozedPRs. |
 
 When adding new state, pick the **lowest layer that survives long enough** — most things either belong in TanStack Query (refetchable) or as a prefs key in IDB (cheap to evict, TTL-bound).
 
@@ -128,7 +135,7 @@ Schema upgrades happen in `store/db.ts`. **Always bump the version + write an up
 
 ## GitHub API
 
-`src/api/github.ts` is the only file that talks to `api.github.com`. Everything else consumes typed responses from there.
+`src/api/github/` is the only place that talks to `api.github.com` (domain modules behind a barrel). Connector APIs (`src/api/sentry/`, `src/api/vercel/`) talk to their hosts **only through the same-origin relay** (`api/_relay.ts`), which enforces a host allowlist. Everything else consumes typed responses from these layers.
 
 - GraphQL endpoint with the `REPO_FIELDS` fragment shared between viewer and org queries.
 - Retries: 3 attempts, 2s delay on any GraphQL or network failure.

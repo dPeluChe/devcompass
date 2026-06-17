@@ -37,7 +37,8 @@ devcompass answers those from one dense, fast UI built for people who work acros
 ## Highlights
 
 - **Digest scope** — operational snapshot of the last 24h / 7d / 30d. Top stat tiles, GitHub-style contribution heatmap, most active repos, open-PR contributors, "needs attention" rows.
-- **Needs me** — every PR where you are a requested reviewer or co-author, with snooze.
+- **Needs me** — every PR where you're a requested reviewer or co-author (with `head → base` branch badges + filters), plus failed production deploys and a discoverable review pool.
+- **Connectors** — bring-your-own-key for **Sentry** (issues + errors) and **Vercel** (deployments), forwarded through a strict same-origin relay. One Connectors hub + a Relationships matrix that lines up each repo with its Sentry project and Vercel deployment.
 - **Since last visit** — diff feed of what changed since you last marked the home as seen.
 - **All repos** — every visible repo (yours + member orgs + collaborator orgs), filtered by org chip, language, activity window, search.
 - **Repo detail** — Overview / Commits / PRs / Issues / Releases, with branch chips on each commit and merged-PR history.
@@ -116,13 +117,13 @@ There is no backend — `dist/` is everything.
 │  │ react-renderer key   │    │ stored in localStorage         │ │
 │  └──────────────────────┘    └────────────────────────────────┘ │
 │                                                                │
-│  ┌─ Dexie / IndexedDB (db name: devcompass) ───────────────────┐ │
-│  │ repos · orgs · prefs · tokens · pinnedRepos · snoozedPRs  │ │
+│  ┌─ Dexie / IndexedDB (db name: devcompass, v4) ───────────────┐ │
+│  │ repos · orgs · prefs · pinnedRepos · snoozedPRs           │ │
 │  │ TTL-bound prefs cache with auto-prune                      │ │
 │  └────────────────────────────────────────────────────────────┘ │
 │                                                                │
-│  ┌─ src/api/github.ts (one file, no SDK) ───────────────────┐ │
-│  │ GraphQL + REST against api.github.com                     │ │
+│  ┌─ src/api/{github,sentry,vercel} (no SDK) ────────────────┐ │
+│  │ GitHub direct · Sentry/Vercel via api/_relay (allowlist)  │ │
 │  │ retries 3x on transient failures                          │ │
 │  └────────────────────────────────────────────────────────────┘ │
 └────────────────────────────────────────────────────────────────┘

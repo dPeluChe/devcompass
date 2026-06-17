@@ -27,7 +27,8 @@ devcompass is a browser-only single-page app. There is no backend that we operat
 | --- | --- | --- |
 | Login | Raw PAT, ASCII-sanitized | `localStorage["devcompass.pat"]` |
 | Cache panel | Token-keyed cache rows (masked in the UI) | IndexedDB `devcompass.prefs` |
-| Network | `Authorization: bearer <token>` | Request header to `api.github.com`, never to a server we operate |
+| Connectors (Sentry, Vercel) | BYO API token, sanitized at the boundary | `localStorage` (Zustand persist): `devcompass-sentry-config`, `devcompass-vercel-config` |
+| Network | `Authorization: bearer <token>` | Direct to `api.github.com`; connector tokens go only to the allowlisted host via the same-origin relay (`api/_relay.ts` → `/api/proxy`), never to a server we operate |
 
 You can wipe everything from **Settings → Storage → Clear all cache**, or by deleting the `devcompass.pat` key and `devcompass` IndexedDB database from your browser.
 

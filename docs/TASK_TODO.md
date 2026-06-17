@@ -46,14 +46,20 @@ Wave numbering comes from the 2026-06 product audit (architecture + UX + perf/se
 - [ ] **Density modes** for repo cards (scan vs detail).
 - [ ] **Fine-grained PAT support** — currently classic only.
 - [ ] **Multi-account** — switch between PATs without clearing cache.
-- [ ] **Vercel connector — Phase 2/3** — Phase 1 (deployments tab) shipped. Next: failed deploys as Needs-me attention items; "copy build log for agent"; **release health** correlation (Sentry release sha ↔ Vercel deploy ↔ commit/PR) — the cross-source crown jewel.
-- [ ] **Linear / Jira / GitLab connectors** — same relay + connector pattern as Sentry.
+- [ ] **Vercel connector — Phase 3 (release health)** — Phases 1-2 shipped (deployments tab, failed deploys in Needs me, build-log handoff, Relationships matrix). Next: correlate **Sentry release sha ↔ Vercel deploy ↔ commit/PR** — "this error shipped in deploy X (PR #87)". The cross-source crown jewel.
+- [ ] **Relationships → alerts column** — show per-repo if it has a failing deploy / Sentry issues, linking to Needs me.
+- [ ] **Vercel custom-domain fetch** — `/projects/{id}/domains` so the Relationships URL always shows the custom domain (today it uses targets.production.alias when present, else `<name>.vercel.app`).
+- [ ] **Linear / Jira / GitLab connectors** — same relay + connector pattern as Sentry/Vercel (24 on the roadmap in the Connectors hub).
 - [ ] **"Send to agent"** — evolve copy-for-agent into a direct handoff (batch triage → tasks).
 - [ ] **OG social card** — design `public/og-image.png` (1200×630, devcompass branding); the OG/Twitter tags already reference it. Until it exists, shares unfurl text-only.
 - [ ] **Vercel primary-domain redirect** *(manual)* — set `devcompass.app` primary so `devcompass.vercel.app` 308-redirects (kills duplicate-content competition; canonical already mitigates).
 
 ## Recently shipped
 
+- [x] **Vercel connector (Phases 1-2)** — BYOK (Personal Access Token) via the allowlisted relay; repo-detail **Deployments** tab; **failed prod deploys in Needs me** rendered like PR rows (▲ Vercel badge, branch, time-sorted) → in-app **DeployModal** with build log + copy-for-agent + "Mark as handled" (local). `api/vercel/` (client/deployments), `store/vercelConfig`, demo data.
+- [x] **Connectors hub** — unified Config tab: GitHub (core, with the scopes/SSO diagnostics) + Sentry + Vercel as accordion cards with status pills; collapsible roadmap of 24 connectors (REST/GraphQL/OAuth tags) + "Request an integration". Replaced the Tokens / GitHub-access / Connectors tabs.
+- [x] **Relationships tab** — repo ↔ Sentry project ↔ Vercel project matrix (full-chain rows marked), each repo links to GitHub + the live Vercel URL.
+- [x] **Needs me polish** — PR rows show `⎇ head → base` branch badges; filter chips (All / Review requested / My PRs / Failing / Mentioned); review-pool skeleton.
 - [x] **SEO pass** — `index.html` gets canonical (→ devcompass.app), Open Graph + Twitter Card, JSON-LD (SoftwareApplication + WebSite), refreshed title/description (panorama positioning); added `public/robots.txt`, `public/sitemap.xml`, `public/manifest.webmanifest`. OG image asset still pending.
 
 - [x] **Landing at /** — marketing landing lives in the app (lazy, logged-out root); standalone `landing/` + Pages workflow removed; hero with brand mark + two-line headline; local-only storage copy.
