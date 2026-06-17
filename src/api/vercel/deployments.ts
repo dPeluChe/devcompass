@@ -15,6 +15,37 @@ export function prodUrlForProject(p: VercelProject): string {
   return chosen.startsWith('http') ? chosen : `https://${chosen}`
 }
 
+type VercelDomain = { name: string; verified?: boolean }
+/** The project's verified production custom domain (non-vercel.app), else null.
+    Guarantees the real URL when the projects list didn't include the alias. */
+export async function fetchProjectProdDomain(auth: VercelAuth, projectId: string): Promise<string | null> {
+  if (auth.token === DEMO_TOKEN) return null
+  try {
+    const data = await vercelFetch<{ domains?: VercelDomain[] }>(`/v9/projects/${projectId}/domains`, auth, { production: 'true', limit: 50 })
+    const custom = (data.domains ?? []).find((d) => d.verified && !d.name.endsWith('.vercel.app'))
+    return custom ? `https://${custom.name}` : null
+  } catch {
+    return null
+  }
+}
+
+/** PR number from a deployment's merge-commit message ("Merge pull request #87"). */
+export function prNumberFromDeploy(d: VercelDeployment): number | null {
+  const m = d.meta?.githubCommitMessage?.match(/Merge pull request #(\d+)/i)
+  return m ? Number(m[1]) : null
+}
+
+/** Find the deploy whose commit sha matches a Sentry release (a sha, or "name@sha"). */
+export function matchReleaseToDeploy(release: string | null | undefined, deploys: VercelDeployment[]): VercelDeployment | null {
+  if (!release) return null
+  const shaTok = release.match(/[0-9a-f]{7,40}/i)?.[0]?.toLowerCase()
+  if (!shaTok) return null
+  return deploys.find((d) => {
+    const s = d.meta?.githubCommitSha?.toLowerCase()
+    return !!s && (s.startsWith(shaTok) || shaTok.startsWith(s))
+  }) ?? null
+}
+
 /** Normalize the deployment's effective state (state ?? readyState). */
 export function deploymentState(d: VercelDeployment): VercelDeploymentState {
   return d.state ?? d.readyState ?? 'QUEUED'

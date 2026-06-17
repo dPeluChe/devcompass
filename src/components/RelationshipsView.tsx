@@ -5,7 +5,8 @@ import { sentryConfigStore } from '../store/sentryConfig'
 import { vercelConfigStore } from '../store/vercelConfig'
 import { auth } from '../store/auth'
 import { DEMO_TOKEN, DEMO_SENTRY_REPO_MAP, DEMO_VERCEL_PROJECTS } from '../api/demo-data'
-import { repoFromProject, prodUrlForProject } from '../api/vercel'
+import { repoFromProject, prodUrlForProject, repoFromDeployment } from '../api/vercel'
+import { useFailedDeploys } from './home/FailedDeploys'
 
 type Vercel = { name: string; url: string }
 type Row = { repo: string; sentry: string | null; vercel: Vercel | null }
@@ -15,11 +16,18 @@ type Row = { repo: string; sentry: string | null; vercel: Vercel | null }
  * project map to it. Repos with both are the "full chain" — where a deploy can
  * be correlated to the errors it shipped (release-health, next).
  */
-export function RelationshipsView() {
+export function RelationshipsView({ onGoNeeds }: { onGoNeeds?: () => void }) {
   const sentryMap = sentryConfigStore((s) => s.projectRepoMap)
   const vercelMap = vercelConfigStore((s) => s.projectRepoMap)
   const vercelNames = vercelConfigStore((s) => s.projectNames)
   const vercelUrls = vercelConfigStore((s) => s.projectUrls)
+
+  // Per-repo alerts: a failing production deploy (lives in Needs me).
+  const failedData = useFailedDeploys(auth.get() ?? '').data
+  const failingRepos = useMemo(
+    () => new Set((failedData ?? []).map((d) => repoFromDeployment(d)?.toLowerCase()).filter(Boolean) as string[]),
+    [failedData]
+  )
 
   const rows = useMemo<Row[]>(() => {
     const isDemo = auth.get() === DEMO_TOKEN
@@ -79,20 +87,29 @@ export function RelationshipsView() {
                 <th><FaGithub /> Repo</th>
                 <th><SiSentry /> Sentry</th>
                 <th><SiVercel /> Vercel</th>
+                <th>Alerts</th>
               </tr>
             </thead>
             <tbody>
-              {rows.map((r) => (
-                <tr key={r.repo} className={r.sentry && r.vercel ? 'full' : ''}>
-                  <td><a href={`https://github.com/${r.repo}`} target="_blank" rel="noopener noreferrer">{r.repo}</a></td>
-                  <td>{r.sentry ?? <span className="muted">—</span>}</td>
-                  <td>
-                    {r.vercel
-                      ? <a href={r.vercel.url} target="_blank" rel="noopener noreferrer" title={r.vercel.url}>{r.vercel.name} <span className="rel-ext">↗</span></a>
-                      : <span className="muted">—</span>}
-                  </td>
-                </tr>
-              ))}
+              {rows.map((r) => {
+                const failing = failingRepos.has(r.repo.toLowerCase())
+                return (
+                  <tr key={r.repo} className={r.sentry && r.vercel ? 'full' : ''}>
+                    <td><a href={`https://github.com/${r.repo}`} target="_blank" rel="noopener noreferrer">{r.repo}</a></td>
+                    <td>{r.sentry ?? <span className="muted">—</span>}</td>
+                    <td>
+                      {r.vercel
+                        ? <a href={r.vercel.url} target="_blank" rel="noopener noreferrer" title={r.vercel.url}>{r.vercel.name} <span className="rel-ext">↗</span></a>
+                        : <span className="muted">—</span>}
+                    </td>
+                    <td>
+                      {failing
+                        ? <button className="rel-alert" onClick={onGoNeeds} title="Failed production deploy — open Needs me">⚠ deploy</button>
+                        : <span className="muted">—</span>}
+                    </td>
+                  </tr>
+                )
+              })}
             </tbody>
           </table>
         </>

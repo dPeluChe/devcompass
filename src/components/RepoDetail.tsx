@@ -94,7 +94,7 @@ export function RepoDetail({ token, owner, name, onClose }: Props) {
               <DeploymentsTab token={token} projectId={vercelProject.id} projectName={vercelProject.name} repo={`${owner}/${name}`} />
             )}
             {tab === 'sentry' && sentryProjectSlug && (
-              <SentryTab orgSlug={sentryOrg.trim()} projectSlug={sentryProjectSlug} environment={sentryEnv.trim()} />
+              <SentryTab token={token} orgSlug={sentryOrg.trim()} projectSlug={sentryProjectSlug} environment={sentryEnv.trim()} />
             )}
           </div>
         </>

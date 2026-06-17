@@ -10,13 +10,15 @@ export function ConfigView({
   orgs,
   repos,
   errors,
-  onForceResync
+  onForceResync,
+  onGoNeeds
 }: {
   tokenInfo: TokenInfo | undefined
   orgs: Org[]
   repos: Repo[]
   errors: { source: string; message: string }[]
   onForceResync: () => void
+  onGoNeeds?: () => void
 }) {
   const [section, setSection] = useState<'orgs' | 'connectors' | 'relationships' | 'storage' | 'cache' | 'pinned' | 'appearance'>('orgs')
 
@@ -99,7 +101,7 @@ export function ConfigView({
           <ConnectorsHub tokenInfo={tokenInfo} orgs={orgs} repos={repos} errors={errors} />
         )}
 
-        {section === 'relationships' && <RelationshipsView />}
+        {section === 'relationships' && <RelationshipsView onGoNeeds={onGoNeeds} />}
 
         {section === 'storage' && <SettingsTab panel="storage" onForceResync={onForceResync} />}
         {section === 'cache' && <SettingsTab panel="cache" onForceResync={onForceResync} />}

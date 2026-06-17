@@ -118,7 +118,7 @@ export function IssuesScope({ token, viewer }: ScopeProps) {
         </section>
       ))}
 
-      <SentryIssueModal issue={selectedSentry} onClose={() => setSelectedSentry(null)} />
+      <SentryIssueModal issue={selectedSentry} token={token} onClose={() => setSelectedSentry(null)} />
       <GitHubIssueModal issue={selectedGithub} onClose={() => setSelectedGithub(null)} />
     </main>
   )

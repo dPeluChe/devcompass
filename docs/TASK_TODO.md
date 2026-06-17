@@ -46,9 +46,9 @@ Wave numbering comes from the 2026-06 product audit (architecture + UX + perf/se
 - [ ] **Density modes** for repo cards (scan vs detail).
 - [ ] **Fine-grained PAT support** — currently classic only.
 - [ ] **Multi-account** — switch between PATs without clearing cache.
-- [ ] **Vercel connector — Phase 3 (release health)** — Phases 1-2 shipped (deployments tab, failed deploys in Needs me, build-log handoff, Relationships matrix). Next: correlate **Sentry release sha ↔ Vercel deploy ↔ commit/PR** — "this error shipped in deploy X (PR #87)". The cross-source crown jewel.
-- [ ] **Relationships → alerts column** — show per-repo if it has a failing deploy / Sentry issues, linking to Needs me.
-- [ ] **Vercel custom-domain fetch** — `/projects/{id}/domains` so the Relationships URL always shows the custom domain (today it uses targets.production.alias when present, else `<name>.vercel.app`).
+- [x] **Vercel — Phase 3 (release health)** — the Sentry issue modal correlates the issue's release sha to a Vercel deploy of the same repo → "▲ Shipped in deploy `<sha>` · `<branch>` · PR #N — likely where this regression came from." (matchReleaseToDeploy + prNumberFromDeploy.)
+- [x] **Relationships → alerts column** — ⚠ per repo with a failing production deploy, linking to Needs me (onGoNeeds).
+- [x] **Vercel custom-domain fetch** — on connect, fetches `/projects/{id}/domains` (bounded, background) and stores the verified custom domain in projectUrls; the Relationships URL now resolves the real domain.
 - [ ] **Linear / Jira / GitLab connectors** — same relay + connector pattern as Sentry/Vercel (24 on the roadmap in the Connectors hub).
 - [ ] **"Send to agent"** — evolve copy-for-agent into a direct handoff (batch triage → tasks).
 - [ ] **OG social card** — design `public/og-image.png` (1200×630, devcompass branding); the OG/Twitter tags already reference it. Until it exists, shares unfurl text-only.

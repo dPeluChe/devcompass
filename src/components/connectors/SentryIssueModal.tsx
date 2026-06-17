@@ -2,7 +2,9 @@ import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { extractEventContext, extractExceptions, fetchSentryLatestEvent, fetchSentrySuspectCommits, updateSentryIssueStatus, type SentryIssue } from '../../api/sentry'
+import { fetchVercelDeployments, matchReleaseToDeploy, prNumberFromDeploy } from '../../api/vercel'
 import { sentryConfigStore } from '../../store/sentryConfig'
+import { vercelConfigStore, vercelAuthFor } from '../../store/vercelConfig'
 import { clearPrefsByPrefix } from '../../store/db'
 import { relativeTime } from '../../utils/time'
 import { buildSentryAgentText } from '../../utils/agentPrompt'
@@ -10,7 +12,7 @@ import { CopyButton } from '../CopyButton'
 import { LEVEL_COLOR } from './SentryIssueList'
 
 /** In-app detail for a Sentry issue: summary + latest event's stacktrace + tags. */
-export function SentryIssueModal({ issue, onClose }: { issue: SentryIssue | null; onClose: () => void }) {
+export function SentryIssueModal({ issue, token, onClose }: { issue: SentryIssue | null; token: string; onClose: () => void }) {
   const open = !!issue
 
   useEffect(() => {
@@ -57,6 +59,17 @@ export function SentryIssueModal({ issue, onClose }: { issue: SentryIssue | null
     onError: (e) => setMutateError(e instanceof Error ? e.message : String(e)),
   })
 
+  // Release health: correlate this issue's release sha to a Vercel deploy of the
+  // same repo → "shipped in deploy X (PR #N)".
+  const mappedRepo = issue ? (sentryConfigStore.getState().projectRepoMap[issue.project.slug] ?? null) : null
+  const vercelProject = mappedRepo ? vercelConfigStore.getState().projectForRepo(mappedRepo) : null
+  const deployQuery = useQuery({
+    queryKey: ['vercel', 'release-deploys', vercelProject?.id, mappedRepo],
+    enabled: open && !!vercelProject,
+    staleTime: 5 * 60 * 1000,
+    queryFn: () => fetchVercelDeployments(vercelAuthFor(token), { projectId: vercelProject!.id, repo: mappedRepo! }),
+  })
+
   if (!issue) return null
   const exceptions = extractExceptions(eventQuery.data)
   const eventCtx = extractEventContext(eventQuery.data, exceptions)
@@ -65,6 +78,9 @@ export function SentryIssueModal({ issue, onClose }: { issue: SentryIssue | null
   const repo = cfgState.projectRepoMap[issue.project.slug] ?? null
   // Mutations need a real connector (demo rows have none) + event:write.
   const canMutate = cfgState.isConfigured()
+
+  const shippedDeploy = matchReleaseToDeploy(eventCtx.release, deployQuery.data ?? [])
+  const shippedPr = shippedDeploy ? prNumberFromDeploy(shippedDeploy) : null
 
   return (
     <div className="issue-modal-shell">
@@ -104,6 +120,20 @@ export function SentryIssueModal({ issue, onClose }: { issue: SentryIssue | null
             </div>
           )
         })()}
+
+        {shippedDeploy && (
+          <div className="issue-modal-release">
+            ▲ Shipped in deploy{' '}
+            <a href={shippedDeploy.inspectorUrl ?? '#'} target="_blank" rel="noopener noreferrer">
+              {shippedDeploy.meta?.githubCommitSha?.slice(0, 7)}
+            </a>
+            {shippedDeploy.meta?.githubCommitRef ? ` · ${shippedDeploy.meta.githubCommitRef}` : ''}
+            {shippedPr && mappedRepo && (
+              <> · <a href={`https://github.com/${mappedRepo}/pull/${shippedPr}`} target="_blank" rel="noopener noreferrer">PR #{shippedPr}</a></>
+            )}
+            <span className="muted"> — likely where this regression came from.</span>
+          </div>
+        )}
 
         {eventCtx.processingErrors.length > 0 && (
           <div className="issue-modal-warn">

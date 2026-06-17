@@ -9,7 +9,7 @@ import { EmptyState, RdLoading, Surface } from './common'
  * Homologation view: a repo's Sentry issues, resolved via the project↔repo map.
  * Only mounted when RepoDetail found a mapped project for this repo.
  */
-export function SentryTab({ orgSlug, projectSlug, environment }: { orgSlug: string; projectSlug: string; environment: string }) {
+export function SentryTab({ token, orgSlug, projectSlug, environment }: { token: string; orgSlug: string; projectSlug: string; environment: string }) {
   const query = useQuery({
     queryKey: queryKeys.sentryIssues(orgSlug, `${projectSlug}:${environment || 'all'}`),
     queryFn: async () => {
@@ -35,7 +35,7 @@ export function SentryTab({ orgSlug, projectSlug, environment }: { orgSlug: stri
     <Surface title={title} wide>
       {issues.length === 0
         ? <EmptyState label="No unresolved Sentry issues for this project." />
-        : <SentryIssueList issues={issues} />}
+        : <SentryIssueList issues={issues} token={token} />}
     </Surface>
   )
 }

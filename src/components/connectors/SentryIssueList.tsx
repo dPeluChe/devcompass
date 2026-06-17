@@ -41,7 +41,7 @@ function IssueRow({ iss, onOpen }: { iss: SentryIssue; onOpen: () => void }) {
  * org-wide connector test); the per-repo Sentry tab leaves it flat. Clicking a
  * row opens the in-app detail modal (stacktrace + tags); the ↗ opens Sentry.
  */
-export function SentryIssueList({ issues, groupByProject = false }: { issues: SentryIssue[]; groupByProject?: boolean }) {
+export function SentryIssueList({ issues, groupByProject = false, token = '' }: { issues: SentryIssue[]; groupByProject?: boolean; token?: string }) {
   const [selected, setSelected] = useState<SentryIssue | null>(null)
 
   const body = !groupByProject ? (
@@ -72,7 +72,7 @@ export function SentryIssueList({ issues, groupByProject = false }: { issues: Se
   return (
     <>
       {body}
-      <SentryIssueModal issue={selected} onClose={() => setSelected(null)} />
+      <SentryIssueModal issue={selected} token={token} onClose={() => setSelected(null)} />
     </>
   )
 }

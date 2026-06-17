@@ -3014,6 +3014,12 @@ kbd {
 .issue-modal-close:hover { color: var(--text); }
 .issue-modal-meta { font-size: 0.8rem; }
 .issue-modal-tags { display: flex; flex-wrap: wrap; gap: 6px; margin: 8px 0 2px; }
+.issue-modal-release {
+  margin: 8px 0 2px; font-size: 0.84rem; padding: 8px 12px; border-radius: 8px;
+  border: 1px solid var(--accent); background: color-mix(in srgb, var(--accent) 8%, transparent);
+}
+.issue-modal-release a { color: var(--accent); text-decoration: none; }
+.issue-modal-release a:hover { text-decoration: underline; }
 .issue-tag {
   font-size: 0.72rem; padding: 2px 8px; border-radius: 999px;
   border: 1px solid var(--border); background: var(--panel); color: var(--muted);
@@ -3061,6 +3067,11 @@ kbd {
 .rel-table td a:hover { color: var(--accent); }
 .rel-table tr.full td:first-child { box-shadow: inset 2px 0 0 #3fb950; }
 .rel-ext { color: var(--muted); font-size: 0.78em; }
+.rel-alert {
+  font-size: 0.74rem; font-weight: 600; color: var(--danger); background: none;
+  border: 1px solid var(--danger); border-radius: 6px; padding: 2px 8px; cursor: pointer;
+}
+.rel-alert:hover { background: color-mix(in srgb, var(--danger) 12%, transparent); }
 
 /* ---- Deploy modal build log ---- */
 .deploy-log-head { margin: 0 0 6px; font-size: 0.82rem; color: var(--muted); }

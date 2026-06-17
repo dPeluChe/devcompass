@@ -220,6 +220,7 @@ export function Dashboard({ token, onLogout }: Props) {
                 repos={data.repos}
                 errors={data.errors}
                 onForceResync={data.refresh}
+                onGoNeeds={() => gotoView('home')}
               />
             ) : undefined}
             onOpenRepo={(repo) => {

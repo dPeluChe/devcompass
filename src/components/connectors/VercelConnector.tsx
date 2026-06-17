@@ -2,7 +2,26 @@ import { useState } from 'react'
 import { SiVercel } from 'react-icons/si'
 import { FaGithub } from 'react-icons/fa'
 import { vercelConfigStore, validateVercelTokenFormat } from '../../store/vercelConfig'
-import { validateVercelToken, repoFromProject, prodUrlForProject } from '../../api/vercel'
+import { validateVercelToken, repoFromProject, prodUrlForProject, fetchProjectProdDomain } from '../../api/vercel'
+
+/** Fill in verified custom domains in the background (bounded), then persist. */
+async function enrichDomains(ids: string[]) {
+  const cfg = vercelConfigStore.getState()
+  const auth = cfg.getAuth()
+  const found: Record<string, string> = {}
+  const queue = [...ids]
+  const worker = async () => {
+    while (queue.length) {
+      const id = queue.shift()!
+      const custom = await fetchProjectProdDomain(auth, id)
+      if (custom) found[id] = custom
+    }
+  }
+  await Promise.all(Array.from({ length: Math.min(5, ids.length) }, worker))
+  if (Object.keys(found).length) {
+    vercelConfigStore.getState().update({ projectUrls: { ...vercelConfigStore.getState().projectUrls, ...found } })
+  }
+}
 
 // Auth failures are the common first-run snag — point at the likely causes.
 function describeError(e: unknown): string {
@@ -39,6 +58,8 @@ export function VercelConnector() {
       }
       cfg.update({ enabled: true, projectRepoMap, projectNames, projectUrls })
       setEditing(false)
+      // Connected immediately with default URLs; verified custom domains fill in after.
+      void enrichDomains(Object.keys(projectRepoMap))
     } catch (e) {
       setError(describeError(e))
     } finally {
