@@ -1,5 +1,7 @@
 import { useMemo, useState } from 'react'
+import { MdInbox } from 'react-icons/md'
 import { AttentionRow } from '../AttentionRow'
+import { EmptyState } from '../EmptyState'
 import { FailedDeploys, useFailedDeploys } from '../FailedDeploys'
 import { useNeedsMe, useReviewPool } from '../useNeedsMe'
 import type { Reason } from '../types'
@@ -15,7 +17,7 @@ const FILTER_REASONS: Record<Exclude<Filter, 'all'>, Reason[]> = {
   mentioned: ['mentioned'],
 }
 
-export function NeedsScope({ token, viewer, repos, snoozes, onOpenItem, onOpenItemWithAction, onSnoozeItem, onUnsnoozeItem }: ScopeProps) {
+export function NeedsScope({ token, viewer, repos, snoozes, onOpenItem, onOpenItemWithAction, onSnoozeItem, onUnsnoozeItem, onScopeChange }: ScopeProps) {
   const [filter, setFilter] = useState<Filter>('all')
   const { data, isLoading, error } = useNeedsMe(token, viewer?.login)
   const items = useMemo(
@@ -85,23 +87,27 @@ export function NeedsScope({ token, viewer, repos, snoozes, onOpenItem, onOpenIt
       )}
 
       {error && (
-        <div className="hs-empty" style={{ color: 'var(--danger)' }}>
-          <strong>Failed to load.</strong>{error.message}
-        </div>
+        <EmptyState
+          tone="danger"
+          title="Failed to load."
+          description={error.message}
+        />
       )}
 
       {/* Broken production deploys jump the queue — most urgent signal. */}
       {showDeploys && <FailedDeploys token={token} />}
 
       {!isLoading && !error && items.length === 0 && poolItems.length === 0 && failedCount === 0 && !pool.isLoading && (
-        <div className="hs-empty">
-          <strong>Nothing needs you right now.</strong>
-          When something comes up it shows here first.
-        </div>
+        <EmptyState
+          icon={<MdInbox size={48} />}
+          title="Nothing needs you right now."
+          description="When a PR needs review, CI fails, or someone mentions you, it shows here first."
+          cta={onScopeChange ? { label: 'Browse open PRs →', onClick: () => onScopeChange('repos') } : undefined}
+        />
       )}
 
       {!isLoading && items.length > 0 && visibleItems.length === 0 && (!showDeploys || failedCount === 0) && (
-        <div className="hs-empty"><strong>No items match this filter.</strong></div>
+        <EmptyState title="No items match this filter." description="Try switching to All to see everything." />
       )}
 
       {!isLoading && visibleItems.length > 0 && (
