@@ -77,9 +77,10 @@
 .hs-sidebar-item .hs-icon {
   width: 16px;
   flex-shrink: 0;
-  text-align: center;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
   color: var(--muted);
-  font-size: 0.95em;
 }
 .hs-sidebar-item.active .hs-icon { color: var(--accent); }
 .hs-sidebar-item .hs-label { flex: 1; white-space: nowrap; overflow: hidden; }

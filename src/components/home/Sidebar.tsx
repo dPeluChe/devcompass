@@ -1,7 +1,8 @@
 import type { ReactNode } from 'react'
+import { MdInbox, MdNotificationsActive, MdRefresh, MdDashboard, MdStar, MdTrendingUp, MdFolder, MdReport, MdPerson, MdGroup, MdGroupWork } from 'react-icons/md'
 import type { ScopeKey } from './types'
 
-type ItemDef = { key: ScopeKey; label: string; icon: string; title?: string; count?: number; hasAttn?: boolean }
+type ItemDef = { key: ScopeKey; label: string; icon: ReactNode; title?: string; count?: number; hasAttn?: boolean }
 type Group = { title: string; items: ItemDef[] }
 
 /**
@@ -14,10 +15,10 @@ export type OrgKind = 'self' | 'member' | 'collaborator'
 
 export type OrgEntry = { login: string; count: number; kind: OrgKind }
 
-const ORG_KIND_ICON: Record<OrgKind, string> = {
-  self: '◉',
-  member: '◆',
-  collaborator: '◇'
+const ORG_KIND_ICON: Record<OrgKind, ReactNode> = {
+  self: <MdPerson size={15} />,
+  member: <MdGroup size={15} />,
+  collaborator: <MdGroupWork size={15} />
 }
 const ORG_KIND_TITLE: Record<OrgKind, string> = {
   self: 'Your personal repos',
@@ -56,16 +57,16 @@ export function Sidebar({
   footer
 }: Props) {
   const inboxItems: ItemDef[] = [
-    { key: 'needs', label: 'Needs me', icon: '●', count: needsMeCount, hasAttn: needsMeCount > 0 },
-    { key: 'notifications', label: 'Notifications', icon: '◔', title: 'Unread GitHub notifications across all repos — mentions, reviews, assignments', count: notificationsCount, hasAttn: notificationsCount > 0 },
-    { key: 'since', label: 'Since last visit', icon: '↻', count: sinceCount, hasAttn: sinceCount > 0 },
-    { key: 'issues', label: 'Issues', icon: '◈', title: 'GitHub issues assigned to you + Sentry errors, grouped by repo', count: issuesCount, hasAttn: issuesCount > 0 }
+    { key: 'needs', label: 'Needs me', icon: <MdInbox size={15} />, count: needsMeCount, hasAttn: needsMeCount > 0 },
+    { key: 'notifications', label: 'Notifications', icon: <MdNotificationsActive size={15} />, title: 'Unread GitHub notifications across all repos — mentions, reviews, assignments', count: notificationsCount, hasAttn: notificationsCount > 0 },
+    { key: 'since', label: 'Since last visit', icon: <MdRefresh size={15} />, count: sinceCount, hasAttn: sinceCount > 0 },
+    { key: 'issues', label: 'Issues', icon: <MdReport size={15} />, title: 'GitHub issues assigned to you + Sentry errors, grouped by repo', count: issuesCount, hasAttn: issuesCount > 0 }
   ]
   const groups: Group[] = [
     {
       title: 'Summary',
       items: [
-        { key: 'digest', label: 'Digest', icon: '∿', title: 'Operational snapshot — week-in-review across all visible repos' }
+        { key: 'digest', label: 'Digest', icon: <MdDashboard size={15} />, title: 'Operational snapshot — week-in-review across all visible repos' }
       ]
     },
     {
@@ -75,9 +76,9 @@ export function Sidebar({
     {
       title: 'Workbench',
       items: [
-        { key: 'pinned', label: 'Pinned', icon: '★', count: pinnedCount },
-        { key: 'active', label: 'Active 7d', icon: '▴', count: active7dCount },
-        { key: 'repos', label: 'All repos', icon: '⊞', count: allReposCount }
+        { key: 'pinned', label: 'Pinned', icon: <MdStar size={15} />, count: pinnedCount },
+        { key: 'active', label: 'Active 7d', icon: <MdTrendingUp size={15} />, count: active7dCount },
+        { key: 'repos', label: 'All repos', icon: <MdFolder size={15} />, count: allReposCount }
       ]
     }
   ]
