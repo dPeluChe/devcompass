@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback, useMemo, type ReactNode } from 'react'
 import type { Org, Repo, Viewer } from '../../api/github'
 import type { PinnedRepo } from '../../store/db'
-import { snoozePr } from '../../store/db'
+import { snoozePr, unsnoozePr } from '../../store/db'
 import { ErrorBoundary } from '../ErrorBoundary'
 import { Sidebar, type OrgEntry } from './Sidebar'
 import { UserFooter } from './UserFooter'
@@ -169,6 +169,11 @@ export function HomeShell({
     refreshSnoozes()
   }, [refreshSnoozes])
 
+  const handleUnsnooze = useCallback(async (item: AttentionItem) => {
+    await unsnoozePr(item.id)
+    refreshSnoozes()
+  }, [refreshSnoozes])
+
   // On mobile the sidebar is hidden by default and slides in over the content
   // when the user taps the ≡ button in the topbar (rendered by Dashboard) or
   // the floating toggle below. Selecting a scope auto-closes it so the next
@@ -233,6 +238,7 @@ export function HomeShell({
             onOpenItem={selectItem}
             onOpenItemWithAction={selectItemWithAction}
             onSnoozeItem={handleSnooze}
+            onUnsnoozeItem={handleUnsnooze}
             onOpenRepo={onOpenRepo}
             onTogglePinned={onTogglePinned}
             onScopeChange={onSelectScope}

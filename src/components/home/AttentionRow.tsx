@@ -1,4 +1,4 @@
-import { useState, type MouseEvent, type ReactNode } from 'react'
+import { useState, useEffect, useRef, type MouseEvent, type ReactNode } from 'react'
 import { relativeTime } from '../../utils/time'
 import { OrgChip } from './OrgChip'
 import type { AttentionItem, Reason } from './types'
@@ -12,6 +12,7 @@ type Props = {
   onApprove?: () => void
   onRequestChanges?: () => void
   onSnooze: () => void
+  onUnsnooze?: () => void
 }
 
 /** Renders the per-row reason chips. Some chips embed extra context derived locally. */
@@ -81,14 +82,23 @@ function actionsFor(reasons: Reason[]): ActionDef[] {
 
 
 export function AttentionRow(props: Props) {
-  const { item, onOpen, onApprove, onRequestChanges, onSnooze } = props
+  const { item, onOpen, onApprove, onRequestChanges, onSnooze, onUnsnooze } = props
   const [snoozed, setSnoozed] = useState(false)
+  const [showUndo, setShowUndo] = useState(false)
+  const undoTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
+
+  useEffect(() => () => { if (undoTimer.current) clearTimeout(undoTimer.current) }, [])
 
   function handleAction(e: MouseEvent, def: ActionDef) {
     e.stopPropagation()
     if (def.action === 'snooze') {
       setSnoozed(true)
       onSnooze()
+      if (onUnsnooze) {
+        setShowUndo(true)
+        if (undoTimer.current) clearTimeout(undoTimer.current)
+        undoTimer.current = setTimeout(() => setShowUndo(false), 5000)
+      }
     } else if (def.action === 'github') {
       window.open(item.url, '_blank', 'noopener')
     } else if (def.action === 'approve') {
@@ -100,6 +110,14 @@ export function AttentionRow(props: Props) {
     } else {
       onOpen()
     }
+  }
+
+  function handleUndo(e: MouseEvent) {
+    e.stopPropagation()
+    if (undoTimer.current) clearTimeout(undoTimer.current)
+    setShowUndo(false)
+    setSnoozed(false)
+    onUnsnooze?.()
   }
 
   return (
@@ -153,6 +171,12 @@ export function AttentionRow(props: Props) {
           </button>
         ))}
       </div>
+      {showUndo && (
+        <div className="hs-row-undo" role="status">
+          <span>Snoozed 18h</span>
+          <button className="hs-row-undo-btn" onClick={handleUndo}>Undo</button>
+        </div>
+      )}
     </div>
   )
 }

@@ -17,6 +17,7 @@ export type ScopeProps = {
   /** Open the detail modal and fire a review action once the PR loads. */
   onOpenItemWithAction?: (item: AttentionItem, action: 'approve' | 'request-changes') => void
   onSnoozeItem: (item: AttentionItem) => void
+  onUnsnoozeItem?: (item: AttentionItem) => void
   onOpenRepo: (repo: Repo) => void
   onTogglePinned: (repo: Repo) => void
   /** Lets a scope navigate to another scope (e.g. Digest's "Show failing CI in Repos →" jump). */
