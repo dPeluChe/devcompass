@@ -1698,6 +1698,22 @@
   gap: 10px;
   padding: 14px 16px;
 }
+.digest-stats-primary { grid-template-columns: repeat(4, 1fr); gap: 12px; }
+.digest-stats-secondary {
+  grid-template-columns: repeat(4, 1fr);
+  gap: 8px;
+  padding: 8px 16px 12px;
+  margin-top: -4px;
+}
+.digest-stats-secondary .digest-stat {
+  padding: 8px 10px;
+  background: transparent;
+  border-color: var(--border-soft);
+  border-left-width: 2px;
+}
+.digest-stats-secondary .digest-stat-num { font-size: 1.15em; }
+.digest-stats-secondary .digest-stat-label { font-size: 0.76em; }
+.digest-stats-secondary .digest-stat-sub { font-size: 0.68em; }
 .digest-stat {
   display: flex;
   flex-direction: column;
@@ -1722,6 +1738,9 @@
   font-weight: 500;
 }
 .digest-stat-sub { font-size: 0.74em; line-height: 1.4; }
+@media (max-width: 720px) {
+  .digest-stats-primary, .digest-stats-secondary { grid-template-columns: repeat(2, 1fr); }
+}
 
 .digest-section { padding: 0 18px; margin-top: 18px; }
 .digest-section-title {

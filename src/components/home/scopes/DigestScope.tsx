@@ -69,13 +69,17 @@ export function DigestScope({ token, viewer, repos, pinned, onOpenRepo, onScopeC
         </div>
       </div>
 
-      {/* Top-line counts */}
-      <section className="hs-surface digest-stats">
-        <DigestStat value={stats.totalRepos} label="Total repos" sub="across all orgs you can see" />
+      {/* Primary stats — the signals that need attention */}
+      <section className="hs-surface digest-stats digest-stats-primary">
         <DigestStat value={stats.activeInWindow} label="Active in window" sub={`pushed in ${WINDOW_LABELS[window].toLowerCase()}`} />
         <DigestStat value={stats.openPRs} label="Open PRs" sub="across every visible repo" />
         <DigestStat value={stats.reposWithFailingCi} label="Repos with failing CI" sub="on at least one open PR" tone={stats.reposWithFailingCi > 0 ? 'warn' : undefined} />
         <DigestStat value={stats.stalePRs} label={`Stale PRs (>${STALE_PR_DAYS}d)`} sub="updated long ago" tone={stats.stalePRs > 0 ? 'warn' : undefined} />
+      </section>
+
+      {/* Secondary stats — context, not action */}
+      <section className="hs-surface digest-stats digest-stats-secondary">
+        <DigestStat value={stats.totalRepos} label="Total repos" sub="across all orgs you can see" />
         <DigestStat
           value={mergedQuery.data ? mergedQuery.data.count : '…'}
           label="PRs merged"
