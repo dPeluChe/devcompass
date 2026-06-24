@@ -2181,6 +2181,8 @@
     transition: transform 0.22s cubic-bezier(.2,.7,.2,1);
   }
   .hs-shell.mobile-open .hs-sidebar { transform: translateX(0); }
+  /* The focus-trap wrapper must not interfere with the sidebar's fixed positioning */
+  .hs-shell > div:has(> .hs-sidebar) { display: contents; }
   /* Always show full labels in the mobile drawer regardless of desktop collapse state */
   .hs-shell.mobile-open .hs-sidebar .hs-sidebar-item .hs-label,
   .hs-shell.mobile-open .hs-sidebar .hs-sidebar-item .hs-count,
@@ -2190,4 +2192,60 @@
 
   /* Make space at the top of main content for the floating ≡ button */
   .hs-main { padding-top: 52px; }
+
+  /* Topbar: allow status/actions to wrap; hide verbose summary text */
+  .topbar { flex-wrap: wrap; gap: 8px; padding: 6px 0; }
+  .topbar-status { border-left: none; padding-left: 0; flex-wrap: wrap; }
+  .topbar-actions { border-left: none; padding-left: 0; margin-left: auto; }
+  .meta-summary { display: none; }
+  .qs-trigger-text { display: none; }
+
+  /* Row layout: stack title and meta vertically, actions below */
+  .hs-row { flex-wrap: wrap; }
+  .hs-row-main { width: 100%; }
+  .hs-row-actions { width: 100%; justify-content: flex-end; margin-top: 4px; }
+
+  /* Issue / notification groups: tighter padding */
+  .hs-issue-group { padding: 0 4px; }
+  .hs-issue-row, .hs-notif-row { padding: 8px 10px; }
+  .hs-issue-main, .hs-notif-main { min-width: 0; }
+
+  /* Digest sections: less horizontal padding */
+  .digest-section { padding: 0 4px; }
+  .hs-main { padding: 52px 8px 60px; }
+  .hs-main-head { flex-wrap: wrap; gap: 6px; }
+  .hs-main-head h1 { font-size: 1.3em; }
+  .hs-h-meta { font-size: 0.78em; }
+
+  /* Composer: smaller textarea, actions wrap */
+  .hs-composer-actions { flex-wrap: wrap; gap: 6px; }
+  .hs-composer-textarea { min-height: 70px; font-size: 0.85em; }
+
+  /* Modal tabs: scrollable horizontally on narrow */
+  .hs-modal-tabs { overflow-x: auto; -webkit-overflow-scrolling: touch; }
+  .hs-modal-tab { white-space: nowrap; flex-shrink: 0; }
+  .hs-modal-tab-count { display: none; }
+
+  /* Modal header/footer: tighter padding, stack actions */
+  .hs-modal-head-top { padding: 10px 12px; gap: 8px; }
+  .hs-modal-footer { padding: 8px 12px; gap: 8px; }
+  .hs-modal-content { padding: 0 8px; }
+  .hs-modal-title-row { font-size: 0.92em; }
+}
+
+@media (max-width: 480px) {
+  /* Very narrow: hide sparklines, branch badges, secondary chips */
+  .digest-spark { display: none; }
+  .hs-branch { display: none; }
+  .hs-row-meta { font-size: 0.78em; }
+  .hs-pr-title { max-width: 200px; }
+  .digest-row-name { font-size: 0.85em; }
+  .digest-row-meta { font-size: 0.75em; }
+
+  /* Stat cards: single column */
+  .digest-stats-primary, .digest-stats-secondary { grid-template-columns: 1fr 1fr; }
+
+  /* Composer: hide kbd hints */
+  .hs-composer-actions kbd { display: none; }
+  .hs-modal-btn { font-size: 0.82em; padding: 4px 8px; }
 }

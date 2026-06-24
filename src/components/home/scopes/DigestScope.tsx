@@ -11,6 +11,7 @@ import {
   computeDigest, hasFailingCi, shortAgo,
 } from './digestMath'
 import { DigestStat, DigestAttn, Sparkline } from './DigestParts'
+import { EmptyState } from '../EmptyState'
 
 const WINDOW_KEY = 'home.digestWindow'
 
@@ -85,7 +86,7 @@ export function DigestScope({ token, viewer, repos, pinned, onOpenRepo, onScopeC
           <span className="muted">— sorted by last push within window</span>
         </h3>
         {stats.mostActive.length === 0 ? (
-          <div className="hs-empty"><strong>No repos pushed in this window.</strong></div>
+          <EmptyState title="No repos pushed in this window." description="Try a wider window (This month)." />
         ) : (
           <ul className="digest-list">
             {stats.mostActive.map((r: Repo) => (
@@ -115,7 +116,7 @@ export function DigestScope({ token, viewer, repos, pinned, onOpenRepo, onScopeC
           <span className="muted">— who has the most open PRs across your visible repos</span>
         </h3>
         {stats.contributors.length === 0 ? (
-          <div className="hs-empty"><strong>No open PRs found.</strong></div>
+          <EmptyState title="No open PRs found." description="Across all your visible repos." />
         ) : (
           <ul className="digest-contributor-list">
             {stats.contributors.map((c) => (

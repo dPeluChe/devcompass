@@ -3162,3 +3162,17 @@ kbd {
 .repo-picker-option.selected { color: var(--accent); }
 .repo-picker-empty, .repo-picker-more { padding: 8px; font-size: 0.78rem; }
 .hs-status.hs-status-ok { color: var(--success, #3fb950); border-color: var(--success, #3fb950); }
+
+/* ---- Mobile topbar: make room for the floating ≡ button ---- */
+@media (max-width: 860px) {
+  .topbar { padding-left: 48px; }
+  .topbar-brand { font-size: 0.9em; }
+  .dashboard .meta { gap: 4px; }
+  /* Relationships table: horizontal scroll instead of squishing */
+  .rel-table-wrap { overflow-x: auto; -webkit-overflow-scrolling: touch; }
+  .rel-table { min-width: 480px; }
+  /* Connector forms: full width */
+  .connector-form { max-width: 100%; }
+  /* Config sections: less padding */
+  .config-section { padding: 12px 8px; }
+}

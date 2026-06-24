@@ -1,7 +1,8 @@
-import { useState, useEffect, useCallback, useMemo, type ReactNode } from 'react'
+import { useState, useEffect, useCallback, useMemo, useRef, type ReactNode } from 'react'
 import type { Org, Repo, Viewer } from '../../api/github'
 import type { PinnedRepo } from '../../store/db'
 import { snoozePr, unsnoozePr } from '../../store/db'
+import { useFocusTrap } from '../../hooks/useFocusTrap'
 import { ErrorBoundary } from '../ErrorBoundary'
 import { Sidebar, type OrgEntry } from './Sidebar'
 import { UserFooter } from './UserFooter'
@@ -52,6 +53,9 @@ export function HomeShell({
   const [openItem, setOpenItem] = useState<AttentionItem | null>(null)
   const [pendingAction, setPendingAction] = useState<PendingAction | null>(null)
   const { snoozes, refresh: refreshSnoozes } = useSnoozes()
+  const sidebarRef = useRef<HTMLDivElement>(null)
+  const closeMobile = useCallback(() => setMobileOpen(false), [])
+  useFocusTrap(sidebarRef, mobileOpen, closeMobile)
 
   // ---- URL deep-link for the modal: ?pr=owner/repo/123 ----
   function setUrlForItem(it: AttentionItem | null) {
@@ -195,26 +199,27 @@ export function HomeShell({
       <div
         className="hs-mobile-backdrop"
         onClick={() => setMobileOpen(false)}
-        onKeyDown={(e) => { if (e.key === 'Escape') setMobileOpen(false) }}
         role="button"
         tabIndex={-1}
         aria-label="Close sidebar"
       />
-      <Sidebar
-        active={scope}
-        collapsed={collapsed}
-        needsMeCount={visibleNeedsCount}
-        sinceCount={sinceCount}
-        pinnedCount={pinned.length}
-        active7dCount={active7dCount}
-        allReposCount={repos.length}
-        issuesCount={issuesCount}
-        notificationsCount={notificationsCount}
-        orgs={orgEntries}
-        onSelect={onSelectScope}
-        onToggleCollapsed={() => setCollapsed((c) => !c)}
-        footer={<UserFooter viewer={viewer} collapsed={collapsed} onLogout={onLogout} />}
-      />
+      <div ref={sidebarRef}>
+        <Sidebar
+          active={scope}
+          collapsed={collapsed}
+          needsMeCount={visibleNeedsCount}
+          sinceCount={sinceCount}
+          pinnedCount={pinned.length}
+          active7dCount={active7dCount}
+          allReposCount={repos.length}
+          issuesCount={issuesCount}
+          notificationsCount={notificationsCount}
+          orgs={orgEntries}
+          onSelect={onSelectScope}
+          onToggleCollapsed={() => setCollapsed((c) => !c)}
+          footer={<UserFooter viewer={viewer} collapsed={collapsed} onLogout={onLogout} />}
+        />
+      </div>
 
       {/* keyed by what's on screen so navigating away auto-resets a crashed view;
           the sidebar lives outside the boundary and stays usable. */}

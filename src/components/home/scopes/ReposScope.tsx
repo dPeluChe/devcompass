@@ -1,6 +1,8 @@
 import { useMemo, useState, type ReactNode } from 'react'
+import { MdFolder } from 'react-icons/md'
 import type { Repo } from '../../../api/github'
 import { RepoCard } from '../RepoCard'
+import { EmptyState } from '../EmptyState'
 import type { ScopeProps } from './common'
 
 type OrgFacet = { login: string; avatarUrl?: string; count: number }
@@ -154,10 +156,11 @@ function RepoGridScope({
         <label><input type="checkbox" checked={hideForks} onChange={(e) => setHideForks(e.target.checked)} /> No forks</label>
       </div>
       {sorted.length === 0 ? (
-        <div className="hs-empty">
-          <strong>No repos match.</strong>
-          Adjust the filters above.
-        </div>
+        <EmptyState
+          icon={<MdFolder size={48} />}
+          title="No repos match."
+          description="Adjust the filters above."
+        />
       ) : (
         <div className="grid hs-grid">
           {sorted.map((r) => (
