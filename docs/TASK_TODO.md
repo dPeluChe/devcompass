@@ -35,6 +35,8 @@ Wave numbering comes from the 2026-06 product audit (architecture + UX + perf/se
 - [x] **Digest tiered stat cards** — 8 flat cards split into 4 primary (active, open PRs, failing CI, stale PRs) at full size + 4 secondary (total, merged, avg time, pinned) compact and borderless. Responsive 4→2 columns under 720px.
 - [x] **RepoCard signal fix** — pinned no longer adds +20 to the signal score; it only lifts a quiet repo to 'active' (not 'attention'), so critical/attention stay reserved for real signals.
 - [x] **Composer Write/Preview toggle** — PR comment composer has a Write/Preview tab; preview renders through a minimal inline markdown→HTML converter (no new dep) piped through SanitizedMarkdown.
+- [x] **Empty states with CTA** — shared EmptyState component (icon + title + description + optional CTA button) replaces 14 plain `hs-empty` divs across all scopes. Needs me gets "Browse open PRs →", Pinned gets "Browse repos →", error states use tone="danger".
+- [x] **Mobile focus trap + responsive pass** — useFocusTrap hook traps Tab/Shift+Tab in the mobile sidebar drawer, focuses first element on open, restores focus on close, Escape closes. Responsive 860px + 480px breakpoints: topbar wraps, rows stack, modal tabs scroll horizontally, relationships table scrolls, sparklines/branch badges/kbd hints hide at 480px.
 
 ## In progress — Wave 4 "trust before scale" (robustness)
 
