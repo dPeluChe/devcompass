@@ -1,24 +1,18 @@
 import { useMemo, useState } from 'react'
-import type { Repo, RepoOpenPR } from '../../../api/github'
+import type { Repo } from '../../../api/github'
 import type { ScopeKey } from '../types'
 import { type ScopeProps } from './common'
 import { ContributionHeatmap } from './ContributionHeatmap'
 import { useMergedStats, useRepoActivity, formatDuration } from '../useDigestExtras'
+import {
+  type Window,
+  WINDOW_DAYS, WINDOW_LABELS,
+  STALE_PR_DAYS, DORMANT_REPO_DAYS,
+  computeDigest, hasFailingCi, shortAgo,
+} from './digestMath'
+import { DigestStat, DigestAttn, Sparkline } from './DigestParts'
 
-type Window = '24h' | '7d' | '30d'
 const WINDOW_KEY = 'home.digestWindow'
-const WINDOW_LABELS: Record<Window, string> = {
-  '24h': 'Last 24h',
-  '7d': 'This week',
-  '30d': 'This month'
-}
-const WINDOW_DAYS: Record<Window, number> = {
-  '24h': 1,
-  '7d': 7,
-  '30d': 30
-}
-const STALE_PR_DAYS = 14
-const DORMANT_REPO_DAYS = 90
 
 function loadWindow(): Window {
   try {
@@ -28,12 +22,6 @@ function loadWindow(): Window {
   return '7d'
 }
 
-/**
- * Operational digest — week-in-review style summary computed entirely from
- * `data.repos`. No extra API calls in v1: header counts, most-active repos,
- * open-PR contributor breakdown, and "needs attention" all derive from data
- * already loaded for Home / Repos.
- */
 export function DigestScope({ token, viewer, repos, pinned, onOpenRepo, onScopeChange }: ScopeProps) {
   const [window, setWindow] = useState<Window>(loadWindow)
 
@@ -44,8 +32,6 @@ export function DigestScope({ token, viewer, repos, pinned, onOpenRepo, onScopeC
 
   const stats = useMemo(() => computeDigest(repos, pinned.length, window), [repos, pinned.length, window])
 
-  // Digest v2 — one cached GraphQL call each: merged-PR stats for the window,
-  // and default-branch commit activity for the most-active repos (sparklines).
   const mergedQuery = useMergedStats(token, viewer?.login, WINDOW_DAYS[window])
   const activityQuery = useRepoActivity(token, stats.mostActive, WINDOW_DAYS[window])
 
@@ -69,7 +55,6 @@ export function DigestScope({ token, viewer, repos, pinned, onOpenRepo, onScopeC
         </div>
       </div>
 
-      {/* Primary stats — the signals that need attention */}
       <section className="hs-surface digest-stats digest-stats-primary">
         <DigestStat value={stats.activeInWindow} label="Active in window" sub={`pushed in ${WINDOW_LABELS[window].toLowerCase()}`} />
         <DigestStat value={stats.openPRs} label="Open PRs" sub="across every visible repo" />
@@ -77,7 +62,6 @@ export function DigestScope({ token, viewer, repos, pinned, onOpenRepo, onScopeC
         <DigestStat value={stats.stalePRs} label={`Stale PRs (>${STALE_PR_DAYS}d)`} sub="updated long ago" tone={stats.stalePRs > 0 ? 'warn' : undefined} />
       </section>
 
-      {/* Secondary stats — context, not action */}
       <section className="hs-surface digest-stats digest-stats-secondary">
         <DigestStat value={stats.totalRepos} label="Total repos" sub="across all orgs you can see" />
         <DigestStat
@@ -93,10 +77,8 @@ export function DigestScope({ token, viewer, repos, pinned, onOpenRepo, onScopeC
         <DigestStat value={pinned.length} label="Pinned" sub="workbench shortcuts" />
       </section>
 
-      {/* Viewer contribution heatmap — independent of window; cached 12h */}
       <ContributionHeatmap token={token} viewerLogin={viewer?.login} />
 
-      {/* Most active repos */}
       <section className="digest-section">
         <h3 className="digest-section-title">
           Most active repos
@@ -106,7 +88,7 @@ export function DigestScope({ token, viewer, repos, pinned, onOpenRepo, onScopeC
           <div className="hs-empty"><strong>No repos pushed in this window.</strong></div>
         ) : (
           <ul className="digest-list">
-            {stats.mostActive.map((r) => (
+            {stats.mostActive.map((r: Repo) => (
               <li key={r.id}>
                 <button className="digest-row" onClick={() => onOpenRepo(r)} title={`Open ${r.nameWithOwner}`}>
                   <span className="digest-row-name">
@@ -127,7 +109,6 @@ export function DigestScope({ token, viewer, repos, pinned, onOpenRepo, onScopeC
         )}
       </section>
 
-      {/* Open-PR contributors (cheap proxy: distinct authors across visible openPRs) */}
       <section className="digest-section">
         <h3 className="digest-section-title">
           Open-PR contributors
@@ -152,7 +133,6 @@ export function DigestScope({ token, viewer, repos, pinned, onOpenRepo, onScopeC
         )}
       </section>
 
-      {/* Needs attention */}
       <section className="digest-section">
         <h3 className="digest-section-title">Needs attention</h3>
         <ul className="digest-attn-list">
@@ -185,123 +165,4 @@ export function DigestScope({ token, viewer, repos, pinned, onOpenRepo, onScopeC
       </section>
     </main>
   )
-}
-
-/** Tiny commit-activity bars for a most-active row. Hidden until data lands. */
-function Sparkline({ buckets }: { buckets?: number[] }) {
-  if (!buckets) return <span className="digest-spark" aria-hidden />
-  const max = Math.max(...buckets, 1)
-  const total = buckets.reduce((a, b) => a + b, 0)
-  return (
-    <span className="digest-spark" title={`${total} commit${total === 1 ? '' : 's'} on the default branch in window`}>
-      {buckets.map((v, i) => (
-        <i key={i} style={{ height: `${Math.max(8, Math.round((v / max) * 100))}%`, opacity: v === 0 ? 0.25 : 0.9 }} />
-      ))}
-    </span>
-  )
-}
-
-function DigestStat({ value, label, sub, tone }: { value: number | string; label: string; sub: string; tone?: 'warn' }) {
-  return (
-    <div className={`digest-stat ${tone ?? ''}`}>
-      <span className="digest-stat-num">{typeof value === 'number' ? value.toLocaleString() : value}</span>
-      <span className="digest-stat-label">{label}</span>
-      <span className="digest-stat-sub muted">{sub}</span>
-    </div>
-  )
-}
-
-type AttnLevel = 'ok' | 'info' | 'warn'
-function DigestAttn({ level, label, action }: { level: AttnLevel; label: string; action?: { label: string; onClick: () => void } }) {
-  const icon = level === 'ok' ? '✓' : level === 'warn' ? '⚠' : '·'
-  return (
-    <li className={`digest-attn digest-attn-${level}`}>
-      <span className="digest-attn-icon">{icon}</span>
-      <span className="digest-attn-label">{label}</span>
-      {action && (
-        <button className="digest-attn-btn" onClick={action.onClick}>{action.label}</button>
-      )}
-    </li>
-  )
-}
-
-/* ============================== Math ============================== */
-
-type DigestStats = {
-  totalRepos: number
-  activeInWindow: number
-  openPRs: number
-  reposWithFailingCi: number
-  stalePRs: number
-  dormantRepos: number
-  mostActive: Repo[]
-  contributors: { login: string; avatarUrl?: string; prs: number; repoCount: number }[]
-}
-
-function computeDigest(repos: Repo[], _pinnedCount: number, window: Window): DigestStats {
-  const now = Date.now()
-  const windowMs = WINDOW_DAYS[window] * 86_400_000
-  const staleMs = STALE_PR_DAYS * 86_400_000
-  const dormantMs = DORMANT_REPO_DAYS * 86_400_000
-
-  let activeInWindow = 0
-  let openPRs = 0
-  let reposWithFailingCi = 0
-  let stalePRs = 0
-  let dormantRepos = 0
-
-  // Distinct authors across openPRs, with repo-set per author.
-  const byAuthor = new Map<string, { login: string; avatarUrl?: string; prs: number; repos: Set<string> }>()
-
-  for (const r of repos) {
-    const lastPush = new Date(r.pushedAt).getTime()
-    if (now - lastPush < windowMs) activeInWindow += 1
-    if (now - lastPush > dormantMs) dormantRepos += 1
-    openPRs += r.openPRs.totalCount
-    if (hasFailingCi(r)) reposWithFailingCi += 1
-    for (const pr of r.openPRs.nodes ?? []) {
-      if (pr.author?.login) {
-        const cur = byAuthor.get(pr.author.login)
-        if (cur) { cur.prs += 1; cur.repos.add(r.nameWithOwner) }
-        else byAuthor.set(pr.author.login, { login: pr.author.login, avatarUrl: pr.author.avatarUrl, prs: 1, repos: new Set([r.nameWithOwner]) })
-      }
-      if (now - new Date(pr.updatedAt).getTime() > staleMs) stalePRs += 1
-    }
-  }
-
-  const mostActive = repos
-    .filter((r) => now - new Date(r.pushedAt).getTime() < windowMs)
-    .toSorted((a, b) => new Date(b.pushedAt).getTime() - new Date(a.pushedAt).getTime())
-    .slice(0, 8)
-
-  const contributors = Array.from(byAuthor.values())
-    .map((e) => ({ login: e.login, avatarUrl: e.avatarUrl, prs: e.prs, repoCount: e.repos.size }))
-    .toSorted((a, b) => b.prs - a.prs || b.repoCount - a.repoCount || a.login.localeCompare(b.login))
-    .slice(0, 8)
-
-  return {
-    totalRepos: repos.length,
-    activeInWindow,
-    openPRs,
-    reposWithFailingCi,
-    stalePRs,
-    dormantRepos,
-    mostActive,
-    contributors
-  }
-}
-
-function hasFailingCi(r: Repo): boolean {
-  return (r.openPRs.nodes ?? []).some((pr: RepoOpenPR) => pr.ciState === 'FAILURE' || pr.ciState === 'ERROR')
-}
-
-function shortAgo(iso: string): string {
-  const ms = Date.now() - new Date(iso).getTime()
-  const min = Math.floor(ms / 60_000)
-  if (min < 60) return `${min}m ago`
-  const hr = Math.floor(min / 60)
-  if (hr < 24) return `${hr}h ago`
-  const day = Math.floor(hr / 24)
-  if (day < 30) return `${day}d ago`
-  return `${Math.floor(day / 30)}mo ago`
 }
