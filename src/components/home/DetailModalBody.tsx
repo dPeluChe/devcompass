@@ -1,5 +1,5 @@
-import { useMemo, type ReactNode } from 'react'
-import { FaAlignLeft, FaFileCode, FaComments, FaCheckCircle, FaCodeBranch, FaInfoCircle } from 'react-icons/fa'
+import { useMemo, useState, type ReactNode } from 'react'
+import { FaAlignLeft, FaFileCode, FaComments, FaCheckCircle, FaCodeBranch, FaInfoCircle, FaEye, FaPen } from 'react-icons/fa'
 import type { PRDetail, ReviewEvent } from '../../api/github'
 import { SanitizedMarkdown } from '../SanitizedMarkdown'
 import type { AttentionItem } from './types'
@@ -138,24 +138,53 @@ function Composer({
   onSubmitRequestChanges: () => void
   isOwnPR: boolean
 }) {
+  const [preview, setPreview] = useState(false)
   const reviewBlockedTitle = isOwnPR ? 'You can\'t review your own PR' : undefined
+  const previewHtml = useMemo(() => (body.trim() ? miniMarkdown(body) : ''), [body])
   return (
     <section className="hs-composer">
-      <h4>Add a comment or review</h4>
-      <textarea
-        ref={composerRef}
-        className="hs-composer-textarea"
-        placeholder="Markdown supported. Press c to focus, ⌘↵ to submit a comment."
-        value={body}
-        onChange={(e) => onBodyChange(e.target.value)}
-        onKeyDown={(e) => {
-          if ((e.metaKey || e.ctrlKey) && e.key === 'Enter') {
-            e.preventDefault()
-            onSubmitComment()
-          }
-        }}
-        disabled={busy}
-      />
+      <div className="hs-composer-head">
+        <h4>Add a comment or review</h4>
+        <div className="hs-composer-toggle" role="tablist">
+          <button
+            role="tab"
+            aria-selected={!preview}
+            className={`hs-composer-tab ${!preview ? 'active' : ''}`}
+            onClick={() => setPreview(false)}
+          ><FaPen size={11} /> Write</button>
+          <button
+            role="tab"
+            aria-selected={preview}
+            className={`hs-composer-tab ${preview ? 'active' : ''}`}
+            onClick={() => setPreview(true)}
+            disabled={!body.trim()}
+          ><FaEye size={11} /> Preview</button>
+        </div>
+      </div>
+      {preview ? (
+        <div className="hs-composer-preview">
+          {previewHtml ? (
+            <SanitizedMarkdown html={previewHtml} />
+          ) : (
+            <span className="hs-muted-text">Nothing to preview.</span>
+          )}
+        </div>
+      ) : (
+        <textarea
+          ref={composerRef}
+          className="hs-composer-textarea"
+          placeholder="Markdown supported. Press c to focus, ⌘↵ to submit a comment."
+          value={body}
+          onChange={(e) => onBodyChange(e.target.value)}
+          onKeyDown={(e) => {
+            if ((e.metaKey || e.ctrlKey) && e.key === 'Enter') {
+              e.preventDefault()
+              onSubmitComment()
+            }
+          }}
+          disabled={busy}
+        />
+      )}
       <div className="hs-composer-actions">
         <button
           className="hs-modal-btn primary"
@@ -198,6 +227,36 @@ function Composer({
       </div>
     </section>
   )
+}
+
+/** Minimal markdown→HTML for the composer preview. Covers the common cases
+ *  (bold, italic, code, links, lists, headers, blockquote) without adding a
+ *  dependency. Output goes through SanitizedMarkdown before rendering. */
+function miniMarkdown(src: string): string {
+  const esc = (s: string) => s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+  const lines = esc(src).split('\n')
+  const out: string[] = []
+  let inList = false
+  const closeList = () => { if (inList) { out.push('</ul>'); inList = false } }
+  for (const line of lines) {
+    const h = line.match(/^(#{1,3})\s+(.*)$/)
+    if (h) { closeList(); out.push(`<h${h[1].length}>${inline(h[2])}</h${h[1].length}>`); continue }
+    if (line.startsWith('&gt; ')) { closeList(); out.push(`<blockquote>${inline(line.slice(5))}</blockquote>`); continue }
+    const li = line.match(/^[-*]\s+(.*)$/)
+    if (li) { if (!inList) { out.push('<ul>'); inList = true } out.push(`<li>${inline(li[1])}</li>`); continue }
+    closeList()
+    out.push(line.trim() ? `<p>${inline(line)}</p>` : '<br/>')
+  }
+  closeList()
+  return out.join('\n')
+
+  function inline(s: string): string {
+    return s
+      .replace(/`([^`]+)`/g, '<code>$1</code>')
+      .replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>')
+      .replace(/\*([^*]+)\*/g, '<em>$1</em>')
+      .replace(/\[([^\]]+)\]\((https?:\/\/[^\s)]+)\)/g, '<a href="$2" rel="noreferrer noopener" target="_blank">$1</a>')
+  }
 }
 
 function TabButton({ active, onClick, label, icon, count }: { active: boolean; onClick: () => void; label: string; icon: ReactNode; count?: number }) {
