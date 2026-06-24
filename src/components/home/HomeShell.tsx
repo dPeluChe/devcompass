@@ -6,7 +6,7 @@ import { ErrorBoundary } from '../ErrorBoundary'
 import { Sidebar, type OrgEntry } from './Sidebar'
 import { UserFooter } from './UserFooter'
 import { ScopeView } from './ScopeView'
-import { DetailModal } from './DetailModal'
+import { DetailModal, type PendingAction } from './DetailModal'
 import { RepoBrowser } from '../RepoBrowser'
 import { useNeedsMe, useSnoozes } from './useNeedsMe'
 import { useSinceLastVisit } from './useSinceLastVisit'
@@ -50,6 +50,7 @@ export function HomeShell({
   })
   const [mobileOpen, setMobileOpen] = useState(false)
   const [openItem, setOpenItem] = useState<AttentionItem | null>(null)
+  const [pendingAction, setPendingAction] = useState<PendingAction | null>(null)
   const { snoozes, refresh: refreshSnoozes } = useSnoozes()
 
   // ---- URL deep-link for the modal: ?pr=owner/repo/123 ----
@@ -66,6 +67,12 @@ export function HomeShell({
   }
   function selectItem(it: AttentionItem | null) {
     setOpenItem(it)
+    setPendingAction(null)
+    setUrlForItem(it)
+  }
+  function selectItemWithAction(it: AttentionItem, action: PendingAction) {
+    setOpenItem(it)
+    setPendingAction(action)
     setUrlForItem(it)
   }
 
@@ -224,6 +231,7 @@ export function HomeShell({
             pinned={pinned}
             snoozes={snoozes}
             onOpenItem={selectItem}
+            onOpenItemWithAction={selectItemWithAction}
             onSnoozeItem={handleSnooze}
             onOpenRepo={onOpenRepo}
             onTogglePinned={onTogglePinned}
@@ -236,6 +244,7 @@ export function HomeShell({
         token={token}
         viewerLogin={viewer?.login}
         item={openItem}
+        pendingAction={pendingAction}
         onClose={() => selectItem(null)}
         onSnooze={handleSnooze}
       />

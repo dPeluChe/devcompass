@@ -15,7 +15,7 @@ const FILTER_REASONS: Record<Exclude<Filter, 'all'>, Reason[]> = {
   mentioned: ['mentioned'],
 }
 
-export function NeedsScope({ token, viewer, repos, snoozes, onOpenItem, onSnoozeItem }: ScopeProps) {
+export function NeedsScope({ token, viewer, repos, snoozes, onOpenItem, onOpenItemWithAction, onSnoozeItem }: ScopeProps) {
   const [filter, setFilter] = useState<Filter>('all')
   const { data, isLoading, error } = useNeedsMe(token, viewer?.login)
   const items = useMemo(
@@ -111,6 +111,8 @@ export function NeedsScope({ token, viewer, repos, snoozes, onOpenItem, onSnooze
               key={item.id}
               item={item}
               onOpen={() => onOpenItem(item)}
+              onApprove={onOpenItemWithAction ? () => onOpenItemWithAction(item, 'approve') : undefined}
+              onRequestChanges={onOpenItemWithAction ? () => onOpenItemWithAction(item, 'request-changes') : undefined}
               onSnooze={() => onSnoozeItem(item)}
             />
           ))}
@@ -135,6 +137,8 @@ export function NeedsScope({ token, viewer, repos, snoozes, onOpenItem, onSnooze
                   key={item.id}
                   item={item}
                   onOpen={() => onOpenItem(item)}
+                  onApprove={onOpenItemWithAction ? () => onOpenItemWithAction(item, 'approve') : undefined}
+                  onRequestChanges={onOpenItemWithAction ? () => onOpenItemWithAction(item, 'request-changes') : undefined}
                   onSnooze={() => onSnoozeItem(item)}
                 />
               ))}

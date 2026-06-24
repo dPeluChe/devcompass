@@ -9,6 +9,8 @@ type Props = {
   changesRequestedBy?: string
   reviewerCount?: number
   onOpen: () => void
+  onApprove?: () => void
+  onRequestChanges?: () => void
   onSnooze: () => void
 }
 
@@ -49,7 +51,7 @@ function ReasonChips({ item, failingCheckName, changesRequestedBy, reviewerCount
   return <>{out}</>
 }
 
-type ActionDef = { label: string; kbd?: string; kind?: 'primary' | 'ok' | 'danger'; title?: string; action: 'open' | 'snooze' | 'github' }
+type ActionDef = { label: string; kbd?: string; kind?: 'primary' | 'ok' | 'danger'; title?: string; action: 'open' | 'approve' | 'request-changes' | 'snooze' | 'github' }
 
 function actionsFor(reasons: Reason[]): ActionDef[] {
   if (reasons.includes('ci-failing')) return [
@@ -62,13 +64,13 @@ function actionsFor(reasons: Reason[]): ActionDef[] {
     { label: 'zZ', kbd: 's', title: 'Snooze', action: 'snooze' }
   ]
   if (reasons.includes('review-requested')) return [
-    { label: '✓', kbd: 'a', kind: 'ok', title: 'Approve (Phase 2)', action: 'open' },
-    { label: '✗', kbd: 'R', kind: 'danger', title: 'Request changes (Phase 2)', action: 'open' },
+    { label: '✓', kbd: 'a', kind: 'ok', title: 'Approve — opens detail and submits', action: 'approve' },
+    { label: '✗', kbd: 'R', kind: 'danger', title: 'Request changes — opens detail composer', action: 'request-changes' },
     { label: 'zZ', kbd: 's', title: 'Snooze', action: 'snooze' }
   ]
   if (reasons.includes('mentioned')) return [
     { label: 'Comment', kbd: '↵', kind: 'primary', action: 'open' },
-    { label: '·', kbd: '.', title: 'Mark read (Phase 2)', action: 'snooze' }
+    { label: 'Mark read', kbd: '.', title: 'Snooze 18h (marks as read until tomorrow)', action: 'snooze' }
   ]
   if (reasons.includes('assigned') && reasons.includes('stale')) return [
     { label: 'Triage', kbd: '↵', kind: 'primary', action: 'open' },
@@ -79,7 +81,7 @@ function actionsFor(reasons: Reason[]): ActionDef[] {
 
 
 export function AttentionRow(props: Props) {
-  const { item, onOpen, onSnooze } = props
+  const { item, onOpen, onApprove, onRequestChanges, onSnooze } = props
   const [snoozed, setSnoozed] = useState(false)
 
   function handleAction(e: MouseEvent, def: ActionDef) {
@@ -89,6 +91,12 @@ export function AttentionRow(props: Props) {
       onSnooze()
     } else if (def.action === 'github') {
       window.open(item.url, '_blank', 'noopener')
+    } else if (def.action === 'approve') {
+      if (onApprove) onApprove()
+      else onOpen()
+    } else if (def.action === 'request-changes') {
+      if (onRequestChanges) onRequestChanges()
+      else onOpen()
     } else {
       onOpen()
     }
