@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
-import type { Repo } from '../api/github'
+import type { Repo, RateLimit } from '../api/github'
 import { DEMO_TOKEN } from '../api/demo-data'
 import type { ScopeKey } from './home/types'
 import { ConfigView } from './ConfigView'
@@ -152,49 +152,53 @@ export function Dashboard({ token, onLogout }: Props) {
               <span className="qs-trigger-kbd"><kbd>⌘</kbd><kbd>K</kbd></span>
             </button>
 
-            <span className="sync-indicator" title={data.lastSyncAt ? new Date(data.lastSyncAt).toLocaleString() : 'Not synced yet'}>
-              {isSyncing ? (
-                <Pulse>{data.progressMsg || 'Syncing...'}</Pulse>
-              ) : (
-                <>
-                  <span className={`sync-dot ${data.lastSyncAt ? 'ok' : 'cold'}`} />
-                  {data.lastSyncAt ? `Synced ${timeAgoShort(data.lastSyncAt)}` : 'Not synced'}
-                </>
+            <span className="topbar-status">
+              <span
+                className="sync-indicator"
+                title={syncTitle(data.lastSyncAt, isSyncing, data.progressMsg, data.rateLimit, isLowFor)}
+              >
+                {isSyncing ? (
+                  <Pulse>{data.progressMsg || 'Syncing...'}</Pulse>
+                ) : (
+                  <>
+                    <span className={`sync-dot ${data.lastSyncAt ? 'ok' : 'cold'}`} />
+                    {data.lastSyncAt ? `Synced ${timeAgoShort(data.lastSyncAt)}` : 'Not synced'}
+                  </>
+                )}
+              </span>
+
+              <button
+                className="refresh-btn"
+                onClick={() => data.refresh()}
+                disabled={isSyncing}
+                title="Force refresh from GitHub"
+              >
+                ↻
+              </button>
+
+              {!data.isLoading && (
+                <span className="meta-summary">
+                  {data.repos.length} repos · {data.viewer?.organizations.nodes.length ?? 0} orgs
+                  {data.loadedFromCache && data.isFetching ? ' · cache' : ''}
+                </span>
+              )}
+
+              {data.rateLimit && isLowFor(data.rateLimit.remaining, data.rateLimit.limit) && (
+                <span
+                  className="rate-low"
+                  title={`API quota nearly exhausted — background refresh paused until ${new Date(data.rateLimit.resetAt).toLocaleTimeString()}`}
+                >
+                  ⚠ {data.rateLimit.remaining}/{data.rateLimit.limit}
+                </span>
               )}
             </span>
 
-            <button
-              className="refresh-btn"
-              onClick={() => data.refresh()}
-              disabled={isSyncing}
-              title="Force refresh from GitHub"
-            >
-              ↻
-            </button>
-
-            {!data.isLoading && (
-              <span className="meta-summary">
-                {data.repos.length} repos · {data.viewer?.organizations.nodes.length ?? 0} orgs
-                {data.loadedFromCache && data.isFetching ? ' · cache' : ''}
-              </span>
-            )}
-            {data.rateLimit && (
-              <span
-                className={isLowFor(data.rateLimit.remaining, data.rateLimit.limit) ? 'rate-low' : undefined}
-                title={
-                  isLowFor(data.rateLimit.remaining, data.rateLimit.limit)
-                    ? `API quota nearly exhausted — background refresh paused until ${new Date(data.rateLimit.resetAt).toLocaleTimeString()}`
-                    : `Rate limit resets ${new Date(data.rateLimit.resetAt).toLocaleTimeString()}`
-                }
-              >
-                {isLowFor(data.rateLimit.remaining, data.rateLimit.limit) ? '⚠ ' : ''}{data.rateLimit.remaining}/{data.rateLimit.limit}
-              </span>
-            )}
-
-            <button className="link-btn" onClick={() => setHelpOpen(true)} title="Keyboard shortcuts (?)">
-              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><rect x="2" y="4" width="20" height="16" rx="2"/><path d="M6 8h.01M10 8h.01M14 8h.01M18 8h.01M8 12h.01M12 12h.01M16 12h.01M7 16h10"/></svg>
-            </button>
-            <button className="link-btn" onClick={onLogout}>Logout</button>
+            <span className="topbar-actions">
+              <button className="link-btn" onClick={() => setHelpOpen(true)} title="Keyboard shortcuts (?)">
+                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><rect x="2" y="4" width="20" height="16" rx="2"/><path d="M6 8h.01M10 8h.01M14 8h.01M18 8h.01M8 12h.01M12 12h.01M16 12h.01M7 16h10"/></svg>
+              </button>
+              <button className="link-btn" onClick={onLogout}>Logout</button>
+            </span>
           </div>
         </header>
 
@@ -255,5 +259,27 @@ function timeAgoShort(ms: number): string {
   if (h < 24) return `${h}h ago`
   const d = Math.floor(h / 24)
   return `${d}d ago`
+}
+
+function syncTitle(
+  lastSyncAt: number | null,
+  isSyncing: boolean,
+  progressMsg: string | null,
+  rateLimit: RateLimit | undefined,
+  isLowFor: (remaining: number, limit: number) => boolean
+): string {
+  const parts: string[] = []
+  if (isSyncing) parts.push(progressMsg || 'Syncing…')
+  else if (lastSyncAt) parts.push(`Last sync ${new Date(lastSyncAt).toLocaleString()}`)
+  else parts.push('Not synced yet')
+  if (rateLimit) {
+    const low = isLowFor(rateLimit.remaining, rateLimit.limit)
+    parts.push(
+      low
+        ? `API quota low — ${rateLimit.remaining}/${rateLimit.limit}, resets ${new Date(rateLimit.resetAt).toLocaleTimeString()}`
+        : `API quota ${rateLimit.remaining}/${rateLimit.limit}, resets ${new Date(rateLimit.resetAt).toLocaleTimeString()}`
+    )
+  }
+  return parts.join(' · ')
 }
 

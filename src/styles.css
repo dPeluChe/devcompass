@@ -2704,6 +2704,21 @@ body.fancy-bg {
 
 .meta-summary { white-space: nowrap; }
 
+.topbar-status {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding-left: 8px;
+  border-left: 1px solid var(--border);
+}
+.topbar-actions {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding-left: 8px;
+  border-left: 1px solid var(--border);
+}
+
 kbd {
   display: inline-block;
   padding: 1px 6px;
