@@ -1,12 +1,13 @@
-import { useState, useEffect, useCallback, useMemo, type ReactNode } from 'react'
+import { useState, useEffect, useCallback, useMemo, useRef, type ReactNode } from 'react'
 import type { Org, Repo, Viewer } from '../../api/github'
 import type { PinnedRepo } from '../../store/db'
-import { snoozePr } from '../../store/db'
+import { snoozePr, unsnoozePr } from '../../store/db'
+import { useFocusTrap } from '../../hooks/useFocusTrap'
 import { ErrorBoundary } from '../ErrorBoundary'
 import { Sidebar, type OrgEntry } from './Sidebar'
 import { UserFooter } from './UserFooter'
 import { ScopeView } from './ScopeView'
-import { DetailModal } from './DetailModal'
+import { DetailModal, type PendingAction } from './DetailModal'
 import { RepoBrowser } from '../RepoBrowser'
 import { useNeedsMe, useSnoozes } from './useNeedsMe'
 import { useSinceLastVisit } from './useSinceLastVisit'
@@ -50,7 +51,11 @@ export function HomeShell({
   })
   const [mobileOpen, setMobileOpen] = useState(false)
   const [openItem, setOpenItem] = useState<AttentionItem | null>(null)
+  const [pendingAction, setPendingAction] = useState<PendingAction | null>(null)
   const { snoozes, refresh: refreshSnoozes } = useSnoozes()
+  const sidebarRef = useRef<HTMLDivElement>(null)
+  const closeMobile = useCallback(() => setMobileOpen(false), [])
+  useFocusTrap(sidebarRef, mobileOpen, closeMobile)
 
   // ---- URL deep-link for the modal: ?pr=owner/repo/123 ----
   function setUrlForItem(it: AttentionItem | null) {
@@ -66,6 +71,12 @@ export function HomeShell({
   }
   function selectItem(it: AttentionItem | null) {
     setOpenItem(it)
+    setPendingAction(null)
+    setUrlForItem(it)
+  }
+  function selectItemWithAction(it: AttentionItem, action: PendingAction) {
+    setOpenItem(it)
+    setPendingAction(action)
     setUrlForItem(it)
   }
 
@@ -162,6 +173,11 @@ export function HomeShell({
     refreshSnoozes()
   }, [refreshSnoozes])
 
+  const handleUnsnooze = useCallback(async (item: AttentionItem) => {
+    await unsnoozePr(item.id)
+    refreshSnoozes()
+  }, [refreshSnoozes])
+
   // On mobile the sidebar is hidden by default and slides in over the content
   // when the user taps the ≡ button in the topbar (rendered by Dashboard) or
   // the floating toggle below. Selecting a scope auto-closes it so the next
@@ -183,26 +199,27 @@ export function HomeShell({
       <div
         className="hs-mobile-backdrop"
         onClick={() => setMobileOpen(false)}
-        onKeyDown={(e) => { if (e.key === 'Escape') setMobileOpen(false) }}
         role="button"
         tabIndex={-1}
         aria-label="Close sidebar"
       />
-      <Sidebar
-        active={scope}
-        collapsed={collapsed}
-        needsMeCount={visibleNeedsCount}
-        sinceCount={sinceCount}
-        pinnedCount={pinned.length}
-        active7dCount={active7dCount}
-        allReposCount={repos.length}
-        issuesCount={issuesCount}
-        notificationsCount={notificationsCount}
-        orgs={orgEntries}
-        onSelect={onSelectScope}
-        onToggleCollapsed={() => setCollapsed((c) => !c)}
-        footer={<UserFooter viewer={viewer} collapsed={collapsed} onLogout={onLogout} />}
-      />
+      <div ref={sidebarRef}>
+        <Sidebar
+          active={scope}
+          collapsed={collapsed}
+          needsMeCount={visibleNeedsCount}
+          sinceCount={sinceCount}
+          pinnedCount={pinned.length}
+          active7dCount={active7dCount}
+          allReposCount={repos.length}
+          issuesCount={issuesCount}
+          notificationsCount={notificationsCount}
+          orgs={orgEntries}
+          onSelect={onSelectScope}
+          onToggleCollapsed={() => setCollapsed((c) => !c)}
+          footer={<UserFooter viewer={viewer} collapsed={collapsed} onLogout={onLogout} />}
+        />
+      </div>
 
       {/* keyed by what's on screen so navigating away auto-resets a crashed view;
           the sidebar lives outside the boundary and stays usable. */}
@@ -224,7 +241,9 @@ export function HomeShell({
             pinned={pinned}
             snoozes={snoozes}
             onOpenItem={selectItem}
+            onOpenItemWithAction={selectItemWithAction}
             onSnoozeItem={handleSnooze}
+            onUnsnoozeItem={handleUnsnooze}
             onOpenRepo={onOpenRepo}
             onTogglePinned={onTogglePinned}
             onScopeChange={onSelectScope}
@@ -236,6 +255,7 @@ export function HomeShell({
         token={token}
         viewerLogin={viewer?.login}
         item={openItem}
+        pendingAction={pendingAction}
         onClose={() => selectItem(null)}
         onSnooze={handleSnooze}
       />

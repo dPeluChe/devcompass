@@ -1,10 +1,12 @@
 import { useMemo, useState } from 'react'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
+import { MdNotificationsActive } from 'react-icons/md'
 import { markAllNotificationsRead, markNotificationRead, notificationWebUrl, type GitHubNotification } from '../../../api/github'
 import { relativeTime } from '../../../utils/time'
 import { queryKeys } from '../../../store/queries'
 import { clearPrefsByPrefix } from '../../../store/db'
 import { OrgChip } from '../OrgChip'
+import { EmptyState } from '../EmptyState'
 import { useNotifications, NOTIFICATIONS_LIMIT, persistNotificationsCache } from '../useNotifications'
 import { GitHubIssueModal, type GitHubIssueRef } from '../GitHubIssueModal'
 import { Header, ScopeSkeleton, type ScopeProps } from './common'
@@ -164,18 +166,21 @@ export function NotificationsScope({ token, onOpenItem }: ScopeProps) {
 
       {isLoading && <ScopeSkeleton />}
       {error && (
-        <div className="hs-empty" style={{ color: 'var(--danger)' }}>
-          <strong>Failed to load.</strong>{error instanceof Error ? error.message : String(error)}
-        </div>
+        <EmptyState
+          tone="danger"
+          title="Failed to load."
+          description={error instanceof Error ? error.message : String(error)}
+        />
       )}
       {!isLoading && !error && total === 0 && (
-        <div className="hs-empty">
-          <strong>Inbox zero. 🎉</strong>
-          Mentions, review requests and assignments across all your repos show here.
-        </div>
+        <EmptyState
+          icon={<MdNotificationsActive size={48} />}
+          title="Inbox zero."
+          description="Mentions, review requests and assignments across all your repos show here."
+        />
       )}
       {!isLoading && total > 0 && filtered.length === 0 && (
-        <div className="hs-empty"><strong>No matches for “{filter.trim()}”.</strong></div>
+        <EmptyState title={`No matches for "${filter.trim()}".`} description="Try clearing the filter." />
       )}
 
       {groups.map(([fullName, group]) => (

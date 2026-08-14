@@ -1,12 +1,14 @@
 import { useMemo } from 'react'
 import { FaGithub } from 'react-icons/fa'
 import { SiSentry, SiVercel } from 'react-icons/si'
+import { MdHub } from 'react-icons/md'
 import { sentryConfigStore } from '../store/sentryConfig'
 import { vercelConfigStore } from '../store/vercelConfig'
 import { auth } from '../store/auth'
 import { DEMO_TOKEN, DEMO_SENTRY_REPO_MAP, DEMO_VERCEL_PROJECTS } from '../api/demo-data'
 import { repoFromProject, prodUrlForProject, repoFromDeployment } from '../api/vercel'
 import { useFailedDeploys } from './home/FailedDeploys'
+import { EmptyState } from './home/EmptyState'
 
 type Vercel = { name: string; url: string }
 type Row = { repo: string; sentry: string | null; vercel: Vercel | null }
@@ -72,15 +74,17 @@ export function RelationshipsView({ onGoNeeds }: { onGoNeeds?: () => void }) {
       </div>
 
       {rows.length === 0 ? (
-        <div className="hs-empty">
-          <strong>No links yet.</strong>
-          Connect Sentry and/or Vercel in <em>Connectors</em> — devcompass auto-maps their projects to your GitHub repos.
-        </div>
+        <EmptyState
+          icon={<MdHub size={48} />}
+          title="No links yet."
+          description="Connect Sentry and/or Vercel in Connectors — devcompass auto-maps their projects to your GitHub repos."
+        />
       ) : (
         <>
           <p className="muted rel-summary">
             {rows.length} repo{rows.length === 1 ? '' : 's'} linked · <strong className="rel-full-count">{both}</strong> with both Sentry + Vercel (full chain).
           </p>
+          <div className="rel-table-wrap">
           <table className="rel-table">
             <thead>
               <tr>
@@ -112,6 +116,7 @@ export function RelationshipsView({ onGoNeeds }: { onGoNeeds?: () => void }) {
               })}
             </tbody>
           </table>
+          </div>
         </>
       )}
     </section>

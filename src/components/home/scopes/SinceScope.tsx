@@ -1,5 +1,7 @@
 import { useState } from 'react'
+import { MdRefresh } from 'react-icons/md'
 import { OrgChip } from '../OrgChip'
+import { EmptyState } from '../EmptyState'
 import { useSinceLastVisit, type SinceEvent, type SinceEventKind } from '../useSinceLastVisit'
 import { useFlash } from '../../../hooks/useFlash'
 import type { AttentionItem } from '../types'
@@ -90,19 +92,19 @@ export function SinceScope({ repos, onOpenItem, onOpenRepo }: ScopeProps) {
       )}
 
       {isFirstRun ? (
-        <div className="hs-empty">
-          <strong>No baseline yet.</strong>
-          Click <em>Mark as seen</em> to start tracking changes. Next time you load the app
-          we'll show what changed since now: new PRs, CI flips, merges, and pushes to
-          default branches across your repos.
-        </div>
+        <EmptyState
+          icon={<MdRefresh size={48} />}
+          title="No baseline yet."
+          description="Click Mark as seen to start tracking changes. Next time you load the app we'll show what changed: new PRs, CI flips, merges, and pushes to default branches across your repos."
+        />
       ) : showEvents.length === 0 ? (
-        <div className="hs-empty">
-          <strong>Nothing changed since you last looked.</strong>
-          {snapshot && <span>You were last here {relativeTime(new Date(snapshot.takenAt).toISOString(), false)} ago.</span>}
-        </div>
+        <EmptyState
+          icon={<MdRefresh size={48} />}
+          title="Nothing changed since you last looked."
+          description={snapshot ? `You were last here ${relativeTime(new Date(snapshot.takenAt).toISOString(), false)} ago.` : undefined}
+        />
       ) : filtered.length === 0 ? (
-        <div className="hs-empty"><strong>No events of this kind.</strong></div>
+        <EmptyState title="No events of this kind." description="Try switching to All." />
       ) : (
         [...dayGroups.entries()].map(([label, list]) => (
           <section key={label} className="hs-issue-group">

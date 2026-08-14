@@ -1,6 +1,6 @@
 import { useMemo, useRef, useState } from 'react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
-import { sentryConfigStore, validateSentryTokenFormat } from '../../store/sentryConfig'
+import { sentryConfigStore } from '../../store/sentryConfig'
 import {
   fetchSentryCodeMappings,
   fetchSentryIssues,
@@ -9,24 +9,13 @@ import {
   type SentryIssue,
 } from '../../api/sentry'
 import { queryKeys } from '../../store/queries'
-import { FaGithub } from 'react-icons/fa'
-import { SiSentry } from 'react-icons/si'
-import { SentryIssueList } from './SentryIssueList'
-import { RepoPicker } from './RepoPicker'
 import { useSentryIssues } from '../home/useSentryIssues'
 import type { Repo } from '../../api/github'
-
-type Async<T> = { loading: boolean; error: string | null; data: T | null }
-const idle = { loading: false, error: null, data: null }
-
-// Auth failures are the common first-run snag — point at the likely causes.
-function describeError(e: unknown): string {
-  const msg = e instanceof Error ? e.message : String(e)
-  if (/\b40[13]\b/.test(msg)) {
-    return `${msg}\n→ Use a User Auth Token (Account → Auth Tokens), not an Organization token — org tokens are scoped for CI and can't read your projects/orgs. Token needs org:read · project:read · event:read. EU orgs must select the "de" region.`
-  }
-  return msg
-}
+import { SetupForm, describeError } from './sentry/SetupForm'
+import { ProjectMappingList } from './sentry/ProjectMappingList'
+import { IssueTestPanel } from './sentry/IssueTestPanel'
+import type { Async } from './sentry/types'
+import { idle } from './sentry/types'
 
 export function SentryConnector({ repos }: { repos: Repo[] }) {
   const cfg = sentryConfigStore()
@@ -190,161 +179,20 @@ export function SentryConnector({ repos }: { repos: Repo[] }) {
               <div className="muted" style={{ marginBottom: 6 }}>
                 {projectsQuery.data.filter((p) => cfg.projectRepoMap[p.slug]).length}/{projectsQuery.data.length} mapped in @{cfg.orgSlug.trim()} — changes save automatically. Mapped projects show a Sentry tab on that repo.
               </div>
-              <ul className="connector-map-list">
-                {projectsQuery.data.map((p) => {
-                  const mapped = cfg.projectRepoMap[p.slug] ?? ''
-                  const count = countByProject.get(p.slug) ?? 0
-                  return (
-                    <li key={p.id} className="connector-map-row">
-                      <span className="connector-map-project" title={p.slug}>
-                        <SiSentry className="connector-map-icon sentry" aria-hidden />
-                        <span className="connector-map-project-name">{p.slug}</span>
-                      </span>
-                      <span className="connector-map-count" title="unresolved Sentry issues">{count > 0 ? `⚠ ${count}` : ''}</span>
-                      <span className="connector-map-arrow">→</span>
-                      <FaGithub className="connector-map-icon gh" aria-hidden />
-                      <RepoPicker
-                        value={mapped}
-                        options={repoOptions}
-                        onChange={(v) => setMapping(p.slug, v)}
-                        placeholder="owner/repo (unmapped)"
-                      />
-                      <a
-                        className="connector-map-repo"
-                        href={mapped ? `https://github.com/${mapped}` : undefined}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        title={mapped ? 'Open on GitHub' : undefined}
-                        style={{ visibility: mapped ? 'visible' : 'hidden' }}
-                      >↗</a>
-                      <span className="connector-map-saved" style={{ visibility: savedSlug === p.slug ? 'visible' : 'hidden' }}>✓ Saved</span>
-                    </li>
-                  )
-                })}
-              </ul>
+              <ProjectMappingList
+                projects={projectsQuery.data}
+                projectRepoMap={cfg.projectRepoMap}
+                countByProject={countByProject}
+                repoOptions={repoOptions}
+                savedSlug={savedSlug}
+                onSetMapping={setMapping}
+              />
             </div>
           )}
 
-          {iss.error && <div className="hs-status hs-status-err" style={{ marginTop: 12, whiteSpace: 'pre-line' }}>Failed: {iss.error}</div>}
-          {iss.data && (
-            <div className="connector-results" style={{ marginTop: 12 }}>
-              <div className="muted" style={{ marginBottom: 8 }}>
-                {iss.data.length} issue{iss.data.length === 1 ? '' : 's'}
-                {cfg.environment.trim() && cfg.environment.trim().toLowerCase() !== 'all' ? ` in @${cfg.environment.trim()}` : ' (all environments)'}
-              </div>
-              {iss.data.length === 0 ? (
-                <span className="muted">No unresolved issues for this filter. 🎉</span>
-              ) : (
-                <SentryIssueList issues={iss.data} groupByProject />
-              )}
-            </div>
-          )}
+          <IssueTestPanel iss={iss} environment={cfg.environment} />
         </>
       )}
     </div>
-  )
-}
-
-function SetupForm({
-  connecting, connectError, orgChoices, canCancel, onCancel, onConnect,
-}: {
-  connecting: boolean
-  connectError: string | null
-  orgChoices: string[]
-  canCancel: boolean
-  onCancel: () => void
-  onConnect: () => void
-}) {
-  const cfg = sentryConfigStore()
-  const tokenCheck = validateSentryTokenFormat(cfg.token)
-  return (
-    <>
-      <details className="connector-help">
-        <summary>How to get a Sentry auth token</summary>
-        <ol>
-          <li>
-            Open <a href="https://sentry.io/settings/account/api/auth-tokens/" target="_blank" rel="noopener noreferrer">
-            sentry.io → User Auth Tokens ↗</a> (<strong>User</strong> settings → Auth Tokens).
-          </li>
-          <li>Create a token with permissions <code>Project</code>, <code>Issue &amp; Event</code> and <code>Organization</code> set to <strong>Read</strong> (preview must list <code>project:read event:read org:read</code> — not <code>—</code>).</li>
-          <li>Paste it below with your organization slug (<code>your-org.sentry.io</code> → <strong>your-org</strong>).</li>
-        </ol>
-        <p className="muted">
-          ⚠ Use a <strong>User</strong> Auth Token, <em>not</em> an <strong>Organization</strong> token —
-          org tokens are scoped for CI and 403 here. A regular <strong>member</strong> token works.
-          <strong>EU</strong> orgs must pick the <code>de</code> region.
-        </p>
-      </details>
-
-      <div className="connector-form">
-        <label>
-          <span>Auth token</span>
-          <input
-            type="password"
-            placeholder="sntryu_…"
-            value={cfg.token}
-            onChange={(e) => cfg.update({ token: e.target.value })}
-            autoComplete="off"
-            aria-invalid={tokenCheck.warning ? true : undefined}
-          />
-          {tokenCheck.warning && <span className="connector-field-hint warn">{tokenCheck.warning}</span>}
-        </label>
-        <label>
-          <span>Organization slug</span>
-          <input
-            type="text"
-            list="devcompass-sentry-orgs"
-            placeholder="my-org"
-            value={cfg.orgSlug}
-            onChange={(e) => cfg.update({ orgSlug: e.target.value })}
-          />
-          <datalist id="devcompass-sentry-orgs">
-            {orgChoices.map((o) => <option key={o} value={o} />)}
-          </datalist>
-        </label>
-        <div className="connector-form-row">
-          <label>
-            <span>Region</span>
-            <select value={cfg.region} onChange={(e) => cfg.update({ region: e.target.value })}>
-              <option value="">sentry.io (default)</option>
-              <option value="us">us.sentry.io</option>
-              <option value="de">de.sentry.io</option>
-            </select>
-          </label>
-          <label>
-            <span>Environment <span className="muted">(leave empty = all)</span></span>
-            <input
-              type="text"
-              placeholder="all environments"
-              value={cfg.environment}
-              onChange={(e) => cfg.update({ environment: e.target.value })}
-            />
-          </label>
-        </div>
-        <label>
-          <span>Proxy endpoint <span className="muted">(self-host override)</span></span>
-          <input
-            type="text"
-            placeholder="/api/proxy"
-            value={cfg.proxyBase}
-            onChange={(e) => cfg.update({ proxyBase: e.target.value })}
-          />
-        </label>
-
-        <div className="connector-actions">
-          <button
-            className="hs-modal-btn primary"
-            onClick={onConnect}
-            disabled={connecting || !cfg.token.trim() || !cfg.orgSlug.trim()}
-          >
-            {connecting ? 'Connecting…' : 'Connect'}
-          </button>
-          {canCancel && <button className="hs-modal-btn" onClick={onCancel}>Cancel</button>}
-          {(!cfg.token.trim() || !cfg.orgSlug.trim()) && <span className="muted">Token + org slug required.</span>}
-        </div>
-      </div>
-
-      {connectError && <div className="hs-status hs-status-err" style={{ marginTop: 12, whiteSpace: 'pre-line' }}>Connection failed: {connectError}</div>}
-    </>
   )
 }

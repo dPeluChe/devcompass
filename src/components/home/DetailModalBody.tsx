@@ -6,6 +6,7 @@ import type { AttentionItem } from './types'
 import { ChecksList, Skeleton } from './detail/Checks'
 import { ConversationList, buildConversation } from './detail/Conversation'
 import { SummaryTab } from './detail/Summary'
+import { Composer } from './detail/Composer'
 import { FilesList, CommitsList } from './DetailModalLists'
 
 export type TabKey = 'summary' | 'description' | 'commits' | 'changes' | 'checks' | 'comments'
@@ -120,83 +121,6 @@ export function ModalBody(props: {
         )}
       </div>
     </div>
-  )
-}
-
-function Composer({
-  composerRef, body, onBodyChange, status, busy, busyKind,
-  onSubmitComment, onSubmitApprove, onSubmitRequestChanges, isOwnPR
-}: {
-  composerRef: React.RefObject<HTMLTextAreaElement | null>
-  body: string
-  onBodyChange: (s: string) => void
-  status: StatusMsg
-  busy: boolean
-  busyKind: ReviewEvent | 'COMMENT-ISSUE' | null
-  onSubmitComment: () => void
-  onSubmitApprove: () => void
-  onSubmitRequestChanges: () => void
-  isOwnPR: boolean
-}) {
-  const reviewBlockedTitle = isOwnPR ? 'You can\'t review your own PR' : undefined
-  return (
-    <section className="hs-composer">
-      <h4>Add a comment or review</h4>
-      <textarea
-        ref={composerRef}
-        className="hs-composer-textarea"
-        placeholder="Markdown supported. Press c to focus, ⌘↵ to submit a comment."
-        value={body}
-        onChange={(e) => onBodyChange(e.target.value)}
-        onKeyDown={(e) => {
-          if ((e.metaKey || e.ctrlKey) && e.key === 'Enter') {
-            e.preventDefault()
-            onSubmitComment()
-          }
-        }}
-        disabled={busy}
-      />
-      <div className="hs-composer-actions">
-        <button
-          className="hs-modal-btn primary"
-          onClick={onSubmitComment}
-          disabled={busy || !body.trim()}
-          title="Comment (⌘↵)"
-        >
-          {busyKind === 'COMMENT-ISSUE' ? 'Posting…' : <>💬 Comment</>}
-        </button>
-        {!isOwnPR && (
-          <>
-            <button
-              className="hs-modal-btn ok"
-              onClick={onSubmitApprove}
-              disabled={busy}
-              title="Approve (a)"
-            >
-              {busyKind === 'APPROVE' ? 'Approving…' : <>✓ Approve <kbd>a</kbd></>}
-            </button>
-            <button
-              className="hs-modal-btn danger"
-              onClick={onSubmitRequestChanges}
-              disabled={busy || !body.trim()}
-              title="Request changes (Shift+R)"
-            >
-              {busyKind === 'REQUEST_CHANGES' ? 'Submitting…' : <>✗ Request changes <kbd>⇧R</kbd></>}
-            </button>
-          </>
-        )}
-        {isOwnPR && (
-          <span className="hs-status-inline" title={reviewBlockedTitle}>
-            Your own PR — comment here, merge from the footer.
-          </span>
-        )}
-        {status && (
-          <span className={`hs-status-inline ${status.kind === 'ok' ? 'ok' : 'err'}`}>
-            {status.text}
-          </span>
-        )}
-      </div>
-    </section>
   )
 }
 

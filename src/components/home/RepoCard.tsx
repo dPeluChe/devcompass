@@ -41,7 +41,7 @@ export function repoSignal(repo: Repo, pinned: boolean): RepoSignal {
   const reasons: string[] = []
   let score = 0
 
-  if (pinned) { score += 20; reasons.push('pinned') }
+  if (pinned) reasons.push('pinned')
   if (repo.openPRs.totalCount > 0) {
     score += 40 + Math.min(repo.openPRs.totalCount, 5) * 4
     reasons.push(`${repo.openPRs.totalCount} open PR${repo.openPRs.totalCount > 1 ? 's' : ''}`)
@@ -53,7 +53,7 @@ export function repoSignal(repo: Repo, pinned: boolean): RepoSignal {
 
   const daysSincePush = (Date.now() - new Date(repo.pushedAt).getTime()) / 86_400_000
   if (daysSincePush <= 7) { score += 10; reasons.push('recent commit') }
-  else if (pinned && daysSincePush > 90) { score += 12; reasons.push('pinned but stale') }
+  else if (pinned && daysSincePush > 90) { reasons.push('pinned but stale') }
   if (repo.isFork) reasons.push('fork')
 
   const activityLabel = activityFor(daysSincePush)
@@ -62,6 +62,7 @@ export function repoSignal(repo: Repo, pinned: boolean): RepoSignal {
   if (score >= 60) return { level: 'critical', reasons, activityLabel }
   if (score >= 25) return { level: 'attention', reasons, activityLabel }
   if (daysSincePush <= 7) return { level: 'active', reasons: reasons.length ? reasons : ['recent commit'], activityLabel }
+  if (pinned) return { level: 'active', reasons: reasons.length ? reasons : ['pinned'], activityLabel }
   return { level: 'quiet', reasons: reasons.length ? reasons : ['no immediate signal'], activityLabel }
 }
 

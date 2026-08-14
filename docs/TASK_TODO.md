@@ -26,6 +26,18 @@ Wave numbering comes from the 2026-06 product audit (architecture + UX + perf/se
 - [x] **Skeleton states** — shared ScopeSkeleton replaces raw "Loading…" in Issues/Notifications.
 - [x] **Text filter for long lists** — title/repo filter input in Issues + Notifications (shown past 8 items).
 
+## In progress — Wave 5 "UX review pass" (clarity + honesty)
+
+- [x] **Topbar grouping** — split the overloaded .meta block into .topbar-status (sync + refresh + summary + rate-low) and .topbar-actions (help + logout); rate-limit only renders inline when low, otherwise lives in the sync-indicator tooltip.
+- [x] **Phase-2 row actions wired** — Approve (✓) and Request changes (✗) on review-requested rows now open the detail modal with a pendingAction that fires once the PR loads (approve submits; request-changes jumps to composer). "Mark read" on mentioned rows is now an honest snooze with a clear tooltip. No more dead stubs.
+- [x] **Snooze undo toast** — snoozing a row shows an inline "Snoozed 18h · Undo" toast for 5s; pointer-events: auto overrides the faded row so the button stays clickable.
+- [x] **Sidebar icons → react-icons** — replaced ambiguous unicode glyphs (● ◔ ↻ ◈ ∿ ★ ▴ ⊞) with react-icons/md (MdInbox, MdNotificationsActive, MdRefresh, MdReport, MdDashboard, MdStar, MdTrendingUp, MdFolder). Same weight, conventional meanings.
+- [x] **Digest tiered stat cards** — 8 flat cards split into 4 primary (active, open PRs, failing CI, stale PRs) at full size + 4 secondary (total, merged, avg time, pinned) compact and borderless. Responsive 4→2 columns under 720px.
+- [x] **RepoCard signal fix** — pinned no longer adds +20 to the signal score; it only lifts a quiet repo to 'active' (not 'attention'), so critical/attention stay reserved for real signals.
+- [x] **Composer Write/Preview toggle** — PR comment composer has a Write/Preview tab; preview renders through a minimal inline markdown→HTML converter (no new dep) piped through SanitizedMarkdown.
+- [x] **Empty states with CTA** — shared EmptyState component (icon + title + description + optional CTA button) replaces 14 plain `hs-empty` divs across all scopes. Needs me gets "Browse open PRs →", Pinned gets "Browse repos →", error states use tone="danger".
+- [x] **Mobile focus trap + responsive pass** — useFocusTrap hook traps Tab/Shift+Tab in the mobile sidebar drawer, focuses first element on open, restores focus on close, Escape closes. Responsive 860px + 480px breakpoints: topbar wraps, rows stack, modal tabs scroll horizontally, relationships table scrolls, sparklines/branch badges/kbd hints hide at 480px.
+
 ## In progress — Wave 4 "trust before scale" (robustness)
 
 - [x] **Tests for high-risk modules** — 29 tests across 7 files: relay allowlist/forwarding/size-cap, sentry client (proxy routing, cursor parse, fail-fast 4xx), normEnvironment, relativeTime boundaries (incl. the 0y regression), agentPrompt builders. (useUnifiedIssues merge needs renderHook → future with @testing-library.)

@@ -1,6 +1,8 @@
+import { MdStar, MdTrendingUp } from 'react-icons/md'
+import { EmptyState } from '../EmptyState'
 import { CompactRow, Header, type ScopeProps } from './common'
 
-export function PinnedScope({ repos, pinned, onOpenRepo }: ScopeProps) {
+export function PinnedScope({ repos, pinned, onOpenRepo, onScopeChange }: ScopeProps) {
   const pinnedById = new Map(pinned.map((p) => [p.repoId, p]))
   const rows = repos
     .filter((r) => pinnedById.has(r.id))
@@ -10,10 +12,12 @@ export function PinnedScope({ repos, pinned, onOpenRepo }: ScopeProps) {
     <main className="hs-main">
       <Header title="Pinned" count={rows.length} meta="Pinned systems with status & open PRs" />
       {rows.length === 0 ? (
-        <div className="hs-empty">
-          <strong>No pinned systems yet.</strong>
-          Pin repos from the Repos tab to track them here.
-        </div>
+        <EmptyState
+          icon={<MdStar size={48} />}
+          title="No pinned systems yet."
+          description="Pin repos from the Repos tab to track them here."
+          cta={onScopeChange ? { label: 'Browse repos →', onClick: () => onScopeChange('repos') } : undefined}
+        />
       ) : (
         <section className="hs-surface">
           {rows.map((r) => <CompactRow key={r.id} repo={r} onClick={() => onOpenRepo(r)} />)}
@@ -34,7 +38,11 @@ export function ActiveScope({ repos, onOpenRepo }: ScopeProps) {
     <main className="hs-main">
       <Header title="Active 7d" count={rows.length} meta="Recently pushed across all enabled orgs" />
       {rows.length === 0 ? (
-        <div className="hs-empty"><strong>Nothing pushed in the last 7 days.</strong></div>
+        <EmptyState
+          icon={<MdTrendingUp size={48} />}
+          title="Nothing pushed in the last 7 days."
+          description="Repos with recent commits will show up here."
+        />
       ) : (
         <section className="hs-surface">
           {rows.map((r) => <CompactRow key={r.id} repo={r} onClick={() => onOpenRepo(r)} />)}

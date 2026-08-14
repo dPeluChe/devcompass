@@ -17,16 +17,20 @@ import { ModalFooter } from './detail/Footer'
 import { ModalHead } from './DetailModalHeader'
 import { ModalBody, type TabKey, type StatusMsg } from './DetailModalBody'
 
+export type PendingAction = 'approve' | 'request-changes'
+
 type Props = {
   token: string
   /** Used to detect "you authored this" so we can hide review actions GitHub would reject (422). */
   viewerLogin?: string
   item: AttentionItem | null
+  /** Review action to fire once the PR detail loads (from an AttentionRow shortcut). */
+  pendingAction?: PendingAction | null
   onClose: () => void
   onSnooze: (item: AttentionItem) => void
 }
 
-export function DetailModal({ token, viewerLogin, item, onClose, onSnooze }: Props) {
+export function DetailModal({ token, viewerLogin, item, pendingAction, onClose, onSnooze }: Props) {
   const open = !!item
   const [tab, setTab] = useState<TabKey>('summary')
   const [body, setBody] = useState('')
@@ -151,6 +155,22 @@ export function DetailModal({ token, viewerLogin, item, onClose, onSnooze }: Pro
     if (!body.trim()) { focusComposer(); setStatus({ kind: 'err', text: 'Body required for request changes' }); return }
     reviewMutation.mutate({ event: 'REQUEST_CHANGES', body: body.trim() })
   }
+
+  // Fire a pending review action once the PR detail lands. For approve we can
+  // submit immediately (body optional); for request-changes we need a body, so
+  // we jump to the composer and let the user finish. Either way we land on the
+  // comments tab so the result is visible.
+  useEffect(() => {
+    if (!pendingAction || !detail || isOwnPR) return
+    setTab('comments')
+    if (pendingAction === 'approve') {
+      reviewMutation.mutate({ event: 'APPROVE', body: body.trim() || undefined })
+    } else {
+      focusComposer()
+      setStatus({ kind: 'err', text: 'Add your change requests below, then submit.' })
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [pendingAction, detail, isOwnPR])
 
   // Find unique workflow run IDs from failing checks for the re-run button.
   const failingRunIds = useMemo(() => {
