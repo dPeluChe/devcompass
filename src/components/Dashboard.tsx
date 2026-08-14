@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import type { Repo } from '../api/github'
 import { syncTitle, timeAgoShort } from '../utils/topbar'
-import { DEMO_TOKEN } from '../api/demo-data'
+import { DEMO_TOKEN } from '../api/demo/token'
 import type { ScopeKey } from './home/types'
 import { ConfigView } from './ConfigView'
 import { QuickSwitcher, type QSAction } from './QuickSwitcher'

@@ -1,6 +1,6 @@
 import { vercelFetch, vercelFetchText, type VercelAuth } from './client'
 import type { VercelDeployment, VercelDeploymentState, VercelProject } from './types'
-import { DEMO_TOKEN, DEMO_VERCEL_PROJECTS, demoVercelDeployments, demoFailedDeployments, demoVercelBuildLog } from '../demo-data'
+import { DEMO_TOKEN } from '../demo/token'
 
 /** `link` → "owner/repo" for a GitHub-connected project, else null. */
 export function repoFromProject(p: VercelProject): string | null {
@@ -65,7 +65,10 @@ export function deployFields(d: VercelDeployment) {
 
 /** List the account's projects (first page, 100). Used to seed project→repo mapping. */
 export async function fetchVercelProjects(auth: VercelAuth): Promise<VercelProject[]> {
-  if (auth.token === DEMO_TOKEN) return DEMO_VERCEL_PROJECTS
+  if (auth.token === DEMO_TOKEN) {
+    const { DEMO_VERCEL_PROJECTS } = await import('../demo/vercel')
+    return DEMO_VERCEL_PROJECTS
+  }
   const data = await vercelFetch<{ projects?: VercelProject[] }>('/v9/projects', auth, { limit: 100 })
   return data.projects ?? []
 }
@@ -80,7 +83,10 @@ export async function fetchVercelDeployments(
   auth: VercelAuth,
   opts: { projectId?: string; repo?: string; limit?: number }
 ): Promise<VercelDeployment[]> {
-  if (auth.token === DEMO_TOKEN) return demoVercelDeployments(opts.repo ?? opts.projectId ?? '')
+  if (auth.token === DEMO_TOKEN) {
+    const { demoVercelDeployments } = await import('../demo/vercel')
+    return demoVercelDeployments(opts.repo ?? opts.projectId ?? '')
+  }
   const data = await vercelFetch<{ deployments?: VercelDeployment[] }>('/v6/deployments', auth, {
     projectId: opts.projectId,
     limit: opts.limit ?? 20,
@@ -95,7 +101,10 @@ export function repoFromDeployment(d: VercelDeployment): string | null {
 
 /** Recent FAILED production deployments across the account — for the Needs-me alert. */
 export async function fetchFailedDeployments(auth: VercelAuth, limit = 15): Promise<VercelDeployment[]> {
-  if (auth.token === DEMO_TOKEN) return demoFailedDeployments()
+  if (auth.token === DEMO_TOKEN) {
+    const { demoFailedDeployments } = await import('../demo/vercel')
+    return demoFailedDeployments()
+  }
   const data = await vercelFetch<{ deployments?: VercelDeployment[] }>('/v6/deployments', auth, {
     state: 'ERROR', target: 'production', limit,
   })
@@ -112,7 +121,10 @@ function eventText(ev: LogEvent): string | null {
 /** Build log text for a deployment. The events endpoint returns a JSON array or
     NDJSON depending on state — handle both. Capped to the tail. */
 export async function fetchVercelBuildLogs(auth: VercelAuth, deploymentId: string, maxChars = 6000): Promise<string> {
-  if (auth.token === DEMO_TOKEN) return demoVercelBuildLog(deploymentId)
+  if (auth.token === DEMO_TOKEN) {
+    const { demoVercelBuildLog } = await import('../demo/vercel')
+    return demoVercelBuildLog(deploymentId)
+  }
   const raw = (await vercelFetchText(`/v2/deployments/${deploymentId}/events`, auth, { builds: 1, limit: 1000 })).trim()
   const lines: string[] = []
   let handled = false

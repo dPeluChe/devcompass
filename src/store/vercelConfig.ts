@@ -1,7 +1,7 @@
 import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
 import type { VercelAuth } from '../api/vercel'
-import { DEMO_TOKEN } from '../api/demo-data'
+import { DEMO_TOKEN } from '../api/demo/token'
 import { sanitizeToken } from './sanitizeToken'
 
 /** Vercel access tokens have no fixed public prefix; just sanity-check length. */

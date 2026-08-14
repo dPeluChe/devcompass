@@ -1,7 +1,8 @@
 import { useMemo } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { searchIssues, type IssueSearchResult } from '../../api/github'
-import { DEMO_TOKEN, DEMO_SENTRY_ISSUES, DEMO_SENTRY_REPO_MAP } from '../../api/demo-data'
+import { DEMO_TOKEN } from '../../api/demo/token'
+import { useDemoData } from '../../hooks/useDemoData'
 import type { SentryIssue, SentryIssueLevel } from '../../api/sentry'
 import { sentryConfigStore } from '../../store/sentryConfig'
 import { queryKeys } from '../../store/queries'
@@ -91,8 +92,12 @@ export function useUnifiedIssues(token: string, viewerLogin: string | undefined)
   const projectRepoMap = sentryConfigStore((s) => s.projectRepoMap)
 
   // Demo mode showcases the homologation without a real Sentry connection.
-  const sentryData = isDemo ? DEMO_SENTRY_ISSUES : sentryQuery.data
-  const repoMap = isDemo ? DEMO_SENTRY_REPO_MAP : projectRepoMap
+  const demo = useDemoData(token)
+  const sentryData = isDemo ? demo.data?.sentryIssues : sentryQuery.data
+  const repoMap = useMemo(
+    () => (isDemo ? demo.data?.sentryRepoMap ?? {} : projectRepoMap),
+    [isDemo, demo.data, projectRepoMap]
+  )
 
   const items = useMemo<UnifiedIssue[]>(() => [
     ...(ghQuery.data ?? []).map(fromGitHub),
@@ -101,7 +106,7 @@ export function useUnifiedIssues(token: string, viewerLogin: string | undefined)
 
   return {
     items,
-    isLoading: ghQuery.isLoading || (!isDemo && sentryQuery.isLoading),
+    isLoading: ghQuery.isLoading || (!isDemo && sentryQuery.isLoading) || (isDemo && demo.isLoading),
     error: ghQuery.error,
     githubCount: ghQuery.data?.length ?? 0,
     sentryCount: sentryData?.length ?? 0,

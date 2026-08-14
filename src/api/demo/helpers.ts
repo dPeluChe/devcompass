@@ -3,7 +3,7 @@ import type {
 } from '../github'
 import type { VercelDeployment } from '../vercel'
 
-export const DEMO_TOKEN = '__demo__'
+export { DEMO_TOKEN } from './token'
 
 // ---------------------------------------------------------------------------
 // Helpers

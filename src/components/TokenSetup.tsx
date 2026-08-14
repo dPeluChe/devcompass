@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
-import { DEMO_TOKEN } from '../api/demo-data'
+import { DEMO_TOKEN } from '../api/demo/token'
 
 type Props = { onSubmit: (token: string) => void }
 

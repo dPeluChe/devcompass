@@ -6,7 +6,7 @@ import {
   type Repo,
   type Viewer
 } from '../api/github'
-import { DEMO_TOKEN } from '../api/demo-data'
+import { DEMO_TOKEN } from '../api/demo/token'
 import { orgConfigStore } from '../store/orgConfig'
 import { cacheRepos, getAllCachedRepos } from '../store/db'
 

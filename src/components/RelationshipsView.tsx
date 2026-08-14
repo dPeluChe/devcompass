@@ -5,7 +5,8 @@ import { MdHub } from 'react-icons/md'
 import { sentryConfigStore } from '../store/sentryConfig'
 import { vercelConfigStore } from '../store/vercelConfig'
 import { auth } from '../store/auth'
-import { DEMO_TOKEN, DEMO_SENTRY_REPO_MAP, DEMO_VERCEL_PROJECTS } from '../api/demo-data'
+import { DEMO_TOKEN } from '../api/demo/token'
+import { useDemoData } from '../hooks/useDemoData'
 import { repoFromProject, prodUrlForProject, repoFromDeployment } from '../api/vercel'
 import { useFailedDeploys } from './home/FailedDeploys'
 import { EmptyState } from './home/EmptyState'
@@ -31,8 +32,11 @@ export function RelationshipsView({ onGoNeeds }: { onGoNeeds?: () => void }) {
     [failedData]
   )
 
+  // Demo fixtures load lazily (dynamic chunk) only when the demo token is in play.
+  const isDemo = auth.get() === DEMO_TOKEN
+  const demo = useDemoData(auth.get() ?? '')
+
   const rows = useMemo<Row[]>(() => {
-    const isDemo = auth.get() === DEMO_TOKEN
     const m = new Map<string, Row>()
     const get = (repo: string) => {
       const k = repo.toLowerCase()
@@ -43,12 +47,12 @@ export function RelationshipsView({ onGoNeeds }: { onGoNeeds?: () => void }) {
     }
 
     const sentryEntries = isDemo && Object.keys(sentryMap).length === 0
-      ? Object.entries(DEMO_SENTRY_REPO_MAP)
+      ? Object.entries(demo.data?.sentryRepoMap ?? {})
       : Object.entries(sentryMap)
     for (const [proj, repo] of sentryEntries) get(repo).sentry = proj
 
     if (isDemo && Object.keys(vercelMap).length === 0) {
-      for (const p of DEMO_VERCEL_PROJECTS) {
+      for (const p of demo.data?.vercelProjects ?? []) {
         const repo = repoFromProject(p)
         if (repo) get(repo).vercel = { name: p.name, url: prodUrlForProject(p) }
       }
@@ -58,7 +62,7 @@ export function RelationshipsView({ onGoNeeds }: { onGoNeeds?: () => void }) {
       }
     }
     return [...m.values()].sort((a, b) => a.repo.localeCompare(b.repo))
-  }, [sentryMap, vercelMap, vercelNames, vercelUrls])
+  }, [isDemo, demo.data, sentryMap, vercelMap, vercelNames, vercelUrls])
 
   const both = rows.filter((r) => r.sentry && r.vercel).length
 

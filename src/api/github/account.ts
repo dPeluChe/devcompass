@@ -1,9 +1,12 @@
-import { DEMO_TOKEN, DEMO_RATE_LIMIT, DEMO_CALENDAR, DEMO_TOKEN_INFO, DEMO_ORGS_REST } from '../demo-data'
+import { DEMO_TOKEN } from '../demo/token'
 import { gql } from './client'
 import type { RateLimit, ContribCalendar, TokenInfo } from './types'
 
 export async function fetchRateLimit(token: string): Promise<RateLimit> {
-  if (token === DEMO_TOKEN) return DEMO_RATE_LIMIT
+  if (token === DEMO_TOKEN) {
+    const { DEMO_RATE_LIMIT } = await import('../demo/github')
+    return DEMO_RATE_LIMIT
+  }
   const data = await gql<{ rateLimit: RateLimit }>(token, `query { rateLimit { remaining limit resetAt } }`)
   return data.rateLimit
 }
@@ -15,7 +18,10 @@ export async function fetchRateLimit(token: string): Promise<RateLimit> {
  * range is supplied.
  */
 export async function fetchContributionCalendar(token: string): Promise<ContribCalendar> {
-  if (token === DEMO_TOKEN) return DEMO_CALENDAR
+  if (token === DEMO_TOKEN) {
+    const { DEMO_CALENDAR } = await import('../demo/github')
+    return DEMO_CALENDAR
+  }
   const data = await gql<{ viewer: { contributionsCollection: { contributionCalendar: ContribCalendar } } }>(
     token,
     `
@@ -48,7 +54,10 @@ export async function fetchContributionCalendar(token: string): Promise<ContribC
  * token can actually do — and crucially, whether SSO authorization is missing.
  */
 export async function fetchTokenInfo(token: string): Promise<TokenInfo> {
-  if (token === DEMO_TOKEN) return DEMO_TOKEN_INFO
+  if (token === DEMO_TOKEN) {
+    const { DEMO_TOKEN_INFO } = await import('../demo/github')
+    return DEMO_TOKEN_INFO
+  }
   const res = await fetch('https://api.github.com/user', {
     headers: { Authorization: `Bearer ${token}` }
   })
@@ -80,7 +89,10 @@ export async function fetchTokenInfo(token: string): Promise<TokenInfo> {
  * than `viewer.organizations` (the GraphQL field is stricter about visibility).
  */
 export async function fetchUserOrgsRest(token: string): Promise<{ login: string; avatar_url: string; url: string }[]> {
-  if (token === DEMO_TOKEN) return DEMO_ORGS_REST
+  if (token === DEMO_TOKEN) {
+    const { DEMO_ORGS_REST } = await import('../demo/github')
+    return DEMO_ORGS_REST
+  }
   const res = await fetch('https://api.github.com/user/orgs?per_page=100', {
     headers: { Authorization: `Bearer ${token}` }
   })

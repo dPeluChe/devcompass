@@ -11,7 +11,8 @@ import { DeploymentsTab } from './repo-detail/DeploymentsTab'
 import { branchCommitsTotal } from './repo-detail/utils'
 import { sentryConfigStore } from '../store/sentryConfig'
 import { vercelConfigStore } from '../store/vercelConfig'
-import { DEMO_TOKEN, DEMO_VERCEL_PROJECTS } from '../api/demo-data'
+import { DEMO_TOKEN } from '../api/demo/token'
+import { useDemoData } from '../hooks/useDemoData'
 import { repoFromProject } from '../api/vercel'
 
 type Props = {
@@ -38,16 +39,17 @@ export function RepoDetail({ token, owner, name, onClose }: Props) {
 
   // Same homologation for Vercel: does this repo have a mapped Vercel project?
   const { token: vercelToken, projectRepoMap: vercelMap, projectNames: vercelNames } = vercelConfigStore()
+  const demo = useDemoData(token)
   const vercelProject = useMemo(() => {
     const target = `${owner}/${name}`.toLowerCase()
     if (token === DEMO_TOKEN) {
-      const p = DEMO_VERCEL_PROJECTS.find((pp) => repoFromProject(pp)?.toLowerCase() === target)
+      const p = (demo.data?.vercelProjects ?? []).find((pp) => repoFromProject(pp)?.toLowerCase() === target)
       return p ? { id: p.id, name: p.name } : null
     }
     if (!vercelToken.trim()) return null
     const hit = Object.entries(vercelMap).find(([, repo]) => repo.toLowerCase() === target)
     return hit ? { id: hit[0], name: vercelNames[hit[0]] ?? hit[0] } : null
-  }, [token, owner, name, vercelToken, vercelMap, vercelNames])
+  }, [token, demo.data, owner, name, vercelToken, vercelMap, vercelNames])
 
   useEffect(() => {
     let cancelled = false

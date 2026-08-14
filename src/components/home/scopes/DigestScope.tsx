@@ -31,7 +31,7 @@ export function DigestScope({ token, viewer, repos, pinned, onOpenRepo, onScopeC
     try { localStorage.setItem(WINDOW_KEY, w) } catch { /* ignore */ }
   }
 
-  const stats = useMemo(() => computeDigest(repos, pinned.length, window), [repos, pinned.length, window])
+  const stats = useMemo(() => computeDigest(repos, window), [repos, window])
 
   const mergedQuery = useMergedStats(token, viewer?.login, WINDOW_DAYS[window])
   const activityQuery = useRepoActivity(token, stats.mostActive, WINDOW_DAYS[window])

@@ -1,7 +1,4 @@
-import {
-  DEMO_TOKEN, DEMO_PRS_REVIEW_REQUESTED, DEMO_PRS_AUTHORED,
-  DEMO_PRS_MENTIONED, DEMO_PRS_ASSIGNED, DEMO_PRS_POOL, DEMO_MERGED_PRS, getDemoPRDetail
-} from '../demo-data'
+import { DEMO_TOKEN } from '../demo/token'
 import { gql, rest } from './client'
 import type { PullRequest, PRDetail, PRCommit, CheckContext, ReviewEvent, MergeMethod, WorkflowJob } from './types'
 
@@ -13,14 +10,15 @@ type RawPR = Omit<PullRequest, 'ciState'> & {
 
 export async function searchPRs(token: string, query: string, first = 50): Promise<PullRequest[]> {
   if (token === DEMO_TOKEN) {
+    const d = await import('../demo/github')
     // Order matters: the review-pool query negates the reviewer/author/assignee
     // qualifiers (so it also contains those substrings) — match it first via the
     // unique `draft:false`.
-    if (query.includes('draft:false'))       return DEMO_PRS_POOL
-    if (query.includes('review-requested:')) return DEMO_PRS_REVIEW_REQUESTED
-    if (query.includes('author:'))           return DEMO_PRS_AUTHORED
-    if (query.includes('mentions:'))         return DEMO_PRS_MENTIONED
-    if (query.includes('assignee:'))         return DEMO_PRS_ASSIGNED
+    if (query.includes('draft:false'))       return d.DEMO_PRS_POOL
+    if (query.includes('review-requested:')) return d.DEMO_PRS_REVIEW_REQUESTED
+    if (query.includes('author:'))           return d.DEMO_PRS_AUTHORED
+    if (query.includes('mentions:'))         return d.DEMO_PRS_MENTIONED
+    if (query.includes('assignee:'))         return d.DEMO_PRS_ASSIGNED
     return []
   }
   const data = await gql<{ search: { nodes: RawPR[] } }>(
@@ -79,7 +77,10 @@ export async function fetchPullRequestDetail(
   name: string,
   number: number
 ): Promise<PRDetail> {
-  if (token === DEMO_TOKEN) return getDemoPRDetail(owner, name, number)
+  if (token === DEMO_TOKEN) {
+    const { getDemoPRDetail } = await import('../demo/github')
+    return getDemoPRDetail(owner, name, number)
+  }
   const data = await gql<{
     repository: {
       pullRequest: Omit<PRDetail, 'ciState' | 'checks' | 'commits'> & {
@@ -303,7 +304,10 @@ export type MergedPR = {
  * avg time-to-merge on the Digest.
  */
 export async function searchMergedPRs(token: string, login: string, sinceIso: string): Promise<MergedPR[]> {
-  if (token === DEMO_TOKEN) return DEMO_MERGED_PRS
+  if (token === DEMO_TOKEN) {
+    const { DEMO_MERGED_PRS } = await import('../demo/github')
+    return DEMO_MERGED_PRS
+  }
   const q = `is:pr is:merged involves:${login} merged:>=${sinceIso.slice(0, 10)} sort:updated-desc`
   const data = await gql<{ search: { nodes: (MergedPR | Record<string, never>)[] } }>(
     token,

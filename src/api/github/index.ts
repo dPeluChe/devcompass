@@ -4,6 +4,7 @@
 // gql()/rest() in client.ts stay internal — callers use the typed functions.
 export * from './types'
 export * from './repos'
+export * from './repoDetail'
 export * from './account'
 export * from './prs'
 export * from './issues'

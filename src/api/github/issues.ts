@@ -1,4 +1,4 @@
-import { DEMO_TOKEN, DEMO_ISSUES } from '../demo-data'
+import { DEMO_TOKEN } from '../demo/token'
 import { gql, rest } from './client'
 
 export type IssueSearchResult = {
@@ -21,7 +21,10 @@ export type IssueSearchResult = {
  * resolved as Issue (they carry an id).
  */
 export async function searchIssues(token: string, query: string, max = 200): Promise<IssueSearchResult[]> {
-  if (token === DEMO_TOKEN) return DEMO_ISSUES
+  if (token === DEMO_TOKEN) {
+    const { DEMO_ISSUES } = await import('../demo/github')
+    return DEMO_ISSUES
+  }
   const out: IssueSearchResult[] = []
   let after: string | null = null
   // Cursor-paginate (100/page) up to `max` so big backlogs aren't silently

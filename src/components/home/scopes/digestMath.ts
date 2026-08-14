@@ -32,7 +32,7 @@ export function hasFailingCi(r: Repo): boolean {
   return (r.openPRs.nodes ?? []).some((pr: RepoOpenPR) => pr.ciState === 'FAILURE' || pr.ciState === 'ERROR')
 }
 
-export function computeDigest(repos: Repo[], _pinnedCount: number, window: Window): DigestStats {
+export function computeDigest(repos: Repo[], window: Window): DigestStats {
   const now = Date.now()
   const windowMs = WINDOW_DAYS[window] * 86_400_000
   const staleMs = STALE_PR_DAYS * 86_400_000

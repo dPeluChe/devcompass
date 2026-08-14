@@ -2,7 +2,7 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { noteGraphqlRateLimit } from '../store/rateGate'
 import { fetchRateLimit, fetchTokenInfo, fetchUserOrgsRest, fetchViewer, type Org, type Repo } from '../api/github'
-import { DEMO_TOKEN } from '../api/demo-data'
+import { DEMO_TOKEN } from '../api/demo/token'
 import { db, getAllCachedRepos, getCachedPref, savePref } from '../store/db'
 import { sortRepos, syncRepos, type RestOrgs, type SyncContext, type Viewer } from './loadRepos'
 
