@@ -7,11 +7,13 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 ```bash
 npm install         # install deps
 npm run dev         # vite dev server on http://localhost:8099 (auto-opens)
-npm run build       # tsc -b && vite build  — this is the only typecheck/verification step
+npm run lint        # eslint (must be 0 errors AND 0 warnings)
+npm run typecheck   # tsc -b
+npm run test        # vitest run (unit tests, no watch)
+npm run check       # lint + test + build — the full verification gate before merging
+npm run build       # tsc -b && vite build
 npm run preview     # serve the built bundle
 ```
-
-There is no lint or test runner configured. `npm run build` is the verification gate before merging.
 
 The README also recommends running `spark audit --offline` and `npm audit --audit-level=moderate` before merge.
 
@@ -23,11 +25,13 @@ devcompass is a single-page React app that talks directly to GitHub from the bro
 
 - `main.tsx` wraps the app in `QueryClientProvider` + `BrowserRouter` and defines two top-level route trees: `/login` (token entry) and `/*` (protected — gated by `auth.get()`).
 - Nested routes `repos/:owner/:name` and `prs/:owner/:name/:number` render full-page `RepoDetail` / `PRDetail` overlays.
-- `App.tsx` is just the token gate around `<Dashboard>`. The `Dashboard` component (`src/components/Dashboard.tsx`, ~1500 LOC) is the main workbench shell that hosts repos, PRs, and config tabs.
+- `App.tsx` is just the token gate around `<Dashboard>`. `Dashboard` (`src/components/Dashboard.tsx`, ~250 LOC) is a thin orchestrator (topbar state, shortcuts, quick switcher); the actual workbench shell — sidebar, scopes, detail modals — is `HomeShell` (`src/components/home/HomeShell.tsx`), with one file per scope under `src/components/home/scopes/`.
 
 ### API layers — `src/api/github/`, `src/api/sentry/`, `src/api/vercel/`
 
-All GitHub access lives in `src/api/github/` (a folder of domain modules — `client`, `repos`, `prs`, `issues`, `notifications`, `account` — behind a barrel `index.ts`) — GraphQL via `https://api.github.com/graphql` plus a couple of REST hops for things GraphQL can't expose.
+All GitHub access lives in `src/api/github/` (a folder of domain modules — `client`, `repos`, `repoDetail`, `prs`, `issues`, `notifications`, `account` — behind a barrel `index.ts`) — GraphQL via `https://api.github.com/graphql` plus a couple of REST hops for things GraphQL can't expose.
+
+**Demo mode**: fixtures live in `src/api/demo/` and are loaded exclusively via dynamic `import('../demo/github' | './sentry' | './vercel')` inside the `token === DEMO_TOKEN` branches, so they stay out of the production bundle. Only the tiny `DEMO_TOKEN` sentinel (`src/api/demo/token.ts`) is imported statically. Don't reintroduce static imports of the fixture payloads.
 
 The **Sentry** and **Vercel** connectors live in `src/api/sentry/` and `src/api/vercel/`. They can't be called from the browser (no CORS), so every request is forwarded through the **same-origin relay** (`api/_relay.ts` → exposed as the Vercel edge function `api/proxy.ts` and a Vite dev middleware). The relay is a deliberately strict credential-forwarder: **host allowlist only** (`ALLOWED_HOST_PATTERNS` — add + test one host at a time), https only, forwards just `authorization`/`content-type`/`accept`, strips `set-cookie`, `redirect: 'manual'` (anti-SSRF), 25s timeout, 20MB cap, method allowlist. BYO connector tokens stay in the browser (`store/sentryConfig.ts`, `store/vercelConfig.ts`).
 
@@ -46,9 +50,9 @@ The codebase splits state by lifetime/scope. When adding state, pick the right l
 | Server cache | `src/store/queries.ts` | TanStack Query client + `queryKeys` registry. 5min `staleTime`, 1 retry, refetch on focus/reconnect. Components call `useQuery` directly with these keys; there is no per-resource hook wrapper. |
 | Org config | `src/store/orgConfig.ts` | Persisted Zustand store under `devcompass-org-config`. Per-org `enabled` / `syncEnabled` / `lastSyncedAt`. `orgNeedsSync()` triggers a re-sync after 1h. |
 | Connectors | `src/store/sentryConfig.ts`, `src/store/vercelConfig.ts` | Persisted Zustand stores (`devcompass-sentry-config`, `devcompass-vercel-config`). BYO token (sanitized at the boundary) + project→repo maps. Consumed by the connectors hub, repo-detail tabs, and the Relationships matrix. |
-| Persistent data | `src/store/db.ts` | Dexie/IndexedDB at name `devcompass`, **version 4**. Tables: `repos`, `orgs`, `prefs`, `pinnedRepos`, `snoozedPRs`. (v4 dropped the dead `tokens` table.) `prefs` holds the TTL-bound cache — `CACHE_TTLS` is the single source of truth for prefixes/windows. **Bump the version and write an upgrade in `db.ts` when changing schema.** |
+| Persistent data | `src/store/db.ts` | Barrel over `src/store/db/` (`core` schema + `repos`/`prefs`/`pins`/`storage`/`snoozes`/`snapshots`). Dexie/IndexedDB at name `devcompass`, **version 4**. Tables: `repos`, `orgs`, `prefs`, `pinnedRepos`, `snoozedPRs`. (v4 dropped the dead `tokens` table.) `prefs` holds the TTL-bound cache — `CACHE_TTLS` is the single source of truth for prefixes/windows. **Bump the version and write an upgrade in `store/db/core.ts` when changing schema.** |
 
-Only `useGlobalShortcuts` lives in `src/hooks/`. Domain hooks (`useNeedsMe`, `useSinceLastVisit`) live next to their feature in `src/components/home/`.
+Shared hooks live in `src/hooks/` (`useGlobalShortcuts`, `useViewerData` + `loadRepos`, `useFlash`, `useFocusTrap`, `useDemoData`). Domain hooks (`useNeedsMe`, `useSinceLastVisit`, `useUnifiedIssues`, `useSentryIssues`) live next to their feature in `src/components/home/`.
 
 ### Local-first hydration pattern
 

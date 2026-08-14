@@ -49,6 +49,8 @@ Wave numbering comes from the 2026-06 product audit (architecture + UX + perf/se
 
 ## Pending — longer term
 
+- [ ] **vite 7/8 + @vitejs/plugin-react 6** — plugin-react 6 requires vite ^8; deferred as a tooling-only major. (This pass landed plugin-react 5.2, which supports vite 4–8.)
+- [x] **Health pass (2026-08-14)** — PR #43 merged (Wave 5, 14 commits); npm audit 8→0 (incl. runtime dompurify); demo fixtures (~700 LOC) moved OUT of the prod bundle via dynamic `import()` in the `DEMO_TOKEN` branches (new `api/demo/token.ts` sentinel + `useDemoData` hook for the 3 sync consumers); `demo/github.ts` (421), `store/db.ts` (380) and `api/github/repos.ts` (368) split into domain modules behind barrels (import surface unchanged); dead `_pinnedCount` param + dead `dexie-react-hooks` dep removed; framer-motion 11→13, lucide-react 1.31; CLAUDE.md stale claims fixed. Gate: lint 0/0, 84/84 tests, build ok — demo fixtures confirmed absent from the index chunk.
 - [x] **Error boundaries** — app-level + per-view (sidebar survives a scope crash; keyed by view so navigating resets) + the /repos route.
 - [x] **Rate-limit aware fetching (v1)** — rateGate captures x-ratelimit-* headers passively from every gql/rest response + the dedicated rateLimit query; when the graphql/core pool drops under 5% (min 100), focus/reconnect refetches pause and the topbar shows ⚠ with a "paused until reset" tooltip. (Search pool ignored — it self-heals per minute.)
 - [x] **Since-last-visit polish** — events grouped by calendar day (Today / Yesterday / date) + filter chips by event kind with counts. (Window selector skipped honestly: events derive from the snapshot diff, so the snapshot IS the window.)
